@@ -27,8 +27,10 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 |---|---|---|---|---|---|
 | Look around | head rotation | one-finger drag on empty space (100° per screen width) | head pose node (PoseDataSource / XR head device) | gameplay, menus | R003, R009 |
 | Lean in to inspect | lean body | two-finger spread/pinch (0–0.35 m along the view) | head position | gameplay | R010 (lean 0.32 m) |
+| Move the head sideways / up (peek around, reach a rope strand behind another) | move the head | two fingers moving together (±0.3 m sideways, ±0.2 m up/down; reset on arrival) | head position | gameplay | p063 log `touch: pinch lean … sway` |
 | Snap turn | stick left/right | HUD ↶ ↷ (shown while the tutorial asks) | stick X pulse → RwAction 6/7 | tutorial | R004, R009 |
 | Teleport | stick forward, aim arc, release | HUD teleport → tap a glowing location marker | TeleportPointer aimed at PlayerLocation, stick release | gameplay | R004, R007, R009 |
+| Teleport past a nearer location | aim the arc further | same tap | the arc ends on another location → the game's Player.TeleportTo on the tapped one | gameplay | p063, R017 (RigHandle, PullRopeWheel, Canopic chest, sarcophagus side) |
 | Arrival view | body faces location | camera turns to the location's forward (−20°) | head yaw from PlayerLocation.forward | after teleport | R009 |
 | Superzoom (enter/exit miniature) | stick forward at crystals | teleport mode → tap the portal | TeleportPointer at Superzoom ZoomIn/Portal/ZoomOut trigger | chapters | implemented; not reached on device (debt: first crystals, chapel level) |
 | Grab and move objects (levers, handles) | grip + arm motion | press on the object, drag | right Controller.Grabber pose; GrabbableCollider math volumes; constraint-aware drag (slider line, rotation plane, twist) | gameplay | R005, R009, R010 |
@@ -36,6 +38,10 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Knobs / keys (wrist twist) | twist wrist | finger on the knob, out to the side, circle around it (multi-turn) | hand rotation about RotateAxis (TwistControl) | gameplay | R006, R009, R010 |
 | Position-driven knobs | turn hand around | same circle gesture | off-axis grab 2 cm from the axis | gameplay | R010 |
 | Cranks | circle the arm | circle around the axis, any number of turns | grab point on the circle (K_ROTATION) | gameplay | R010 (2891°) |
+| Lift and swing a bolt over its support | lift the handle, swing, let go | press the handle, drag it towards you, up, back over the support, lift the finger | CombinationGrabbable: hand on the cylinder around the shared rotate/slide axis; of the ray's two hits the one inside the slide limits, past the outline the part rolls on | gameplay | R017 |
+| Twist a bar and pull it | twist wrist, pull | press the grip, drag across the bar (past its outline to keep turning), then along it | same cylinder; a grip on the axis itself rolls the bar under the finger | gameplay | R017 |
+| Winch with a return spring (many turns at once) | crank continuously | one continuous circle gesture (≈14 turns, 400°/s cap) | K_ROTATION; SpringToLimit returns the crank when released | gameplay | R017 (4000°) |
+| Look through a note's hole (eyepiece) | hold the note up to the eye | finger 0 holds the note, finger 1 turns the view, finger 0 brings the hole over the glowing target | grab + head yaw/pitch; the game's own look check | gameplay | R017 |
 | Pick up item (proxy) | grip, release | long press, lift | InventoryItemProxy grab/release → inventory | gameplay | R009 |
 | Read notes | hold in front of eyes | long press | same | gameplay | R009 |
 | Carry item to a place | carry in hand | drag; item follows the surface under the finger | depth from physics raycast (ignores held item, inventory grid) | gameplay | R010 |
@@ -53,8 +59,8 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Pause | left menu button | HUD pause, Back | GameStateManager.Pause | gameplay | R007 |
 | Posture wizard (VR) | choose sitting/standing | answered automatically (Sitting) | PostureSelectScreen.SittingPressed | front end | R007 |
 | Recenter / height calibration / turn fade / VR controls map | VR settings | hidden | OptionsScreen rows hidden | options | R008 |
-| Poke buttons (piano keys, buttons) | push with fingertip | tap (to implement when first reached) | PokeProbe / CanBePoked volumes | later levels | debt: Egypt/organ levels |
-| Ropes | pull rope hand over hand | drag (expected through RopeGrabbable as slider) | RopeGrabbable | later levels | debt: chapel level ropes |
+| Poke-slide panels and buttons | push with the fingertip | press on it and drag / press | Controller.PokeProbe placed on the target for CanBePoked volumes (the game feeds the probe position and lets go when it leaves the volume) | gameplay | R017 (finger-lock panel); organ keys: debt |
+| Ropes | pull rope hand over hand | downward drags on the rope, one per pull | RopeGrabbable along its LocalSlideAxis | gameplay | R017 (door rope, RopeSystem 2.355) |
 | Text input | none in the game | — | — | — | no text entry exists |
 | Save / load | autosave, Continue | Continue game / profiles by tap | SaveManager (external files dir) | front end | R009 continue runs |
 
@@ -66,5 +72,7 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 ## Remaining work / debts (TOUCH_GAMEPLAY_VERIFIED)
 - Full cycle cold start → new game → tutorial → save → restart/resume: done up to the open safe + continue (R009,
   R010); the rest of the tutorial needs puzzle solving, not new controls.
-- Superzoom, poke buttons, ropes: reach on device (chapters) — exact places: first crystals (chapel), organ keys.
+- Egypt front half by touch (R017): door bolts, lever, rope, winch, note through the eyepiece, box, lens,
+  eyepiece tab, poke panel. Remaining on device: superzoom (chapel crystals), organ keys (poke), drawing and
+  pouring (witch chapter).
 - First-run hint for the gestures (in-game hint or PORT_FEATURES.md).
