@@ -156,6 +156,54 @@
       "Korean": "화면",
       "Simplified Chinese": "显示器",
       "Traditional Chinese": "顯示器"
+    },
+    "PORT_QA": {
+      "English": "qa (testing)",
+      "French": "qa (tests)",
+      "German": "qa (tests)",
+      "Spanish": "qa (pruebas)",
+      "Italian": "qa (test)",
+      "Russian": "qa (проверка)",
+      "Japanese": "QA (テスト)",
+      "Korean": "QA (테스트)",
+      "Simplified Chinese": "QA (测试)",
+      "Traditional Chinese": "QA (試驗)"
+    },
+    "PORT_ALL": {
+      "English": "all",
+      "French": "tout",
+      "German": "alles",
+      "Spanish": "todo",
+      "Italian": "tutto",
+      "Russian": "все",
+      "Japanese": "すべて",
+      "Korean": "모두",
+      "Simplified Chinese": "全部",
+      "Traditional Chinese": "全部"
+    },
+    "PORT_LEVEL_DESERT": {
+      "English": "desert",
+      "French": "désert",
+      "German": "wüste",
+      "Spanish": "desierto",
+      "Italian": "deserto",
+      "Russian": "раскопки",
+      "Japanese": "砂漠",
+      "Korean": "사막",
+      "Simplified Chinese": "沙漠",
+      "Traditional Chinese": "沙漠"
+    },
+    "PORT_LEVEL_EPILOGUE": {
+      "English": "epilogue",
+      "French": "épilogue",
+      "German": "epilog",
+      "Spanish": "final",
+      "Italian": "epilogo",
+      "Russian": "эпилог",
+      "Japanese": "エピローグ",
+      "Korean": "에필로그",
+      "Simplified Chinese": "结局",
+      "Traditional Chinese": "結局"
     }
   }
 }

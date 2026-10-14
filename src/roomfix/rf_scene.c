@@ -223,6 +223,63 @@ void rf_dev_szstate(const char* name, int state) {
     rf_log("szstate: '%s' not found", name);
 }
 
+// dev: the game's level list (GameStateManager.Levels) and the active profile slot's progress
+static void str8(void* s, char* out, size_t n) {
+    rf_str_utf8((const Il2CppString*)s, out, n);
+    if (!s) snprintf(out, n, "-");
+}
+
+// the live instance of a TheRoomVR.dll class: the game's managers are ScriptableObject singletons (SingletonBase),
+// components must sit on an active GameObject (prefab assets are skipped)
+void* rf_live_instance(const char* cls) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", cls));
+    void* arr = type ? CALLP(C_RES_FINDALL, void* (*)(void*, const void*))(type, NULL) : NULL;
+    for (int i = 0; i < arr_len(arr); i++) {
+        void* o = arr_get(arr, i);
+        if (!rf_alive(o)) continue;
+        if (!rf_class_is(o, "Component")) return o;
+        void* go = rf_gameobject(o);
+        if (rf_alive(go) && CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(go, NULL)) return o;
+    }
+    return NULL;
+}
+
+void rf_dev_levels(void) {
+    char* gsm = rf_live_instance("GameStateManager");
+    if (!rf_alive(gsm)) {
+        rf_log("levels: no GameStateManager");
+        return;
+    }
+    void* lv = *(void**)(gsm + 0x40);
+    rf_log("levels: %d, state %d, current %p, disableSaveLoading %d", rf_list_size(lv), *(int32_t*)(gsm + 0x60),
+           *(void**)(gsm + 0x68), gsm[0x88]);
+    for (int i = 0; i < rf_list_size(lv); i++) {
+        char* li = rf_list_get(lv, i);
+        char sc[48], nk[64], ls[64], nx[48] = "-";
+        str8(*(void**)(li + 0x18), sc, sizeof sc);
+        str8(*(void**)(li + 0x20), nk, sizeof nk);
+        str8(*(void**)(li + 0x30), ls, sizeof ls);
+        if (rf_alive(*(void**)(li + 0x28))) str8(*(void**)(*(char**)(li + 0x28) + 0x18), nx, sizeof nx);
+        rf_log("  level[%d] scene '%s' nameKey '%s' next '%s' loading '%s'", i, sc, nk, nx, ls);
+    }
+    char* sm = rf_live_instance("SlotManager");
+    char* slot = rf_alive(sm) ? *(char**)(sm + 0x40) : NULL;
+    if (!slot) {
+        rf_log("levels: no active slot");
+        return;
+    }
+    char nm[16], cs[48];
+    str8(*(void**)(slot + 0x10), nm, sizeof nm);
+    str8(*(void**)(slot + 0x18), cs, sizeof cs);
+    void* seen = *(void**)(slot + 0x50);
+    rf_log("slot '%s' currentScene '%s' gameComplete %d loadingScreensSeen %d", nm, cs, slot[0x2d], rf_list_size(seen));
+    for (int i = 0; i < rf_list_size(seen); i++) {
+        char sn[64];
+        str8(rf_list_get(seen, i), sn, sizeof sn);
+        rf_log("  seen '%s'", sn);
+    }
+}
+
 void rf_dev_rhide(const char* name, bool hide) {
     if (!types_ready() || !g_il2.string_new) return;
     void* go = CALLP(C_GO_FIND, void* (*)(void*, const void*))(g_il2.string_new(name), NULL);

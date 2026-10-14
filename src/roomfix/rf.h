@@ -225,6 +225,19 @@ void* rf_type_of(void* obj);            // System.Type of an object's class
 
 // ---- rf_options.c / rf_loc.c ----
 void* h_options_setup(void* self, const void* mi);
+// stage 8 (rf_chapters.c): chapter select, replay without saving, QA unlocks
+#define QA_CHAPTERS 1  // every chapter in the level select
+#define QA_SKIP 2      // pause menu SKIP LEVEL without the secret
+#define QA_COUNT 4     // off, level select, skip level, all
+extern int g_qa;
+void* h_mainmenu_setup(void* self, const void* mi);
+void h_button_press(void* self, const void* mi);
+void h_gsm_level_complete(void* self, const void* mi);
+void h_gsm_skip_level(void* self, const void* mi);
+void h_gsm_story_load(void* self, void* level, const void* mi);
+void* h_pause_setup(void* self, const void* mi);
+void* h_loadscene_name(void* level, const void* mi);
+void rf_chapters_scene(const char* scene);  // scene change: a replay ends in the front end
 void h_uiopt_left(void* self, const void* mi);
 void h_uiopt_right(void* self, const void* mi);
 void h_uiopt_update(void* self, const void* mi);
@@ -248,6 +261,8 @@ void rf_dev_objs(const char* cls);
 void rf_dev_tpto(const char* name);
 void rf_dev_peek(const char* cls, const char* spec, const char* filter);
 void rf_dev_szstate(const char* name, int state);
+void rf_dev_levels(void);
+void* rf_live_instance(const char* cls);  // active instance of a TheRoomVR.dll class
 void rf_dev_hint(void);
 void rf_dev_rhide(const char* name, bool hide);
 

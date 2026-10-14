@@ -84,6 +84,19 @@ CALL TR_LOSSYSCALE    UnityEngine.Transform$$get_lossyScale
 HOOK MENU_UPDATE      MenuController$$Update
 # ---- port settings in the game's Options screen (rf_options.c), localisation (rf_loc.c), FPS limit ----
 HOOK OPTIONS_SETUP    OptionsScreen$$OnSetupScreen
+# stage 8: chapter select + QA (rf_chapters.c)
+HOOK MAINMENU_SETUP   MainMenuScreen$$OnSetupScreen
+HOOK BUTTON_PRESS     UnityEngine.UI.Button$$Press
+HOOK GSM_LEVELCOMPLETE GameStateManager$$LevelComplete
+HOOK GSM_SKIPLEVEL    GameStateManager$$SkipLevel
+HOOK GSM_STORYLOAD    GameStateManager$$LoadLevelInStoryMode
+HOOK PAUSE_SETUP      PauseMenuScreen$$OnSetupScreen
+HOOK LOADSCENE_NAME   LevelLoadSceneController$$GetLoadingSceneName
+CALL GSM_LOADLEVEL    GameStateManager$$LoadLevel
+CALL GSM_RETURNTOMENU GameStateManager$$ReturnToMenu
+CALL SAVE_SETENABLED  SaveManager$$SetSavingEnabled
+CALL MENUBTN_SETTEXT  MenuButton$$SetText
+CALL GO_TRANSFORM     UnityEngine.GameObject$$get_transform
 HOOK UIOPT_LEFT       UiOptionSelector$$OnLeftPressed
 HOOK UIOPT_RIGHT      UiOptionSelector$$OnRightPressed
 HOOK UIOPT_UPDATE     UiOptionSelector$$UpdateText

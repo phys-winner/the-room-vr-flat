@@ -42,6 +42,7 @@ void rf_settings_load(void) {
             int v;
             if (sscanf(line, "fps=%d", &v) == 1 && v >= 0 && v < RF_FPS_COUNT) g_fps_idx = v;
             else if (sscanf(line, "fov=%d", &v) == 1 && v >= 0 && v < RF_FOV_COUNT) g_fov_idx = v;
+            else if (sscanf(line, "qa=%d", &v) == 1 && v >= 0 && v < QA_COUNT) g_qa = v;  // else: off
             else if (!strncmp(line, "applocale=", 10)) {
                 snprintf(g_app_locale, sizeof g_app_locale, "%s", line + 10);
                 g_app_locale[strcspn(g_app_locale, "\r\n")] = 0;
@@ -59,7 +60,7 @@ static void save(void) {
     snprintf(tmp, sizeof tmp, "%s.tmp", p);
     FILE* f = fopen(tmp, "w");
     if (!f) return;
-    fprintf(f, "fps=%d\nfov=%d\napplocale=%s\n", g_fps_idx, g_fov_idx, g_app_locale);
+    fprintf(f, "fps=%d\nfov=%d\nqa=%d\napplocale=%s\n", g_fps_idx, g_fov_idx, g_qa, g_app_locale);
     fclose(f);
     rename(tmp, p);
 }

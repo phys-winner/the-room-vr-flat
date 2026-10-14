@@ -1,6 +1,7 @@
 // Port rows in the game's own Options screen (front end and pause menu):
 //   FPS LIMIT      < 30 | 45 | 60 | DISPLAY (n Hz) >   default 60
 //   FIELD OF VIEW  < 70 | 80 | 90 | 100 | 110 >        default 100
+//   QA (TESTING)   < off | level select | skip level | all >   default off (stage 8, rf_chapters.c)
 // The rows are clones of the authored "turn fade" selector row (same layout, buttons, sounds and fonts) placed
 // where that row was. VR-only entries are hidden: turn fade (snap-turn comfort fade), posture (sitting /
 // standing), standing-height calibration and the VR controller map ("view controls").
@@ -13,7 +14,7 @@
 
 typedef void (*fn_setb)(void*, bool, const void*);
 
-enum { ROW_FPS = 0, ROW_FOV = 1, NROW };
+enum { ROW_FPS = 0, ROW_FOV = 1, ROW_QA = 2, NROW };
 #define NSCREEN 4
 
 static struct {
@@ -49,7 +50,11 @@ static int row_of(void* sel) {
 static void show_value(void* sel, int row) {
     if (!rf_alive(sel)) return;
     char key[32];
-    if (row == ROW_FPS && g_fps_idx == RF_FPS_DISPLAY) snprintf(key, sizeof key, "PORT_V_DISPLAY");
+    // QA values: the game's own words where it has them (off, level select, skip level)
+    static const char* const QA_KEYS[QA_COUNT] = {"FE_HINTS_OFF", "FE_BUTTON_LEVEL_SELECT", "FE_BUTTON_SKIP_LEVEL",
+                                                  "PORT_ALL"};
+    if (row == ROW_QA) snprintf(key, sizeof key, "%s", QA_KEYS[g_qa >= 0 && g_qa < QA_COUNT ? g_qa : 0]);
+    else if (row == ROW_FPS && g_fps_idx == RF_FPS_DISPLAY) snprintf(key, sizeof key, "PORT_V_DISPLAY");
     else snprintf(key, sizeof key, "PORT_V_%d", row == ROW_FPS ? rf_fps_value(g_fps_idx) : rf_fov_value(g_fov_idx));
     set_key(*(void**)((char*)sel + 0x28), key);  // UiOptionSelector.CurrentSelectionText
 }
@@ -105,14 +110,22 @@ static void patch(void* screen) {
     char nm[64];
     rf_obj_name(row, nm, sizeof nm);
     if (!strcmp(nm, "Option")) row = rf_tr_parent(row);
-    if (!rf_alive(g_os[slot].sel[ROW_FPS]) || !rf_alive(g_os[slot].sel[ROW_FOV])) {
+    // the QA row only in the front end's Options (a pre-game test setting; the pause menu's panel has no room for
+    // a third port row: its top row would run into the title)
+    bool want_qa = !strcmp(g_scene, "MainMenu");
+    if (!rf_alive(g_os[slot].sel[ROW_FPS]) || !rf_alive(g_os[slot].sel[ROW_FOV]) ||
+        (want_qa && !rf_alive(g_os[slot].sel[ROW_QA]))) {
         void* parent = rf_tr_parent(row);
         int idx = CALLP(C_TR_GETSIBLING, int32_t (*)(void*, const void*))(row, NULL);
         void* sel_type = rf_type_of(fade);
         void* txt_type = rf_type_of(*(void**)((char*)fade + 0x28));
         if (!sel_type || !txt_type || !rf_alive(parent)) return;
-        g_os[slot].sel[ROW_FPS] = clone_row(row, parent, idx + 1, "PortFpsOption", "PORT_FPS_LIMIT", sel_type, txt_type);
-        g_os[slot].sel[ROW_FOV] = clone_row(row, parent, idx + 2, "PortFovOption", "PORT_FOV", sel_type, txt_type);
+        if (!rf_alive(g_os[slot].sel[ROW_FPS]))
+            g_os[slot].sel[ROW_FPS] = clone_row(row, parent, idx + 1, "PortFpsOption", "PORT_FPS_LIMIT", sel_type, txt_type);
+        if (!rf_alive(g_os[slot].sel[ROW_FOV]))
+            g_os[slot].sel[ROW_FOV] = clone_row(row, parent, idx + 2, "PortFovOption", "PORT_FOV", sel_type, txt_type);
+        if (want_qa && !rf_alive(g_os[slot].sel[ROW_QA]))
+            g_os[slot].sel[ROW_QA] = clone_row(row, parent, idx + 3, "PortQaOption", "PORT_QA", sel_type, txt_type);
     }
     set_active(rf_gameobject(row), false);
     for (int r = 0; r < NROW; r++) show_value(g_os[slot].sel[r], r);
@@ -126,7 +139,12 @@ void* h_options_setup(void* self, const void* mi) {
 
 static void step(int row, int d) {
     if (row == ROW_FPS) g_fps_idx = (g_fps_idx + d + RF_FPS_COUNT) % RF_FPS_COUNT;
-    else g_fov_idx = (g_fov_idx + d + RF_FOV_COUNT) % RF_FOV_COUNT;
+    else if (row == ROW_FOV) g_fov_idx = (g_fov_idx + d + RF_FOV_COUNT) % RF_FOV_COUNT;
+    else {
+        g_qa = (g_qa + d + QA_COUNT) % QA_COUNT;
+        rf_log("options: QA %d (level select %s, skip level %s)", g_qa, g_qa & QA_CHAPTERS ? "all" : "reached",
+               g_qa & QA_SKIP ? "shown" : "secret");
+    }
     rf_settings_changed();
     show_all(row);
 }

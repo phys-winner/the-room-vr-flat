@@ -209,6 +209,7 @@ static void track_scene(void) {
     if (strcmp(name, g_scene) != 0) {
         snprintf(g_scene, sizeof g_scene, "%s", name);
         rf_log("scene -> '%s' (frame %d)", g_scene, g_frame);
+        rf_chapters_scene(g_scene);
     }
     static bool had_player;
     bool has = rf_alive(g_player) && g_frame - g_player_frame < 30;
@@ -334,6 +335,13 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_POSTURE_SETUP, (void*)h_posture_setup, true, false},
     {H_MENU_UPDATE, (void*)h_menu_update, true, false},
     {H_OPTIONS_SETUP, (void*)h_options_setup, true, false},
+    {H_MAINMENU_SETUP, (void*)h_mainmenu_setup, true, false},
+    {H_BUTTON_PRESS, (void*)h_button_press, true, false},
+    {H_GSM_LEVELCOMPLETE, (void*)h_gsm_level_complete, true, false},
+    {H_GSM_SKIPLEVEL, (void*)h_gsm_skip_level, true, false},
+    {H_GSM_STORYLOAD, (void*)h_gsm_story_load, true, false},
+    {H_PAUSE_SETUP, (void*)h_pause_setup, true, false},
+    {H_LOADSCENE_NAME, (void*)h_loadscene_name, true, false},
     {H_UIOPT_LEFT, (void*)h_uiopt_left, true, false},
     {H_UIOPT_RIGHT, (void*)h_uiopt_right, true, false},
     {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
