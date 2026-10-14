@@ -414,6 +414,14 @@ static void exec_line(char* line) {
             strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
         }
         rf_dev_comps(nm);
+    } else if (!strcmp(argv[0], "gfx?")) {
+        rf_dev_gfx();
+    } else if (!strcmp(argv[0], "depthtex") && argc >= 2) {
+        rf_dev_depthtex(atoi(argv[1]));
+    } else if (!strcmp(argv[0], "quality") && argc >= 3) {
+        rf_dev_quality(atoi(argv[1]), atoi(argv[2]));
+    } else if (!strcmp(argv[0], "aa") && argc >= 3) {
+        rf_dev_aa(atoi(argv[1]) != 0, atoi(argv[2]));
     } else if (!strcmp(argv[0], "rlist")) {
         rf_dev_rlist();
     } else if (!strcmp(argv[0], "orphans")) {

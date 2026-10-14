@@ -111,6 +111,7 @@ typedef struct {
     void* (*assembly_get_image)(void* assembly);
     const char* (*image_get_name)(void* image);
     void* (*class_from_name)(void* image, const char* ns, const char* name);
+    void* (*resolve_icall)(const char* name);  // engine internal call by "Namespace.Class::method"
 } rf_il2cpp_api_t;
 void* rf_find_class(const char* image, const char* ns, const char* name);  // e.g. "UnityEngine.CoreModule.dll"
 void* rf_class_type(void* klass);                                          // System.Type of a class
@@ -241,6 +242,17 @@ void rf_dev_comps(const char* name);
 void rf_dev_orphans(void);
 void rf_dev_rlist(void);
 void rf_dev_rhide(const char* name, bool hide);
+
+// ---- rf_gfx.c: graphics state (dev) ----
+void rf_dev_gfx(void);
+void rf_dev_aa(bool force_rt, int msaa);
+void rf_dev_quality(int level, int msaa);
+void rf_dev_depthtex(int mode);
+void h_qsm_postfx(void* self, const void* mi);
+int32_t h_pxr_config_int(int32_t type, const void* mi);
+void rf_gfx_init(void);
+int32_t h_qsm_depthmode(void* self, const void* mi);
+void* h_gfx_setup(void* self, const void* mi);
 
 // ---- module entry points ----
 void rf_xr_init(void);      // XR device emulation (head)

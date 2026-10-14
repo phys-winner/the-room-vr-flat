@@ -148,6 +148,7 @@ static void resolve_api(void* h) {
     g_il2.assembly_get_image = (void* (*)(void*))dlsym(h, "il2cpp_assembly_get_image");
     g_il2.image_get_name = (const char* (*)(void*))dlsym(h, "il2cpp_image_get_name");
     g_il2.class_from_name = (void* (*)(void*, const char*, const char*))dlsym(h, "il2cpp_class_from_name");
+    g_il2.resolve_icall = (void* (*)(const char*))dlsym(h, "il2cpp_resolve_icall");
 }
 
 // ---------------------------------------------------------------- core hooks
@@ -330,6 +331,10 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
     {H_LOC_GETSTRING, (void*)h_loc_getstring, true, false},
     {H_INV_SHOWXFORM, (void*)h_inv_show_xform, true, false},
+    {H_QSM_POSTFX, (void*)h_qsm_postfx, true, true},
+    {H_PXR_CONFIGINT, (void*)h_pxr_config_int, true, false},
+    {H_GFX_SETUP, (void*)h_gfx_setup, true, false},
+    {H_QSM_DEPTHMODE, (void*)h_qsm_depthmode, false, false},
     {H_LOC_LOADINITIAL, (void*)h_loc_load_initial, true, false},
     {H_PXR_BINDVERIFY, (void*)h_pxr_bind_verify, false, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
@@ -365,6 +370,7 @@ static void install_hooks(void) {
     ok += install_table(g_core_hooks, sizeof g_core_hooks / sizeof g_core_hooks[0], &fail);
     ok += install_table(g_xr_hooks, g_xr_hook_count, &fail);
     rf_log("hooks ready: %d ok, %d failed; calls %d/%d verified (dev=%d)", ok, fail, calls, (int)C_COUNT, g_dev);
+    rf_gfx_init();
 }
 
 // ---------------------------------------------------------------- init

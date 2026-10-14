@@ -127,14 +127,21 @@ static int relocate(uint32_t insn, uint64_t pc, uint32_t* out, int* n) {
     return 0;
 }
 
+// page-granular protection change; the runtime page size (4 KB or 16 KB), never a compile-time constant
 static int write_code(void* dst, const void* src, size_t len) {
-    uintptr_t a = (uintptr_t)dst & ~(uintptr_t)0xFFF;
-    uintptr_t e = ((uintptr_t)dst + len + 0xFFF) & ~(uintptr_t)0xFFF;
+    uintptr_t pg = (uintptr_t)sysconf(_SC_PAGESIZE);
+    uintptr_t a = (uintptr_t)dst & ~(pg - 1);
+    uintptr_t e = ((uintptr_t)dst + len + pg - 1) & ~(pg - 1);
     if (mprotect((void*)a, e - a, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) return -1;
     memcpy(dst, src, len);
     __builtin___clear_cache((char*)dst, (char*)dst + len);
     mprotect((void*)a, e - a, PROT_READ | PROT_EXEC);
     return 0;
+}
+
+int rf_patch_insn(void* target, uint32_t expect, uint32_t repl) {
+    if (!target || *(const uint32_t*)target != expect) return -1;
+    return write_code(target, &repl, sizeof repl);
 }
 
 void* rf_hook_install(void* target, void* repl, const uint8_t* expect, int want_orig, char* err, size_t errlen) {

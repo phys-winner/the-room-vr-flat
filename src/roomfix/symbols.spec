@@ -122,3 +122,19 @@ CALL REND_MATERIALS   UnityEngine.Renderer$$get_sharedMaterials
 CALL MAT_SHADER       UnityEngine.Material$$get_shader
 CALL REND_SETENABLED  UnityEngine.Renderer$$set_enabled
 CALL REND_GETENABLED  UnityEngine.Renderer$$get_enabled
+
+# graphics diagnostics / upgrade (rf_gfx.c)
+CALL CAM_SET_FORCERT  UnityEngine.Camera$$set_forceIntoRenderTexture
+CALL CAM_SET_MSAA     UnityEngine.Camera$$set_allowMSAA
+CALL CAM_DEPTHMODE    UnityEngine.Camera$$get_depthTextureMode
+CALL CAM_TARGETTEX    UnityEngine.Camera$$get_targetTexture
+CALL QS_GET_AA        UnityEngine.QualitySettings$$get_antiAliasing
+CALL QS_SET_AA        UnityEngine.QualitySettings$$set_antiAliasing
+CALL QSM_SETLEVEL     QualitySettingsManager$$SetLevel
+CALL QSM_SETMSAA      QualitySettingsManager$$SetMSAA
+HOOK QSM_POSTFX       QualitySettingsManager$$UpdatePostFX
+HOOK PXR_CONFIGINT    Unity.XR.PXR.PXR_Plugin.System$$UPxr_GetConfigInt|int32_t type
+CALL OCULUS_ALLOWGFX  VrPlatform_Oculus$$ShouldAllowGraphicsSettings
+HOOK GFX_SETUP        GraphicsScreen$$OnSetupScreen
+CALL CAM_SET_DEPTHMODE UnityEngine.Camera$$set_depthTextureMode
+HOOK QSM_DEPTHMODE    QualitySettingsManager$$GetDepthTextureMode

@@ -35,7 +35,18 @@ def wait_marker(marker, timeout, after=0.0):
     raise SystemExit(f"timeout {timeout}s waiting for {marker!r}")
 
 
+def stop_captures():
+    # one logcat capture at a time: runs that never reached stop() must not leave adb logcat streams behind
+    for pf in d.LOGS.glob("*/logcat.pid"):
+        try:
+            subprocess.run(["taskkill", "/F", "/PID", pf.read_text().strip()], capture_output=True)
+        except OSError:
+            pass
+        pf.unlink()
+
+
 def start(tag):
+    stop_captures()
     out = d.LOGS / tag
     out.mkdir(parents=True, exist_ok=True)
     (out / "crash_before.txt").write_text(d.sh("logcat -b crash -d"), encoding="utf-8")
