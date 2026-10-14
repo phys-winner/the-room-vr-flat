@@ -1,16 +1,16 @@
 # Game port state — The Room VR: A Dark Matter (PICO build) → flat touch phone
 
 ## Current
-- state_revision: 5
-- updated_at: 2026-10-14T16:10+03:00
+- state_revision: 6
+- updated_at: 2026-10-14T20:10+03:00
 - objective: ADAPTATION_COMPLETE for a VR→flat conversion (user /goal 2026-10-14: «/adapt-arm32-game адаптируй vr игру под плоские сенсорные экраны. работай только с adb устройством redmi-note8pro»)
-- workflow_status: IN_PROGRESS (stage 8: implementing C4, C1+QA, C3)
-- current_step: research rows all PASSED; touch gates closed with story-placed debts (R017-R019); release candidate out/room_p080.apk verified on redmi-note8pro (R020: update/clean install, three clean cold starts, lifecycle, 5.8 matrix, audio, locale); ARM64_ACCEPTED device-limited (no allowed 16 KB device); stage 8 catalog R021 shown
-- next_action: wait for the operator's stage-8 choice (work/evidence/R021_phase8_catalog.md); then implement and verify the chosen IDs (or NONE), finalise PORT_FEATURES.md for the final APK, ADAPTATION_COMPLETE
+- workflow_status: COMPLETE — ADAPTATION_COMPLETE (device-limited: runtime 16 KB pages cannot be shown on the only allowed device; reverse landscape device-limited; late-chapter story places listed as touch debts)
+- current_step: stage 8 implemented and verified (R022: C1 chapter select, C3 gesture card, C4 trial mark removed, QA row); final release out/room_p084.apk verified on redmi-note8pro (R023 update/clean install/restart and cold-start times without su load; R024 final 5.8 matrix, lifecycle, 10-minute soak); PORT_FEATURES.md final
+- next_action: none. Optional operator inputs: a 16 KB-page arm64 device for the runtime page proof; play-through of the late-chapter story places listed under VR_ACTIONS_COVERED
 - blocker: none
 - bridge_mode: NOT_APPLICABLE — input is native arm64-v8a only (lib/arm64-v8a: libil2cpp, libunity, libmain, libpxr_api, libPxrPlatform, libpxrplatformloader); no armeabi-v7a code exists
 - bridge_input_snapshot: NOT_APPLICABLE (no bridge); ARM32_READY is interpreted as "restoration snapshot verified" for a native arm64 game (workflow.md "Native arm64 runtime")
-- content_review_status: SELECTED (operator 2026-10-14 on catalog R021 / room_p080): C1 chapter select, C3 gesture help card, C4 hide the Unity trial mark, plus a QA unlock for chapters/other content with an activation button (operator: for testing; no inactive authored button exists, so a new entry is added); rejected: C2 gamepad, C5 local achievements
+- content_review_status: IMPLEMENTED (operator 2026-10-14 on catalog R021 / room_p080: C1 chapter select, C3 gesture help card, C4 hide the Unity trial mark, plus a QA unlock for chapters/other content with an activation control — front-end Options row QA off/level select/skip level/all; rejected: C2 gamepad, C5 local achievements); verified R022, final APK room_p084 (R023, R024)
 
 ## Project and inputs
 - root: <game> (PROJECT_ROOT <workspace>: nearest parent with tools/android/toolchain.sh; machine_config project_root <other-machine>/... is stale on this machine — tools resolved from E:)
@@ -54,13 +54,14 @@
 ## Artifacts
 | Role | Source revision/patch | Build inputs | APK/set hash manifest | Evidence |
 |---|---|---|---|---|
-| accepted (device-limited) | fbb436d | app/ (libroomfix 79b06a7f... player build: diagnostics only with the developer flag file; bounded log; 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p080.apk 1179459217fb8a74e8fcd3802ac3a4da7e48b14ec4fc4eec38e7cb44a4cc7719 (cert a40da80a...f5dc, ABIs arm64-v8a only, zipalign -P 16) | R020 |
-| previous candidates | b404304 / d0e54fb | app/ | out/room_p061.apk 6225b002... (dev candidate, the old version in the R020 update test), out/room_p055.apk e34a7231... (R011 clean install) | R011-R019 |
-| installed per serial | redmi-note8pro: room_p080.apk (clean install R020, profile 2 save in the tutorial) | fbb436d | - | R020 |
+| accepted final (device-limited) | 73a7234 + docs commit of STATE r6 | app/ (libroomfix 2d3354b6c4eb82044a17eaf9202e1b938c2083a9b276cf3faf6de8aa6ef6acd3: stage-8 hooks, gesture-card requests; Java HelpCard; globalgamemanagers hasPublishingRights (C4); 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p084.apk 590eb40e4245b2ac6ad08c4e3f206ce7f63188c2a8ba5fbca733e1502798f94e (cert a40da80a...f5dc, ABIs arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R022, R023, R024 |
+| accepted before stage 8 (rollback) | fbb436d | app/ at fbb436d (libroomfix 79b06a7f...) | out/room_p080.apk 1179459217fb8a74e8fcd3802ac3a4da7e48b14ec4fc4eec38e7cb44a4cc7719 | R020 |
+| previous candidates (deleted 2026-10-14) | b404304 / d0e54fb / 44a61aa / 73a7234 | app/ | room_p061 6225b002..., room_p055 e34a7231..., room_p081 (C4 only), room_p083 30d7ddc6... (dev build of the p084 sources) — superseded by p084 | R011-R022 |
+| installed per serial | redmi-note8pro: room_p084.apk (clean install R023; profile 2 new game in the tutorial from R024) | 73a7234 | 590eb40e... | R023, R024 |
 | ARM32_LASTGOOD and snapshot | room_p080 (native arm64 restoration snapshot) | fbb436d | 1179459... | R020 |
 | ARM64_ACCEPTED before additions | room_p080 (rollback point for stage 8) | fbb436d | 1179459... | R020 |
 
-- storage_cleanup: 2026-10-14 removed out/room_p007.apk, room_p057.apk, room_p060.apk; keep p080 (accepted), p061 (update-test old version) and p055 (R011 baseline) until ADAPTATION_COMPLETE
+- storage_cleanup: 2026-10-14 removed out/room_p007.apk, room_p057.apk, room_p060.apk; at ADAPTATION_COMPLETE removed room_p055, room_p061, room_p081, room_p083 and old build-attempt logs; kept room_p080 (rollback) and room_p084 (final)
 
 ## Gates
 | Phase/subgate | Status | Evidence | Dependency |
@@ -79,7 +80,10 @@
 | ARM32_READY (restoration snapshot) | PASSED | native arm64 game: snapshot = room_p080 (R020 restore = clean install + update + cold starts) | phases 0-6 |
 | BRIDGE (phase 7 guest gates) | NOT_APPLICABLE | native arm64 input | - |
 | ARM64_ACCEPTED | PASSED_DEVICE_LIMITED | arm64-only APK (lib/arm64-v8a only) running on the allowed device (R020); new ELF libroomfix PT_LOAD align 0x4000; runtime 16384-byte pages cannot be shown: the only allowed device has 4096 (getconf PAGESIZE) - not faked | a 16 KB-page device if the operator allows one |
-| PORT_FEATURES_READY | IN_PROGRESS | PORT_FEATURES.md drafted for room_p080 | stage 8 decision, final APK |
+| STAGE8_ADDITIONS | IMPLEMENTED | R022: C4 (no trial mark), C1 (chapter list, replay with saving off, profile unchanged, return to menu), QA row (all chapters, SKIP LEVEL without the secret, off by default, persisted), C3 (card on the first main menu and from Options view controls, 10 languages, tap/Back close) | operator choice R021 |
+| FINAL_RELEASE_VERIFIED | PASSED | room_p084: R023 update over p083 (settings and save kept), clean install (first start 80.5 s, later 25.3 s, measured without su load), restart; R024 matrix 16:9/2:1/19.5:9/4:3 + 3-button navigation + density/font, lifecycle, 10.3-min soak; crash buffer empty | - |
+| PORT_FEATURES_READY | PASSED | PORT_FEATURES.md for room_p084 checked against R022-R024 and work/touch_controls.md (SDK/ABI from the final APK; no OBB; honest limits: 16 KB pages untested, late story places) | - |
+| ADAPTATION_COMPLETE | PASSED_DEVICE_LIMITED | stage 8 IMPLEMENTED, final set room_p084 accepted on the only allowed device, PORT_FEATURES_READY; open only what the device restriction prevents (runtime 16 KB pages, reverse landscape) | a 16 KB-page device if allowed |
 
 ## Required research
 | Direction | Research | Report and input revision/hash | Implementation gate, evidence, dependency |
@@ -95,11 +99,11 @@
 | TOUCH_CONTROLS | PASSED | work/touch_controls.md (action map with VR/native columns, multi-touch rules, story-placed debts) | applied: grab/slider/rotation/twist/crank, combination parts (cylinder + roll-over), poke probe, turn-in-hand ball, hold+look, pinch lean, head sway, teleport tap (+ forced TeleportTo), superzoom tap, HUD; TOUCH_GAMEPLAY_VERIFIED R009-R020 |
 
 ## Current blocker and experiments
-- blocker_id: none; consecutive_no_progress 0/3; candidate_id 80 (p080, accepted device-limited); diagnostic_runs R001-R021
+- blocker_id: none; consecutive_no_progress 0/3; candidate_id 84 (p084, final, accepted device-limited); diagnostic_runs R001-R024
 
 ## Content and cache
-- hidden_content_status: AUTO_PROCESSED (automatic_unlocks H1; deferred H4 H5 H6 H11 H15 H17; no purchase-gated content; no QA dialog needed)
-- stage8_catalog: work/evidence/R021_phase8_catalog.md; decision SELECTED C1 C3 C4 + QA unlock (chapters, other content) with an activation button; NONE for C2 C5
+- hidden_content_status: AUTO_PROCESSED (automatic_unlocks H1; deferred H4 H5 H6 H11 H17; H15 done as stage-8 C4; no purchase-gated content; QA unlocks added at the operator's request as an Options row)
+- stage8_catalog: work/evidence/R021_phase8_catalog.md; decision C1 C3 C4 + QA unlock (chapters, skip level) with an activation control — IMPLEMENTED (R022); C2 C5 rejected
 - obb_unpack_policy: KEEP_CONTAINER; obb_unpack_instruction: NONE; cache_layout: base-assets as shipped by the original (no external cache exists)
 
 ## Acceptance evidence
@@ -107,9 +111,10 @@
 - R002 first flat frame; R003 touch look + menu tap; R004 snap/teleport; R005 lever; R006 inventory key → safe
 - R007 HUD + real touch; R008 options rows (FPS limit, FOV) + localisation + Back; R009 tutorial to the open safe by real multi-touch; R010 later mechanics by touch; R011 modern manifest (min 24 / target 37, no permissions, data redirect); R012 device effects on Mali; R013 graphics upgrade; R014 hidden content; R015 texture portability; R016 FPS limit
 - R017 Egypt mechanics by touch; R018 hub -> Chapel, turn-in-hand; R019 superzoom; R020 release candidate checks; R021 stage-8 catalog
+- R022 stage-8 additions; R023 final release room_p084 install/update/cold starts; R024 final matrix, lifecycle, soak
 
 ## Port documentation
-- PORT_FEATURES.md: drafted for room_p080 (Russian); finalised after the stage-8 decision
+- PORT_FEATURES.md: final for room_p084 (Russian): chapter select, QA row, gesture card, trial mark removed, start times 80 s / 25 s
 
 ## 5.8 matrix and fields (R020, release candidate p080, redmi-note8pro)
 - reference_aspect 16:9; target_aspect 19.5:9 (2340x1080); render_rect_px [0,0,2340,1080] (androidRenderOutsideSafeArea=1)
@@ -120,7 +125,8 @@
 - lifecycle_result PASS (Home, screen off/on, other app: same pid, HUD/FOV/input/audio restored); a system navigation-mode switch while running restarts the game (activity recreated, Unity ends its process - engine behaviour)
 - rows: reference 16:9 PASS; wide 2:1 PASS; native 19.5:9 PASS; narrower 4:3 PASS (hor+ crop of the sides); cutout PASS; 3-button navigation PASS; gesture navigation PASS; density 360/520 + font scale 1.3 PASS; reverse landscape DEVICE_LIMITED (sensorLandscape, device lies flat; a forced wm rotation gives the system compat letterbox); pause/resume + surface PASS; formats/GPU PASS on Mali (R012, R015); touch only PASS
 - audio: FMOD -> OpenSL ES AudioPlayer on the FAST output (HAL 256 frames, 48 kHz), track 2048 frames, AudioFlinger track latency 52.4 ms
-- three cold starts clean (menu 39/50/40 s, level 84/97/89 s); first start after install 146 s to the menu (one-time compile of ~780 shader programs into Unity's shader cache)
+- three cold starts clean (menu 39/50/40 s, level 84/97/89 s); first start after install 146 s to the menu (one-time compile of ~780 shader programs into Unity's shader cache) — R020 values include the su-polling load of the route helpers; room_p084 without it: first start 80.5 s, later 25.2-25.4 s to the menu (R023), menu 26 s / level 50 s in the R024 matrix
+- room_p084 (R024): the matrix rows above repeated on the final set (cold start per size with the gesture card, 3-button navigation, density/font, lifecycle, 10.3-min soak) — all PASS
 - locale_config_path app/res/xml/locales_config.xml; locale_config_locales en fr de es it ru ja ko zh-CN zh-TW; locale_config_manifest_attribute android:localeConfig="@xml/locales_config"; locale_picker_result DEVICE_LIMITED (Android 11 has no per-app picker); locale_runtime_result PASS (in-game LANGUAGE selector, R008); locale_fallback_result: system language without a dictionary -> English (game Localisation); locale_hot_swap_result: none while running (the game reads its language at start; a per-app locale change clears the saved language for the next start, rf_loc.c)
 - fps_limit_ui_path Pause/Main -> OPTIONS -> FPS LIMIT; fps_limit_storage <getExternalFilesDir>/port_settings.cfg; fps_limit_default=60; fps_limit_selected 60; fps_limit_effective_target Application.targetFrameRate; fps_limit_mode_results 30.0/45.2/60.0/60.0 (R016); fps_limit_lifecycle_result PASS; fps_limit_simulation_result PASS (game time = wall time)
 

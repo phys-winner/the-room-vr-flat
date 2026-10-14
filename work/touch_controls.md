@@ -61,7 +61,9 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Back | — | Android Back: previous menu screen / resume / pause | MenuController.TransitionToScreen, left menu (RwAction 22/27) | all | R007, R008 |
 | Pause | left menu button | HUD pause, Back | GameStateManager.Pause | gameplay | R007 |
 | Posture wizard (VR) | choose sitting/standing | answered automatically (Sitting) | PostureSelectScreen.SittingPressed | front end | R007 |
-| Recenter / height calibration / turn fade / VR controls map | VR settings | hidden | OptionsScreen rows hidden | options | R008 |
+| Recenter / height calibration / turn fade | VR settings | hidden | OptionsScreen rows hidden | options | R008 |
+| VR controls map (Options: view controls) | controller diagram | gesture card (Java overlay, game language); also once on the first main menu; tap or Back closes | Button.Press of 'Button [Controls]' answered by libroomfix (rf_help.c) -> RoomFix.nativeHelpRequest | front end, pause | R022 |
+| Chapter select (stage 8) | none (authored screen unused) | main menu LEVEL SELECT -> chapter list -> tap a chapter | cloned MenuButtons, GameStateManager.LoadLevel with level saves and saving off | front end | R022 |
 | Poke-slide panels and buttons | push with the fingertip | press on it and drag / press | Controller.PokeProbe placed on the target for CanBePoked volumes (the game feeds the probe position and lets go when it leaves the volume) | gameplay | R017 (finger-lock panel) |
 | Organ keyboard | press keys with the fingers | tap the keys (grab/poke path) | KeyboardVolume | Chapel | debt: "Organ Holo Press Black Key" (after the organ superzoom chain) |
 | Lockpick | turn the pick in the lock | knob twist gesture | RotationGrabbable (LockpickPuzzle) | Chapel | debt: "Solve Lockpick Organ" / "Solve Lockpick Clock" |
@@ -83,4 +85,4 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 - Superzoom enter/exit by touch (R019).
 - Story-placed debts (the route did not reach them; flat paths implemented): Chapel organ keys, lockpick; Witch
   chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles.
-- First-run hint for the gestures (in-game hint or PORT_FEATURES.md).
+- First-run hint for the gestures: done, gesture card on the first main menu and from Options (stage 8 C3, R022).
