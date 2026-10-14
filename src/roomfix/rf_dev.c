@@ -140,6 +140,10 @@ static void exec_line(char* line) {
         g_head.yaw = strtof(argv[1], NULL);
         g_head.pitch = strtof(argv[2], NULL);
         rf_log("look yaw=%.1f pitch=%.1f", g_head.yaw, g_head.pitch);
+    } else if (!strcmp(argv[0], "vols")) {
+        rf_act_list_volumes();
+    } else if (!strcmp(argv[0], "probe") && argc >= 3) {
+        rf_act_probe(strtof(argv[1], NULL), strtof(argv[2], NULL));
     } else if (!strcmp(argv[0], "grab") && argc >= 3) {
         rf_log("grab -> %d", rf_act_grab_begin(strtof(argv[1], NULL), strtof(argv[2], NULL)));
     } else if (!strcmp(argv[0], "drag") && argc >= 3) {

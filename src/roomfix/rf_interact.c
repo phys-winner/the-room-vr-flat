@@ -77,9 +77,143 @@ static void* grabber_transform(void) {
     return rf_alive(g) ? g : NULL;
 }
 
+// ---- registry of the game's grab volumes (GrabbableCollider: math volumes with virtual queries) ----
+#define MAXGC 4096
+static void* g_gcs[MAXGC];
+static int g_ngc;
+
+void rf_gc_add(void* gc) {
+    for (int i = 0; i < g_ngc; i++)
+        if (g_gcs[i] == gc) return;
+    if (g_ngc < MAXGC) g_gcs[g_ngc++] = gc;
+}
+
+void rf_gc_remove(void* gc) {
+    for (int i = 0; i < g_ngc; i++)
+        if (g_gcs[i] == gc) { g_gcs[i] = g_gcs[--g_ngc]; return; }
+}
+
+// vtable slot i of an IL2CPP object: klass + 0x130 + 16*i = {methodPtr, MethodInfo*}
+static void* vslot(void* obj, int slot, void** mi) {
+    char* k = *(char**)obj;
+    if (mi) *mi = *(void**)(k + 0x130 + 16 * slot + 8);
+    return *(void**)(k + 0x130 + 16 * slot);
+}
+static bool gc_contains(void* gc, v3 p) {
+    void* mi;
+    bool (*f)(void*, v3, void*) = (bool (*)(void*, v3, void*))vslot(gc, 5, &mi);
+    return f(gc, p, mi);
+}
+static v3 gc_closest_in(void* gc, v3 p) {
+    void* mi;
+    v3 (*f)(void*, v3, void*) = (v3(*)(void*, v3, void*))vslot(gc, 6, &mi);
+    return f(gc, p, mi);
+}
+static v3 gc_center(void* gc) {
+    void* mi;
+    v3 (*f)(void*, void*) = (v3(*)(void*, void*))vslot(gc, 8, &mi);
+    return f(gc, mi);
+}
+
+static bool gc_usable(void* gc, void* ctrl, void** grabbable_out) {
+    if (!rf_alive(gc)) return false;
+    char* g = (char*)gc;
+    if (!g[0x20] /* CanBeGrabbed */ && !g[0x21] /* CanBePoked */) return false;
+    void* go = rf_gameobject(gc);
+    if (!rf_alive(go) || !CALLP(C_GO_ACTIVEH, fn_b1)(go, NULL)) return false;
+    void* gr = CALLP(C_GC_GRABBABLE, fn_obj1)(gc, NULL);
+    if (rf_alive(gr) && ctrl && !((bool (*)(void*, void*, const void*))RVA(g_call_desc[C_GRAB_CANGRAB].rva))(gr, ctrl, NULL))
+        return false;
+    if (grabbable_out) *grabbable_out = rf_alive(gr) ? gr : NULL;
+    return true;
+}
+
+// Finger ray against the grab volumes: exact hit by marching along the ray, otherwise the volume whose
+// closest point lies within a fingertip radius on screen ("magnet" for small handles and knobs).
+#define SNAP_R 0.035f
+static void* pick_volume(float nx, float ny, v3* point, float* dist, void** grabbable) {
+    v3 o, d;
+    if (!rf_screen_ray(nx, ny, &o, &d)) return NULL;
+    void* ctrl = rf_controller(RIGHT);
+    void* best = NULL;
+    float best_t = 1e9f, best_snap = SNAP_R;
+    void* near = NULL;
+    v3 near_p = {0, 0, 0};
+    float near_t = 0;
+    for (int i = 0; i < g_ngc; i++) {
+        void* gc = g_gcs[i];
+        void* gr = NULL;
+        if (!gc_usable(gc, ctrl, &gr)) continue;
+        v3 c = gc_center(gc);
+        float t = v3_dot(v3_sub(c, o), d);
+        if (t < 0.1f || t > 3.5f) continue;
+        if (v3_len(v3_sub(c, v3_add(o, v3_scale(d, t)))) > 0.8f) continue;
+        bool hit = false;
+        float t0 = t - 0.8f < 0.1f ? 0.1f : t - 0.8f;
+        for (float tt = t0; tt < t + 0.8f && tt < best_t; tt += 0.004f) {
+            if (gc_contains(gc, v3_add(o, v3_scale(d, tt)))) {
+                best = gc;
+                best_t = tt;
+                *grabbable = gr;
+                hit = true;
+                break;
+            }
+        }
+        if (hit || best) continue;
+        v3 q = gc_closest_in(gc, v3_add(o, v3_scale(d, t)));
+        float sx, sy;
+        if (!rf_world_to_screen(q, &sx, &sy)) continue;
+        float dx = (sx - nx) * 2.1f, dy = sy - ny, sd = sqrtf(dx * dx + dy * dy);
+        if (sd < best_snap) {
+            best_snap = sd;
+            near = gc;
+            near_p = q;
+            near_t = v3_len(v3_sub(q, o));
+            *grabbable = gr;
+        }
+    }
+    if (best) {
+        *point = v3_add(o, v3_scale(d, best_t));
+        *dist = best_t;
+        return best;
+    }
+    if (near) {
+        *point = near_p;
+        *dist = near_t;
+        return near;
+    }
+    return NULL;
+}
+
+void rf_act_list_volumes(void) {
+    void* ctrl = rf_controller(RIGHT);
+    int shown = 0;
+    rf_log("volumes: %d registered", g_ngc);
+    for (int i = 0; i < g_ngc && shown < 40; i++) {
+        void* gc = g_gcs[i];
+        void* gr = NULL;
+        if (!gc_usable(gc, ctrl, &gr)) continue;
+        v3 c = gc_center(gc);
+        float sx, sy;
+        if (!rf_world_to_screen(c, &sx, &sy) || sx < 0 || sx > 1 || sy < 0 || sy > 1) continue;
+        char nm[64];
+        rf_obj_name(gc, nm, sizeof nm);
+        rf_log("  vol '%s' %s grab=%d poke=%d grabbable=%s screen(%.3f %.3f) center(%.2f %.2f %.2f)", nm,
+               rf_class_name(gc), ((char*)gc)[0x20], ((char*)gc)[0x21], gr ? rf_class_name(gr) : "-", sx, sy, c.x, c.y, c.z);
+        shown++;
+    }
+}
+
 // Raycast through the finger. Returns the nearest grabbable the right hand may grab (NULL if a solid
 // non-grabbable surface is in front of it) and the hit point.
 static void* pick_grabbable(float nx, float ny, v3* point, float* dist) {
+    void* gr = NULL;
+    void* gc = pick_volume(nx, ny, point, dist, &gr);
+    if (gc && gr) return gr;
+    return NULL;
+}
+
+__attribute__((unused)) static void* pick_grabbable_physics(float nx, float ny, v3* point, float* dist) {
     v3 o, d;
     if (!rf_screen_ray(nx, ny, &o, &d)) return NULL;
     void* arr = ((void* (*)(v3, v3, float, int32_t, int32_t, const void*))RVA(g_call_desc[C_PHYS_RAYCASTALL].rva))(
@@ -121,6 +255,32 @@ static float finger_angle(float nx, float ny) {
     float px, py;
     if (!rf_world_to_screen(g_grab.pivot, &px, &py)) return 0;
     return atan2f((ny - py), (nx - px) * 2.1f);  // aspect-corrected screen angle
+}
+
+// dev: log every hit along the finger ray
+void rf_act_probe(float nx, float ny) {
+    v3 o, d;
+    if (!rf_screen_ray(nx, ny, &o, &d)) return;
+    void* arr = ((void* (*)(v3, v3, float, int32_t, int32_t, const void*))RVA(g_call_desc[C_PHYS_RAYCASTALL].rva))(
+        o, d, 6.0f, -1, 2, NULL);
+    int32_t n = arr ? (int32_t) * (uint64_t*)((char*)arr + 0x18) : 0;
+    raycast_hit* hits = arr ? (raycast_hit*)((char*)arr + 0x20) : NULL;
+    void* ctrl = rf_controller(RIGHT);
+    rf_log("probe %.3f %.3f: %d hits, dir(%.2f %.2f %.2f)", nx, ny, n, d.x, d.y, d.z);
+    for (int i = 0; i < n && i < 32; i++) {
+        raycast_hit* h = &hits[i];
+        void* col = ((void* (*)(raycast_hit*, const void*))RVA(g_call_desc[C_HIT_COLLIDER].rva))(h, NULL);
+        char cn[64] = "?";
+        rf_obj_name(col, cn, sizeof cn);
+        void* gc = rf_alive(col) ? ((void* (*)(void*, const void*))RVA(g_call_desc[C_GC_FOROBJECT].rva))(rf_gameobject(col), NULL) : NULL;
+        void* gr = rf_alive(gc) ? CALLP(C_GC_GRABBABLE, fn_obj1)(gc, NULL) : NULL;
+        int can = (rf_alive(gr) && ctrl) ? ((bool (*)(void*, void*, const void*))RVA(g_call_desc[C_GRAB_CANGRAB].rva))(gr, ctrl, NULL) : -1;
+        rf_log("  hit %.3f m '%s' (%s) trigger=%d gc=%s canGrab=%d poke=%d grabbable=%s", h->dist, cn, rf_class_name(col),
+               rf_alive(col) ? CALLP(C_COL_ISTRIGGER, fn_b1)(col, NULL) : -1, rf_alive(gc) ? rf_class_name(gc) : "-",
+               rf_alive(gc) ? *((char*)gc + 0x20) : -1, rf_alive(gc) ? *((char*)gc + 0x21) : -1,
+               rf_alive(gr) ? rf_class_name(gr) : "-");
+        (void)can;
+    }
 }
 
 int rf_act_grab_begin(float nx, float ny) {

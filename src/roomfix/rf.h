@@ -151,6 +151,10 @@ extern v3 g_hand_prev_pos[2];
 enum { RF_GRAB_NONE = 0, RF_GRAB_OK = 1, RF_GRAB_FAR = 2, RF_GRAB_NOPLAYER = 3 };
 void rf_act_laser_click(float nx, float ny);
 int rf_act_grab_begin(float nx, float ny);
+void rf_act_probe(float nx, float ny);  // dev diagnostics
+void rf_act_list_volumes(void);         // dev diagnostics
+void rf_gc_add(void* gc);
+void rf_gc_remove(void* gc);
 void rf_act_grab_drag(float nx, float ny);
 void rf_act_grab_end(void);
 bool rf_act_grabbing(void);

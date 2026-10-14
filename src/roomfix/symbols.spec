@@ -48,6 +48,8 @@ CALL FP_GETAXIS       FPInput$$GetAxis|int32_t id, int32_t playerId
 CALL CTRL_ALLOWTELE   Controller$$AllowTeleporting
 CALL INPUTCTL_ALLOWED Player.InputControl$$IsAllowed
 # ---- interaction (rf_interact.c) ----
+HOOK GC_AWAKE         GrabbableCollider$$Awake
+HOOK GC_DESTROY       GrabbableCollider$$OnDestroy
 CALL PHYS_RAYCASTALL  UnityEngine.Physics$$RaycastAll|UnityEngine_Vector3_o direction, float maxDistance, int32_t layerMask, int32_t queryTriggerInteraction
 CALL HIT_COLLIDER     UnityEngine.RaycastHit$$get_collider
 CALL COL_ISTRIGGER    UnityEngine.Collider$$get_isTrigger

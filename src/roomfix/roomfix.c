@@ -222,6 +222,16 @@ static void h_msg_box(void* self, Il2CppString* text, int32_t attach, const void
     ORIG(H_MSG_BOX, void (*)(void*, Il2CppString*, int32_t, const void*))(self, text, attach, mi);
 }
 
+static void h_gc_awake(void* self, const void* mi) {
+    ORIG(H_GC_AWAKE, void (*)(void*, const void*))(self, mi);
+    rf_gc_add(self);
+}
+
+static void h_gc_destroy(void* self, const void* mi) {
+    rf_gc_remove(self);
+    ORIG(H_GC_DESTROY, void (*)(void*, const void*))(self, mi);
+}
+
 static void h_player_update(void* self, const void* mi) {
     g_player = self;
     g_player_frame = g_frame;
@@ -237,6 +247,8 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_PLAYER_UPDATE, (void*)h_player_update, true, false},
     {H_PAUSE_UPDATE, (void*)h_pause_update, true, false},
     {H_TUT_MSG, (void*)h_tut_msg, true, false},
+    {H_GC_AWAKE, (void*)h_gc_awake, true, false},
+    {H_GC_DESTROY, (void*)h_gc_destroy, true, false},
     {H_MSG_BOX, (void*)h_msg_box, true, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };

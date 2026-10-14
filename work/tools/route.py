@@ -80,9 +80,41 @@ def route_tut(tag, new=False):
     print("player in level after %.1fs" % wait_marker("player ready", 150, after=4))
 
 
+def run_steps(tag, steps):
+    """steps: wait:<marker>[@timeout] | cmd:<dev command> | sleep:<s> | shot:<name> | tap:<x>,<y> (normalised)"""
+    for st in steps:
+        kind, _, arg = st.partition(":")
+        if kind == "wait":
+            marker, _, to = arg.partition("@")
+            print(f"wait {marker!r}: %.1fs" % wait_marker(marker, float(to or 90)))
+        elif kind == "cmd":
+            d.main(["cmd", *arg.split(";")])
+        elif kind == "sleep":
+            time.sleep(float(arg))
+        elif kind == "shot":
+            d.shot(tag, arg)
+        elif kind == "tap":
+            x, y = (float(v) for v in arg.split(","))
+            tap_n(x, y)
+        else:
+            raise SystemExit(f"bad step {st}")
+
+
+TUT_TO_PROJECTOR = [
+    "wait:tutorial: 'SNAP_TURN_TUTORIAL_TITLE' / 'SNAP_TURN_TUTORIAL'", "sleep:1", "cmd:snap 1",
+    "wait:'TELEPORT_TUTORIAL_TITLE'", "cmd:look -125 -15;tmode 1", "sleep:2", "cmd:ttap 0.43 0.57",
+    "wait:'TUTORIAL_OPERATE_LEVER_TITLE'", "cmd:look -40 -25", "sleep:2",
+]
+
+
 if __name__ == "__main__":
     cmd, tag = sys.argv[1], sys.argv[2]
-    if cmd == "tut":
+    if cmd == "steps":
+        run_steps(tag, sys.argv[3:])
+    elif cmd == "projector":
+        route_tut(tag)
+        run_steps(tag, TUT_TO_PROJECTOR + sys.argv[3:])
+    elif cmd == "tut":
         route_tut(tag, "--new" in sys.argv)
     elif cmd == "menu":
         route_menu(tag)
