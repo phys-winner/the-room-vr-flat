@@ -96,6 +96,7 @@ static struct {
     float fx0, fy0, fx, fy;
     float twist0;  // finger angle around the projected pivot at grab time
     bool twist_armed;  // finger has left the dead zone around the pivot: twist0 is a valid baseline
+    bool poke;         // pokeable volume: the fingertip's poke probe follows the target instead of the grip
     float twist_last, twist_acc;  // last finger angle and accumulated turn (multi-turn cranks)
     v3 target;
     quat target_rot;
@@ -244,11 +245,21 @@ void rf_act_list_volumes(void) {
 
 // Raycast through the finger. Returns the nearest grabbable the right hand may grab (NULL if a solid
 // non-grabbable surface is in front of it) and the hit point.
-static void* pick_grabbable(float nx, float ny, v3* point, float* dist) {
+static void* pick_grabbable(float nx, float ny, v3* point, float* dist, bool* poke) {
     void* gr = NULL;
     void* gc = pick_volume(nx, ny, point, dist, &gr);
-    if (gc && gr) return gr;
-    return NULL;
+    if (!gc || !gr) return NULL;
+    *poke = ((char*)gc)[0x21] != 0;  // CanBePoked
+    return gr;
+}
+
+// A pokeable volume is moved by the fingertip, not the grip: the controller then feeds the grabbable its poke
+// probe's position (Controller.PokeProbe +0x60) and lets go once that probe leaves the volume
+// (Controller.UpdateGrabbing), so the probe is what has to sit on the drag target.
+static void* poke_probe_transform(void) {
+    void* c = rf_controller(RIGHT);
+    void* probe = c ? *(void**)((char*)c + 0x60) : NULL;  // Controller.PokeProbe
+    return rf_alive(probe) ? rf_transform(probe) : NULL;
 }
 
 __attribute__((unused)) static void* pick_grabbable_physics(float nx, float ny, v3* point, float* dist) {
@@ -464,7 +475,8 @@ int rf_act_grab_begin(float nx, float ny) {
     if (!grabber_transform()) return RF_GRAB_NOPLAYER;
     v3 p;
     float dist;
-    void* gr = pick_grabbable(nx, ny, &p, &dist);
+    bool poke = false;
+    void* gr = pick_grabbable(nx, ny, &p, &dist, &poke);
     if (!gr) return RF_GRAB_NONE;
     v3 o, d;
     rf_screen_ray(nx, ny, &o, &d);
@@ -474,6 +486,7 @@ int rf_act_grab_begin(float nx, float ny) {
     }
     memset(&g_grab, 0, sizeof g_grab);
     g_grab.grabbable = gr;
+    g_grab.poke = poke;
     g_grab.point0 = p;
     g_grab.cam0 = o;
     g_grab.depth = v3_len(v3_sub(p, o));
@@ -487,8 +500,9 @@ int rf_act_grab_begin(float nx, float ny) {
     g_grab.target_rot = g_grab.rot0;
     g_grab.state = G_HOVER;
     g_grab.frames = 0;
-    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f h=%.3f..%.3f twistControl=%d", rf_class_name(gr),
-           g_grab.kind, g_grab.inv, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0, g_grab.hmin, g_grab.hmax,
+    rf_log("grab: %s kind=%d inv=%d poke=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f h=%.3f..%.3f twistControl=%d",
+           rf_class_name(gr), g_grab.kind, g_grab.inv, g_grab.poke, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z,
+           g_grab.r0, g_grab.hmin, g_grab.hmax,
            rf_class_is(gr, "RotationGrabbable") ? *((char*)gr + 0xa8) : -1);
     return RF_GRAB_OK;
 }
@@ -807,7 +821,8 @@ static void tick_grab(void) {
         // behind the fingertip, 0.20 m long), so the tip hovers 5 cm in front of the slot
         rf_aim_transform(RIGHT, pointing_tip(), v3_sub(g_grab.point0, v3_scale(g_grab.inv_dir, 0.05f)), g_grab.inv_dir);
     } else {
-        rf_place_transform(RIGHT, gt, g_grab.target, g_grab.target_rot);
+        void* pt = g_grab.poke ? poke_probe_transform() : NULL;
+        rf_place_transform(RIGHT, pt ? pt : gt, g_grab.target, g_grab.target_rot);
     }
     switch (g_grab.state) {
     case G_HOVER: {

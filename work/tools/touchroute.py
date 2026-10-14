@@ -47,6 +47,45 @@ def inject(lines):
         raise SystemExit(f"mtinject failed: {p.stderr.decode(errors='replace')}")
 
 
+class Session:
+    """A live mtinject stream: fingers stay down between calls, so the route can look (shots, dev queries)
+    and correct (closed loop) while a finger holds something."""
+
+    def __init__(self):
+        global ROT
+        if ROT is None:
+            ROT = rotation()
+        self.p = d.subprocess.Popen([d.ADB, "-s", d.SERIAL, "shell",
+                                     f"su -c '/data/local/tmp/mtinject {TOUCH_DEV} {PANEL_W} {PANEL_H} {ROT}'"],
+                                    stdin=d.subprocess.PIPE, stdout=d.subprocess.DEVNULL, stderr=d.subprocess.DEVNULL)
+        self.pos = {}
+
+    def send(self, lines):
+        self.p.stdin.write(("\n".join(lines) + "\n").encode())
+        self.p.stdin.flush()
+
+    def down(self, slot, x, y):
+        self.pos[slot] = (int(x), int(y))
+        self.send([f"down {slot} {int(x)} {int(y)}", "sync"])
+
+    def move(self, slot, x, y, ms=500, steps=20):
+        x0, y0 = self.pos[slot]
+        for i in range(1, steps + 1):
+            self.send([f"move {slot} {int(x0 + (x - x0) * i / steps)} {int(y0 + (y - y0) * i / steps)}", "sync"])
+            time.sleep(ms / 1000.0 / steps)
+        self.pos[slot] = (int(x), int(y))
+
+    def up(self, slot):
+        self.send([f"up {slot}", "sync"])
+        self.pos.pop(slot, None)
+
+    def close(self):
+        for slot in list(self.pos):
+            self.up(slot)
+        self.p.stdin.close()
+        self.p.wait(timeout=30)
+
+
 def tap(x, y, ms=60):
     inject([f"down 0 {int(x)} {int(y)}", "sync", f"sleep {ms}", "up 0", "sync"])
 
