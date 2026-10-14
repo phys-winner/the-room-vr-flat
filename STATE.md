@@ -4,13 +4,13 @@
 - state_revision: 5
 - updated_at: 2026-10-14T16:10+03:00
 - objective: ADAPTATION_COMPLETE for a VR→flat conversion (user /goal 2026-10-14: «/adapt-arm32-game адаптируй vr игру под плоские сенсорные экраны. работай только с adb устройством redmi-note8pro»)
-- workflow_status: WAITING_OPERATOR (stage 8 choice)
+- workflow_status: IN_PROGRESS (stage 8: implementing C4, C1+QA, C3)
 - current_step: research rows all PASSED; touch gates closed with story-placed debts (R017-R019); release candidate out/room_p080.apk verified on redmi-note8pro (R020: update/clean install, three clean cold starts, lifecycle, 5.8 matrix, audio, locale); ARM64_ACCEPTED device-limited (no allowed 16 KB device); stage 8 catalog R021 shown
 - next_action: wait for the operator's stage-8 choice (work/evidence/R021_phase8_catalog.md); then implement and verify the chosen IDs (or NONE), finalise PORT_FEATURES.md for the final APK, ADAPTATION_COMPLETE
 - blocker: none
 - bridge_mode: NOT_APPLICABLE — input is native arm64-v8a only (lib/arm64-v8a: libil2cpp, libunity, libmain, libpxr_api, libPxrPlatform, libpxrplatformloader); no armeabi-v7a code exists
 - bridge_input_snapshot: NOT_APPLICABLE (no bridge); ARM32_READY is interpreted as "restoration snapshot verified" for a native arm64 game (workflow.md "Native arm64 runtime")
-- content_review_status: WAITING (catalog work/evidence/R021_phase8_catalog.md, base APK room_p080 1179459...; pending question: which of C1-C5 to enable, or keep only what is open)
+- content_review_status: SELECTED (operator 2026-10-14 on catalog R021 / room_p080): C1 chapter select, C3 gesture help card, C4 hide the Unity trial mark, plus a QA unlock for chapters/other content with an activation button (operator: for testing; no inactive authored button exists, so a new entry is added); rejected: C2 gamepad, C5 local achievements
 
 ## Project and inputs
 - root: <game> (PROJECT_ROOT <workspace>: nearest parent with tools/android/toolchain.sh; machine_config project_root <other-machine>/... is stale on this machine — tools resolved from E:)
@@ -99,7 +99,7 @@
 
 ## Content and cache
 - hidden_content_status: AUTO_PROCESSED (automatic_unlocks H1; deferred H4 H5 H6 H11 H15 H17; no purchase-gated content; no QA dialog needed)
-- stage8_catalog: work/evidence/R021_phase8_catalog.md (C1 chapter select, C2 gamepad, C3 gesture help card, C4 hide Unity trial mark, C5 local achievements); decision: pending
+- stage8_catalog: work/evidence/R021_phase8_catalog.md; decision SELECTED C1 C3 C4 + QA unlock (chapters, other content) with an activation button; NONE for C2 C5
 - obb_unpack_policy: KEEP_CONTAINER; obb_unpack_instruction: NONE; cache_layout: base-assets as shipped by the original (no external cache exists)
 
 ## Acceptance evidence

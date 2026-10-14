@@ -1,0 +1,9 @@
+{
+  "file": "assets/bin/Data/globalgamemanagers",
+  "object": "BuildSettings",
+  "path_id": 11,
+  "field": "hasPublishingRights false -> true",
+  "offset": 194368,
+  "src_sha256": "80deb16d888b16ec3ae481c7fcce47520b78ad8e2a200fd9a9278c8676e717bc",
+  "out_sha256": "ea536e18dbb127b1a88894e1a97bd2dcb215da4d352e6a30d1c4543403cab526"
+}
