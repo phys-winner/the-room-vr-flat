@@ -199,6 +199,57 @@ def key_into_lock(k, h, rad=110):
 
 
 # ---------------------------------------------------------------- routes
+def continue_game(tag, profile=3):
+    r.route_menu(tag)
+    wait("menu: screen 'Select Profile Screen'", 60)
+    time.sleep(1.5)
+    tap(*{1: vpx(0.396, 0.493), 2: vpx(0.501, 0.493), 3: vpx(0.606, 0.493)}[profile])
+    wait("menu: screen 'Main Menu Screen'", 30)
+    time.sleep(1.5)
+    tap(1302, 635)  # CONTINUE GAME
+    wait("player ready", 150)
+    time.sleep(3)
+
+
+def teleport_to(name, pitch=-20):
+    hud("teleport")
+    time.sleep(1.0)
+    face_loc(name, pitch=pitch)
+    time.sleep(1.0)
+    x, y, vis = loc_screen(name)
+    tap(*vpx(x, y))
+    time.sleep(3.5)
+
+
+def twist(cx, cy, degrees, rad=90, start_deg=180, step_deg=3, hold_ms=250, end_ms=400):
+    """Finger down on a knob centre, out to the side, then around it (positive = clockwise on screen)."""
+    import math
+    sx, sy = cx + rad * math.cos(math.radians(start_deg)), cy + rad * math.sin(math.radians(start_deg))
+    lines = [f"down 0 {int(cx)} {int(cy)}", "sync", f"sleep {hold_ms}"]
+    for i in range(1, 9):
+        lines += [f"move 0 {int(cx + (sx - cx) * i / 8)} {int(cy + (sy - cy) * i / 8)}", "sync", "sleep 20"]
+    n = max(1, int(abs(degrees) / step_deg))
+    for i in range(1, n + 1):
+        a = math.radians(start_deg + degrees * i / n)
+        lines += [f"move 0 {int(cx + rad * math.cos(a))} {int(cy + rad * math.sin(a))}", "sync", "sleep 25"]
+    lines += [f"sleep {end_ms}", "up 0", "sync"]
+    inject(lines)
+
+
+def crank(kx, ky, cx, cy, turns=2.0, step_deg=6, step_ms=22, hold_ms=300):
+    """Finger down on a crank knob at (kx, ky), then circles around the axis (cx, cy); positive = clockwise."""
+    import math
+    r = math.hypot(kx - cx, ky - cy)
+    a0 = math.atan2(ky - cy, kx - cx)
+    lines = [f"down 0 {int(kx)} {int(ky)}", "sync", f"sleep {hold_ms}"]
+    n = int(abs(turns) * 360 / step_deg)
+    for i in range(1, n + 1):
+        a = a0 + math.copysign(math.radians(step_deg * i), turns)
+        lines += [f"move 0 {int(cx + r * math.cos(a))} {int(cy + r * math.sin(a))}", "sync", f"sleep {step_ms}"]
+    lines += ["sleep 300", "up 0", "sync"]
+    inject(lines)
+
+
 def tutorial(tag, profile=3):
     # an empty profile: remove its save (test device policy allows clearing the task's app data)
     d.sh(f"su -c 'rm -f {d.EXT}/{profile - 1}.save'")

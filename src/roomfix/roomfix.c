@@ -297,6 +297,7 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_UIOPT_RIGHT, (void*)h_uiopt_right, true, false},
     {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
     {H_LOC_GETSTRING, (void*)h_loc_getstring, true, false},
+    {H_INV_SHOWXFORM, (void*)h_inv_show_xform, true, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 

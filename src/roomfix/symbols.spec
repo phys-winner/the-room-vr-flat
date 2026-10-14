@@ -105,3 +105,6 @@ CALL GOGGLESHUD_ON    GogglesHudManager$$ActivateWithFade
 CALL GOGGLESHUD_OFF   GogglesHudManager$$DeactivateWithFade
 CALL TR_SETPOS        UnityEngine.Transform$$set_position
 CALL TR_SETROT        UnityEngine.Transform$$set_rotation
+HOOK INV_SHOWXFORM    HudManager$$CalculateShowTransform
+CALL RES_FINDALL      UnityEngine.Resources$$FindObjectsOfTypeAll|System_Type_o* type
+CALL PAUSE_SKIPLEVEL  PauseMenuController$$SkipLevelPressed

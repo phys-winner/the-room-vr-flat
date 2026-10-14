@@ -108,3 +108,23 @@ void rf_hud_button(int id) {
         break;
     }
 }
+
+// The inventory grid opens in front of the VR player's *level* gaze (HudManager.CalculateShowTransform uses the
+// flattened head forward), i.e. at the top of the screen whenever the flat camera looks down at a puzzle. Rotate
+// the placement about the eye by the camera pitch so the grid opens where the player is looking; it stays
+// world-fixed afterwards exactly as in VR (CalculateShowTransform runs once per HudManager.Show).
+void h_inv_show_xform(void* self, const void* mi) {
+    ORIG(H_INV_SHOWXFORM, void (*)(void*, const void*))(self, mi);
+    void* lp = *(void**)((char*)self + 0x18);  // HudManager.LayoutParent
+    void* cam = rf_main_camera();
+    if (!rf_alive(lp) || !cam) return;
+    void* ct = rf_transform(cam);
+    quat qc = rf_tr_rot(ct);
+    v3 f = q_rot(qc, (v3){0, 0, 1});
+    v3 flat = {f.x, 0, f.z};
+    if (v3_len(flat) < 1e-3f) return;
+    quat delta = q_mul(qc, q_conj(rf_q_look(v3_norm(flat), (v3){0, 1, 0})));
+    v3 h = rf_tr_pos(ct), p = rf_tr_pos(lp);
+    CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(lp, v3_add(h, q_rot(delta, v3_sub(p, h))), NULL);
+    CALLP(C_TR_SETROT, void (*)(void*, quat, const void*))(lp, q_mul(delta, rf_tr_rot(lp)), NULL);
+}

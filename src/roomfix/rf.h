@@ -191,6 +191,7 @@ void rf_hud_tick(void);
 void rf_hud_button(int id);
 bool rf_inventory_open(void);
 bool rf_goggles_on(void);
+void h_inv_show_xform(void* self, const void* mi);
 
 // ---- rf_menu.c: VR setup wizards answered with flat defaults ----
 void* h_posture_setup(void* self, const void* mi);

@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 static int g_fd, g_w, g_h, g_rot;
-static int g_tracking = 100;
+static int g_tracking;  // seeded per run so ids never collide with contacts left down by an earlier run
 static int g_touching;
 
 static void emit(int type, int code, int value) {
@@ -50,6 +50,9 @@ int main(int argc, char** argv) {
     g_w = atoi(argv[2]);
     g_h = atoi(argv[3]);
     g_rot = atoi(argv[4]);
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    g_tracking = 100 + (int)((ts.tv_sec * 7 + ts.tv_nsec / 1000000) % 60000);
     char line[256];
     while (fgets(line, sizeof line, stdin)) {
         char cmd[16];

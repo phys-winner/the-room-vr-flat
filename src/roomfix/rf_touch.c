@@ -69,7 +69,8 @@ static struct {
     int id;
     float x, y;
     float d0, lean0;
-} g_f2;  // second finger of a pinch
+    bool look;  // second finger turns the view while the first one holds an object
+} g_f2;  // second finger: pinch, or look while holding
 
 #define LEAN_PER_UNIT 0.5f  // metres of lean per screen height of finger spread
 
@@ -128,6 +129,7 @@ static float pinch_dist(void) {
 static void cancel_all(void) {
     if (g_f.mode == F_GRAB) rf_act_grab_end();
     g_f.mode = F_NONE;
+    g_f2.look = false;
 }
 
 static void on_event(const touch_ev* e) {
@@ -142,6 +144,12 @@ static void on_event(const touch_ev* e) {
     if (e->action == 0) {
         if (g_f.mode == F_NONE) {
             finger_down(e);
+        } else if (g_f.mode == F_GRAB && !g_f2.look && e->id != g_f.id) {
+            // hold an object with one finger and look around with another (carry it, look through it)
+            g_f2.look = true;
+            g_f2.id = e->id;
+            g_f2.x = e->x;
+            g_f2.y = e->y;
         } else if ((g_f.mode == F_PENDING || g_f.mode == F_LOOK) && !rf_menu_context() && e->id != g_f.id) {
             g_f.mode = F_PINCH;
             g_f2.id = e->id;
@@ -149,6 +157,19 @@ static void on_event(const touch_ev* e) {
             g_f2.y = e->y;
             g_f2.d0 = pinch_dist();
             g_f2.lean0 = g_lean;
+        }
+        return;
+    }
+    if (g_f2.look && e->id == g_f2.id) {
+        if (e->action == 2) {
+            g_head.yaw += (e->x - g_f2.x) * g_deg_per_x;
+            g_head.pitch -= (e->y - g_f2.y) * g_deg_per_y;
+            if (g_head.pitch > 80) g_head.pitch = 80;
+            if (g_head.pitch < -80) g_head.pitch = -80;
+            g_f2.x = e->x;
+            g_f2.y = e->y;
+        } else {
+            g_f2.look = false;
         }
         return;
     }
@@ -166,7 +187,10 @@ static void on_event(const touch_ev* e) {
     }
     if (g_f.mode == F_NONE || e->id != g_f.id) return;
     if (e->action == 2) finger_move(e);
-    else finger_up(e, e->action == 3);
+    else {
+        finger_up(e, e->action == 3);
+        g_f2.look = false;
+    }
 }
 
 void rf_touch_tick(void) {

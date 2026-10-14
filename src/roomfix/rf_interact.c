@@ -92,6 +92,8 @@ static struct {
     quat rot0;   // grabber rotation at grab time
     float fx0, fy0, fx, fy;
     float twist0;  // finger angle around the projected pivot at grab time
+    bool twist_armed;  // finger has left the dead zone around the pivot: twist0 is a valid baseline
+    float twist_last, twist_acc;  // last finger angle and accumulated turn (multi-turn cranks)
     v3 target;
     quat target_rot;
     bool inv;   // item taken out of the inventory grid with the pointing finger ray
@@ -307,6 +309,16 @@ static float finger_angle(float nx, float ny) {
     return atan2f((ny - py), (nx - px) * 2.1f);  // aspect-corrected screen angle
 }
 
+// Twisting starts once the finger is clearly off the pivot (a finger put down on a knob's centre has no angle):
+// the first position outside the dead zone becomes the baseline.
+#define TWIST_DEADZONE 0.035f
+static bool finger_off_pivot(float nx, float ny) {
+    float px, py;
+    if (!rf_world_to_screen(g_grab.pivot, &px, &py)) return true;
+    float dx = (nx - px) * 2.1f, dy = ny - py;
+    return sqrtf(dx * dx + dy * dy) > TWIST_DEADZONE;
+}
+
 // dev: log every hit along the finger ray
 void rf_act_probe(float nx, float ny) {
     v3 o, d;
@@ -348,8 +360,23 @@ static void setup_constraint(void* gr, v3 p, float nx, float ny) {
         g_grab.h0 = v3_dot(rel, g_grab.axis);
         v3 radial = v3_sub(rel, v3_scale(g_grab.axis, g_grab.h0));
         g_grab.r0 = v3_len(radial);
-        if (g_grab.kind == K_ROTATION && g_grab.r0 < 0.015f) g_grab.kind = K_TWIST;  // grabbed on the axis
+        if (g_grab.kind == K_ROTATION && g_grab.r0 < 0.015f) {
+            // grabbed on the axis of a knob that turns with the hand's position (not the wrist): take hold 2 cm
+            // off the axis, towards the top of the screen, so the turn has a lever arm like a VR hand on the knob
+            void* cam = rf_main_camera();
+            v3 up = cam ? q_rot(rf_tr_rot(rf_transform(cam)), (v3){0, 1, 0}) : (v3){0, 1, 0};
+            v3 radial = v3_sub(up, v3_scale(g_grab.axis, v3_dot(up, g_grab.axis)));
+            if (v3_len(radial) < 0.2f) {
+                v3 right = cam ? q_rot(rf_tr_rot(rf_transform(cam)), (v3){1, 0, 0}) : (v3){1, 0, 0};
+                radial = v3_sub(right, v3_scale(g_grab.axis, v3_dot(right, g_grab.axis)));
+            }
+            g_grab.r0 = 0.02f;
+            g_grab.point0 = v3_add(g_grab.pivot, v3_add(v3_scale(g_grab.axis, g_grab.h0), v3_scale(v3_norm(radial), g_grab.r0)));
+        }
         g_grab.twist0 = finger_angle(nx, ny);
+        g_grab.twist_last = g_grab.twist0;
+        g_grab.twist_acc = 0;
+        g_grab.twist_armed = finger_off_pivot(nx, ny);
     }
 }
 
@@ -376,12 +403,13 @@ int rf_act_grab_begin(float nx, float ny) {
     setup_constraint(gr, p, nx, ny);
     g_grab.inv = rf_class_is(gr, "InventoryItemGrabbable") && in_inventory(gr);
     g_grab.inv_dir = d;
-    g_grab.target = p;
+    g_grab.target = g_grab.point0;
     g_grab.target_rot = g_grab.rot0;
     g_grab.state = G_HOVER;
     g_grab.frames = 0;
-    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f", rf_class_name(gr), g_grab.kind, g_grab.inv, dist,
-           g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0);
+    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f twistControl=%d", rf_class_name(gr), g_grab.kind,
+           g_grab.inv, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0,
+           rf_class_is(gr, "RotationGrabbable") ? *((char*)gr + 0xa8) : -1);
     return RF_GRAB_OK;
 }
 
@@ -468,6 +496,37 @@ static bool receiver_magnet(float nx, float ny, v3* grabber_target) {
     return found;
 }
 
+static void* static_field0(uintptr_t meta);
+
+static bool child_of(void* t, void* root) {
+    for (int i = 0; i < 12 && rf_alive(t); i++, t = rf_tr_parent(t))
+        if (t == root) return true;
+    return false;
+}
+
+// Depth of the first solid surface under the finger (world colliders), ignoring the held object and the player's
+// own hands/head; <= 0 when nothing is hit within reach.
+static float surface_depth(v3 o, v3 d, void* held) {
+    void* arr = ((void* (*)(v3, v3, float, int32_t, int32_t, const void*))RVA(g_call_desc[C_PHYS_RAYCASTALL].rva))(
+        o, d, REACH_M + 0.3f, -1, 1 /* QueryTriggerInteraction.Ignore */, NULL);
+    if (!arr) return 0;
+    int32_t n = (int32_t) * (uint64_t*)((char*)arr + 0x18);
+    raycast_hit* hits = (raycast_hit*)((char*)arr + 0x20);
+    void* held_t = rf_alive(held) ? rf_transform(held) : NULL;
+    void* hud = static_field0(META_HUDMGR_TYPEINFO);  // the open inventory grid has colliders of its own
+    void* hud_t = rf_alive(hud) ? *(void**)((char*)hud + 0x18) : NULL;  // HudManager.LayoutParent
+    float best = 0;
+    for (int i = 0; i < n && i < 64; i++) {
+        raycast_hit* h = &hits[i];
+        if (h->dist < 0.15f || (best > 0 && h->dist >= best)) continue;
+        void* col = ((void* (*)(raycast_hit*, const void*))RVA(g_call_desc[C_HIT_COLLIDER].rva))(h, NULL);
+        if (!rf_alive(col) || (held_t && child_of(rf_transform(col), held_t))) continue;
+        if (rf_alive(hud_t) && child_of(rf_transform(col), hud_t)) continue;
+        best = h->dist;
+    }
+    return best;
+}
+
 static v3 drag_target(void) {
     v3 c, d;
     if (!rf_screen_ray(g_grab.fx, g_grab.fy, &c, &d)) return g_grab.target;
@@ -506,6 +565,17 @@ static v3 drag_target(void) {
     default: {
         v3 t;
         if (receiver_magnet(g_grab.fx, g_grab.fy, &t)) return t;
+        // A VR player carries a held object to whatever they reach for: the object follows the surface under the
+        // finger (just in front of it), smoothed, within arm's reach. Over empty space it keeps its distance.
+        void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
+        float sd = (g_grab.frames > 6) ? surface_depth(c, d, held) : 0;
+        if (g_dev && (g_grab.frames % 20) == 0) rf_log("carry: surface %.2f m, depth %.2f m", sd, g_grab.depth);
+        if (sd > 0) {
+            float want = sd - 0.06f;
+            if (want < 0.25f) want = 0.25f;
+            if (want > REACH_M) want = REACH_M;
+            g_grab.depth += (want - g_grab.depth) * 0.25f;
+        }
         return v3_add(c, v3_scale(d, g_grab.depth));
     }
     }
@@ -523,8 +593,29 @@ static void tick_grab(void) {
     }
     if (g_grab.state == G_HOLD) {
         g_grab.target = drag_target();
-        if (g_grab.kind == K_TWIST) {
-            float da = finger_angle(g_grab.fx, g_grab.fy) - g_grab.twist0;
+        if (g_dev && g_grab.kind == K_ROTATION && (g_grab.frames % 10) == 0 && rf_class_is(g_grab.grabbable, "RotationGrabbable")) {
+            v3 o, d;
+            float fx = -1, fy = -1;
+            rf_world_to_screen(g_grab.target, &fx, &fy);
+            rf_screen_ray(g_grab.fx, g_grab.fy, &o, &d);
+            rf_log("rotate: finger(%.3f %.3f) target screen(%.3f %.3f) dn=%.2f totalRotation=%.1f", g_grab.fx, g_grab.fy, fx, fy,
+                   v3_dot(d, g_grab.axis), *(float*)((char*)g_grab.grabbable + 0x118));
+        }
+        if (g_grab.kind == K_TWIST && !g_grab.twist_armed && finger_off_pivot(g_grab.fx, g_grab.fy)) {
+            g_grab.twist_armed = true;
+            g_grab.twist0 = finger_angle(g_grab.fx, g_grab.fy);
+            g_grab.twist_last = g_grab.twist0;
+            g_grab.twist_acc = 0;
+            g_grab.rot0 = g_grab.target_rot;
+        }
+        if (g_grab.kind == K_TWIST && g_grab.twist_armed) {
+            // accumulate the per-frame change (unwrapped across +-180) so circling keeps turning a crank
+            float a = finger_angle(g_grab.fx, g_grab.fy), step = a - g_grab.twist_last;
+            while (step > (float)M_PI) step -= 2.0f * (float)M_PI;
+            while (step < -(float)M_PI) step += 2.0f * (float)M_PI;
+            g_grab.twist_last = a;
+            g_grab.twist_acc += step;
+            float da = g_grab.twist_acc;
             // the finger angle (screen, y down) grows clockwise as seen by the player, while a positive Unity
             // rotation about an axis pointing into the screen is counter-clockwise: follow the finger 1:1
             void* cam = rf_main_camera();
@@ -597,6 +688,9 @@ static void tick_grab(void) {
             g_grab.state = G_HOVER;
             g_grab.frames = 0;
             g_grab.twist0 = finger_angle(g_grab.fx, g_grab.fy);
+            g_grab.twist_last = g_grab.twist0;
+            g_grab.twist_acc = 0;
+            g_grab.twist_armed = finger_off_pivot(g_grab.fx, g_grab.fy);
         }
         break;
     case G_RELEASE:
@@ -671,10 +765,33 @@ bool rf_act_teleport_tap(float nx, float ny) {
             }
         }
     }
+    // superzoom portals (miniature worlds): the same pointer enters them through their zoom-in / zoom-out
+    // trigger colliders (Superzoom.ZoomInTrigger +0xE0, PortalTrigger +0xD0, ZoomOutTrigger +0x130)
+    void* zooms = *(void**)((char*)tp + 0xd0);  // TeleportPointer.SuperZooms
+    for (int i = 0; i < rf_list_size(zooms) && i < 32; i++) {
+        void* z = rf_list_get(zooms, i);
+        if (!rf_alive(z)) continue;
+        static const int offs[3] = {0xe0, 0xd0, 0x130};
+        for (int k = 0; k < 3; k++) {
+            void* col = *(void**)((char*)z + offs[k]);
+            if (!rf_alive(col)) continue;
+            void* go = rf_gameobject(col);
+            if (!rf_alive(go) || !CALLP(C_GO_ACTIVEH, fn_b1)(go, NULL)) continue;
+            v3 c = rf_tr_pos(rf_transform(col));
+            float sx, sy;
+            if (!rf_world_to_screen(c, &sx, &sy)) continue;
+            float dx = (sx - nx) * 2.1f, dy = sy - ny, dd = sqrtf(dx * dx + dy * dy);
+            if (dd < best) {
+                best = dd;
+                best_loc = z;
+                best_pt = c;
+            }
+        }
+    }
     if (!best_loc) return false;
     char nm[64];
     rf_obj_name(best_loc, nm, sizeof nm);
-    rf_log("teleport: tap selects '%s' (d=%.3f)", nm, best);
+    rf_log("teleport: tap selects '%s' %s (d=%.3f)", nm, rf_class_name(best_loc), best);
     g_tp.target_loc = best_loc;
     g_tp.target_pt = best_pt;
     g_tp.aim_frames = 1;
@@ -693,8 +810,8 @@ static void tick_teleport(void) {
         v3 from = v3_add(o, (v3){0, -0.25f, 0});
         rf_aim_transform(RIGHT, tt, from, v3_norm(v3_sub(g_tp.target_pt, from)));
         if (g_tp.aim_frames == 16) {
-            void* pointed = *(void**)((char*)tp + 0xb0);
-            rf_log("teleport: pointer on %s", pointed == g_tp.target_loc ? "target" : "something else");
+            void* pointed = *(void**)((char*)tp + 0xb0), *pointed_z = *(void**)((char*)tp + 0xc8);
+            rf_log("teleport: pointer on %s", (pointed == g_tp.target_loc || pointed_z == g_tp.target_loc) ? "target" : "something else");
             g_hand[RIGHT].stick = (v2){0, 0};  // release -> TeleportIfPossible
         }
         if (g_tp.aim_frames > 20) {

@@ -107,6 +107,31 @@ static void cmd_tele(void) {
     }
 }
 
+static void cmd_zooms(void) {
+    void* c = rf_controller(1);
+    void* tp = c ? *(void**)((char*)c + 0x50) : NULL;
+    if (!rf_alive(tp)) { rf_log("zooms: no teleporter"); return; }
+    void* zooms = *(void**)((char*)tp + 0xd0);
+    rf_log("zooms: %d, pointed=%p", rf_list_size(zooms), *(void**)((char*)tp + 0xc8));
+    for (int i = 0; i < rf_list_size(zooms) && i < 32; i++) {
+        void* z = rf_list_get(zooms, i);
+        if (!rf_alive(z)) continue;
+        char nm[64];
+        rf_obj_name(z, nm, sizeof nm);
+        static const int offs[3] = {0xe0, 0xd0, 0x130};
+        static const char* lab[3] = {"zoomIn", "portal", "zoomOut"};
+        for (int k = 0; k < 3; k++) {
+            void* col = *(void**)((char*)z + offs[k]);
+            if (!rf_alive(col)) continue;
+            void* go = rf_gameobject(col);
+            float sx = -1, sy = -1;
+            bool vis = rf_world_to_screen(rf_tr_pos(rf_transform(col)), &sx, &sy);
+            rf_log("  zoom '%s' %s active=%d screen(%.3f %.3f) vis=%d", nm, lab[k],
+                   rf_alive(go) && CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(go, NULL), sx, sy, vis);
+        }
+    }
+}
+
 static void cmd_input(void) {
     bool (*getb)(int32_t, int32_t, const void*) = (bool (*)(int32_t, int32_t, const void*))RVA(g_call_desc[C_FP_GETBUTTON].rva);
     float (*geta)(int32_t, int32_t, const void*) = (float (*)(int32_t, int32_t, const void*))RVA(g_call_desc[C_FP_GETAXIS].rva);
@@ -275,6 +300,34 @@ static void cmd_receivers(void) {
     }
 }
 
+// read-only: every InventoryReceiver object, active or not (Resources.FindObjectsOfTypeAll)
+static void cmd_all_receivers(void) {
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + META_INVRECV_TYPEINFO);
+    if (!k || (k & 1) || k < 0x10000 || !g_il2.class_get_type || !g_il2.type_get_object) return;
+    void* type = g_il2.type_get_object(g_il2.class_get_type((void*)k));
+    void* arr = CALLP(C_RES_FINDALL, void* (*)(void*, const void*))(type, NULL);
+    int32_t n = arr ? (int32_t) * (uint64_t*)((char*)arr + 0x18) : 0;
+    rf_log("allrecv: %d", n);
+    for (int i = 0; i < n && i < 128; i++) {
+        void* r = ((void**)((char*)arr + 0x20))[i];
+        if (!rf_alive(r)) continue;
+        char nm[64], items[160] = "";
+        rf_obj_name(r, nm, sizeof nm);
+        void* valid = *(void**)((char*)r + 0x50);
+        for (int j = 0; j < rf_list_size(valid) && j < 4; j++) {
+            char in[48];
+            rf_obj_name(rf_list_get(valid, j), in, sizeof in);
+            strncat(items, in, sizeof items - strlen(items) - 2);
+            strncat(items, ",", sizeof items - strlen(items) - 1);
+        }
+        void* go = rf_gameobject(r);
+        bool act = rf_alive(go) && CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(go, NULL);
+        float sx = -1, sy = -1;
+        rf_world_to_screen(rf_tr_pos(rf_transform(r)), &sx, &sy);
+        rf_log("  allrecv '%s' active=%d enabled? state=%d valid=[%s] screen(%.3f %.3f)", nm, act, *(int32_t*)((char*)r + 0x40), items, sx, sy);
+    }
+}
+
 extern void* g_last_box[2];
 static void cmd_boxes(void) {
     void* cam = rf_main_camera();
@@ -321,6 +374,8 @@ static void exec_line(char* line) {
         cmd_dump();
     } else if (!strcmp(argv[0], "tele")) {
         cmd_tele();
+    } else if (!strcmp(argv[0], "zooms")) {
+        cmd_zooms();
     } else if (!strcmp(argv[0], "input")) {
         cmd_input();
     } else if (!strcmp(argv[0], "look") && argc >= 3) {
@@ -341,6 +396,17 @@ static void exec_line(char* line) {
         rf_act_dev_aim_tip(false, 0, 0, 0);
     } else if (!strcmp(argv[0], "setact") && argc >= 3) {
         cmd_setact(argv[1], atoi(argv[2]) != 0);
+    } else if (!strcmp(argv[0], "skiplevel")) {
+        // dev navigation only: the pause menu's own Skip Level handler (shown in game after completion / secret)
+        void* mc = rf_menu_controller();
+        if (mc && rf_class_is(mc, "PauseMenuController")) {
+            rf_log("dev: PauseMenuController.SkipLevelPressed");
+            CALLP(C_PAUSE_SKIPLEVEL, void (*)(void*, const void*))(mc, NULL);
+        } else {
+            rf_log("dev: skiplevel needs the pause menu");
+        }
+    } else if (!strcmp(argv[0], "allrecv")) {
+        cmd_all_receivers();
     } else if (!strcmp(argv[0], "recv")) {
         cmd_receivers();
     } else if (!strcmp(argv[0], "boxes")) {
