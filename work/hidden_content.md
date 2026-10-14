@@ -33,6 +33,7 @@ six Loading scenes. All belong to the normal chapter flow (GameStateManager leve
 | H14 | NUnit / Unity Test Framework (TestCommand, SkipCommand, …) | library | included test runtime, no player entry point | not content | untouched (CODE_CLEANUP) |
 | H15 | Unity "trial version" watermark (bottom right) | engine license mark | BuildSettings hasPublishingRights=false, isNoWatermarkBuild=false; in the headset Unity drew it on the unused main display, in flat it is visible | not content | left as built (engine license indicator, not changed by the port); noted in PORT_FEATURES.md |
 | H16 | PICO resources (assets/res.json phoenix dialogs, boundary/tracking texts) | vendor resource | read by the PICO system UI only | VR-only | RESOURCE_CLEANUP |
+| H17 | Dev saves (SaveManager.LoadDevSave / GetDevSaves / CreateDevSave, Android loader via UnityWebRequest from StreamingAssets) | QA save states | LoadDevSave has no caller (debug menu compiled out); the APK has no StreamingAssets folder and no dev save files | incomplete/test-stub | nothing to load; untouched |
 
 ## Store and QA dialog
 - Store: none (premium game, no product catalog, no IAP calls). QA store products: not applicable.
@@ -44,5 +45,5 @@ six Loading scenes. All belong to the normal chapter flow (GameStateManager leve
 - hidden_content_status: AUTO_PROCESSED
 - automatic_unlocks: H1 (graphics settings screen)
 - kept as authored and verified: H2 (skip secret), H3
-- automatic_deferred: H4, H5, H6 (test stubs), H11 (online platform), H15 (engine mark)
+- automatic_deferred: H4, H5, H6, H17 (test stubs), H11 (online platform), H15 (engine mark)
 - purchase_gated_auto_unlocks / optional_routes / deferred: none
