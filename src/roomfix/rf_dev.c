@@ -385,9 +385,16 @@ static void exec_line(char* line) {
     } else if (!strcmp(argv[0], "faceloc") && argc >= 2) {
         cmd_face_loc(argv[1]);
     } else if (!strcmp(argv[0], "locyaw") && argc >= 2) {
-        cmd_loc_yaw(argv[1]);
+        char nm[128] = "";  // location names may contain spaces ("Start_Position 2")
+        for (int i = 1; i < argc; i++) {
+            if (i > 1) strncat(nm, " ", sizeof nm - strlen(nm) - 1);
+            strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
+        }
+        cmd_loc_yaw(nm);
     } else if (!strcmp(argv[0], "head?")) {
-        rf_log("head? yaw %.1f pitch %.1f lean %.2f", g_head.yaw, g_head.pitch, g_lean);
+        void* cam = rf_main_camera();
+        v3 cp = cam ? rf_tr_pos(rf_transform(cam)) : (v3){0, 0, 0};
+        rf_log("head? yaw %.1f pitch %.1f lean %.2f cam(%.3f %.3f %.3f)", g_head.yaw, g_head.pitch, g_lean, cp.x, cp.y, cp.z);
     } else if (!strcmp(argv[0], "ttaploc") && argc >= 2) {
         cmd_ttap_loc(argv[1]);
     } else if (!strcmp(argv[0], "aimtip") && argc >= 4) {
@@ -414,8 +421,10 @@ static void exec_line(char* line) {
             strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
         }
         rf_dev_comps(nm);
+    } else if (!strcmp(argv[0], "hint?")) {
+        rf_dev_hint();
     } else if (!strcmp(argv[0], "peek") && argc >= 3) {
-        rf_dev_peek(argv[1], argv[2]);
+        rf_dev_peek(argv[1], argv[2], argc >= 4 ? argv[3] : NULL);
     } else if (!strcmp(argv[0], "tpto") && argc >= 2) {
         char nm[128] = "";
         for (int i = 1; i < argc; i++) {

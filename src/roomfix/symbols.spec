@@ -53,6 +53,7 @@ HOOK GC_DESTROY       GrabbableCollider$$OnDestroy
 CALL PHYS_RAYCASTALL  UnityEngine.Physics$$RaycastAll|UnityEngine_Vector3_o direction, float maxDistance, int32_t layerMask, int32_t queryTriggerInteraction
 CALL HIT_COLLIDER     UnityEngine.RaycastHit$$get_collider
 CALL COL_ISTRIGGER    UnityEngine.Collider$$get_isTrigger
+CALL COL_BOUNDS      UnityEngine.Collider$$get_bounds
 CALL GC_FOROBJECT     GrabbableCollider$$GetForObject
 CALL GC_GRABBABLE     GrabbableCollider$$GetGrabbable
 CALL GRAB_CANGRAB     Grabbable$$CanBeGrabbed

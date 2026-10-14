@@ -108,15 +108,41 @@ void rf_dev_objs(const char* cls) {
     }
 }
 
+// dev route aid: the hint the game would show now (HintManager.Instance.CurrentHint: id, step and all hint keys)
+void rf_dev_hint(void) {
+    char* k = rf_find_class("TheRoomVR.dll", "", "HintManager");
+    char* statics = k ? *(char**)(k + 0xb8) : NULL;  // Il2CppClass.static_fields
+    char* hm = statics ? *(char**)statics : NULL;    // HintManager.Instance
+    char* rh = hm ? *(char**)(hm + 0x60) : NULL;     // CurrentHint
+    if (!rh) {
+        rf_log("hint: none");
+        return;
+    }
+    char* def = *(char**)(rh + 0x10);
+    char id[96] = "?";
+    if (def) rf_str_utf8(*(Il2CppString**)(def + 0x18), id, sizeof id);
+    char* keys = *(char**)(rh + 0x38);  // List<string>
+    int n = keys ? *(int32_t*)(keys + 0x18) : 0;
+    char* items = keys ? *(char**)(keys + 0x10) : NULL;
+    rf_log("hint: '%s' step %d of %d", id, *(int32_t*)(rh + 0x44), n);
+    for (int i = 0; i < n && items; i++) {
+        char key[96];
+        rf_str_utf8(((Il2CppString**)(items + 0x20))[i], key, sizeof key);
+        rf_log("  hint key %d: %s", i, key);
+    }
+}
+
 // dev diagnostics: raw fields of every instance of a game class (f = float, i = int32, b = byte, p = pointer)
-void rf_dev_peek(const char* cls, const char* spec) {
+void rf_dev_peek(const char* cls, const char* spec, const char* filter) {
     void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", cls));
     void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
-    for (int i = 0; i < arr_len(arr) && i < 12; i++) {
+    for (int i = 0, shown = 0; i < arr_len(arr) && shown < 12; i++) {
         char* o = arr_get(arr, i);
         if (!rf_alive(o)) continue;
         char nm[48], line[400];
         rf_obj_name(rf_gameobject(o), nm, sizeof nm);
+        if (filter && *filter && !strstr(nm, filter)) continue;
+        shown++;
         int n = snprintf(line, sizeof line, "peek %s '%s':", cls, nm);
         char buf[160];
         snprintf(buf, sizeof buf, "%s", spec);
@@ -127,8 +153,31 @@ void rf_dev_peek(const char* cls, const char* spec) {
             else if (kind == 'i') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(int32_t*)(o + off));
             else if (kind == 'b') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(uint8_t*)(o + off));
             else if (kind == 'p') n += snprintf(line + n, sizeof line - n, " %s=%p", tok, *(void**)(o + off));
+            else if (kind == 'l') n += snprintf(line + n, sizeof line - n, " %s=[%d]", tok,
+                                                *(char**)(o + off) ? *(int32_t*)(*(char**)(o + off) + 0x18) : -1);
         }
         rf_log("%s", line);
+        // List<Component> fields: every element with its GameObject and where it is
+        snprintf(buf, sizeof buf, "%s", spec);
+        for (char* tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+            char* lst = tok[0] == 'l' ? *(char**)(o + (unsigned)strtoul(tok + 1, NULL, 16)) : NULL;
+            int sz = lst ? *(int32_t*)(lst + 0x18) : 0;
+            for (int k = 0; k < sz && k < 8; k++) {
+                void* e = arr_get(*(void**)(lst + 0x10), k);
+                if (!rf_alive(e)) continue;
+                char en[48];
+                rf_obj_name(rf_gameobject(e), en, sizeof en);
+                v3 p = rf_tr_pos(rf_transform(e));
+                float sx = -1, sy = -1;
+                bool vis = rf_world_to_screen(p, &sx, &sy);
+                rf_log("  %s[%d] %s '%s' pos(%.3f %.3f %.3f) screen(%.2f %.2f) vis=%d", tok, k, rf_class_name(e), en, p.x,
+                       p.y, p.z, sx, sy, vis);
+                if (rf_class_is(e, "Collider")) {
+                    struct { v3 c, e; } b = CALLP(C_COL_BOUNDS, __typeof__(b) (*)(void*, const void*))(e, NULL);
+                    rf_log("    bounds centre(%.3f %.3f %.3f) extents(%.3f %.3f %.3f)", b.c.x, b.c.y, b.c.z, b.e.x, b.e.y, b.e.z);
+                }
+            }
+        }
     }
 }
 

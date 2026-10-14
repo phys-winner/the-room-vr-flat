@@ -77,7 +77,7 @@ static void tick_click(void) {
 }
 
 // ------------------------------------------------------------------------------------------ grabbing
-enum { K_FREE = 0, K_SLIDER = 1, K_ROTATION = 2, K_TWIST = 3 };
+enum { K_FREE = 0, K_SLIDER = 1, K_ROTATION = 2, K_TWIST = 3, K_PLANE = 4, K_CYLINDER = 5, K_ROLL = 6 };
 enum { G_IDLE = 0, G_HOVER, G_HOLD, G_RELEASE, G_REGRAB };
 
 static struct {
@@ -89,6 +89,9 @@ static struct {
     v3 axis;     // slider direction / rotation axis (world, unit)
     v3 pivot;    // rotation pivot (world)
     float h0, r0;
+    float hmin, hmax;  // K_CYLINDER: heights along the axis (from the pivot) the slide limits allow
+    v3 radial0, roll_n;  // K_ROLL: grab direction from the axis, drag plane normal (towards the eyes)
+    float roll_r;        // K_ROLL: radius the finger rolls the bar at
     quat rot0;   // grabber rotation at grab time
     float fx0, fy0, fx, fy;
     float twist0;  // finger angle around the projected pivot at grab time
@@ -345,6 +348,79 @@ void rf_act_probe(float nx, float ny) {
     }
 }
 
+// A part moved by several grabbables at once (CombinationGrabbable: the game passes the same hand position to
+// each child). The hand is kept on the surface those children allow, so the part follows the finger:
+//  - rotation + slide along the same axis, held by a lever (door bolts: lift and swing): the cylinder around
+//    that axis through the grab point; the finger ray's hit gives the swing angle and the lift height
+//  - the same, held on the bar itself (a grip on the axis: twist and pull): the finger rolls the bar like a
+//    pencil under it — across the bar turns it, along the bar slides it
+//  - two slides (sockets moving on a panel): their plane through the grab point
+//  - rotation + slide across it: the plane of the slide and the swing direction at the grab point
+//  - anything else: the upright plane through the grab point facing the player
+static void setup_combination(void* gr, v3 p) {
+    void* kids = *(void**)((char*)gr + 0x98);  // CombinationGrabbable.Grabbables
+    v3 ra = {0, 0, 0}, rp = {0, 0, 0}, sa[2];
+    char* sk = NULL;  // the (first) slider child
+    int nr = 0, ns = 0;
+    for (int i = 0; i < rf_list_size(kids) && i < 4; i++) {
+        void* k = rf_list_get(kids, i);
+        if (!rf_alive(k)) continue;
+        void* tr = rf_transform(k);
+        if (rf_class_is(k, "RotationGrabbable") && !nr) {
+            ra = v3_norm(rf_tr_dir(tr, *(v3*)((char*)k + 0x94)));  // RotateAxis
+            rp = rf_tr_pos(tr);
+            nr++;
+        } else if (rf_class_is(k, "SliderGrabbable") && ns < 2) {
+            if (!sk) sk = k;
+            sa[ns++] = v3_norm(rf_tr_dir(tr, *(v3*)((char*)k + 0x94)));  // LocalSlideAxis
+        }
+    }
+    g_grab.kind = K_PLANE;
+    g_grab.axis = (v3){0, 0, 0};  // plane normal; zero = upright plane facing the player
+    if (nr && ns == 1 && fabsf(v3_dot(ra, sa[0])) > 0.9f) {
+        v3 rel = v3_sub(p, rp);
+        g_grab.h0 = v3_dot(rel, ra);
+        g_grab.r0 = v3_len(v3_sub(rel, v3_scale(ra, g_grab.h0)));
+        v3 n = v3_sub(g_grab.cam0, p);
+        n = v3_sub(n, v3_scale(ra, v3_dot(n, ra)));
+        if (g_grab.r0 < 0.05f && v3_len(n) > 1e-3f) {
+            g_grab.kind = K_ROLL;
+            g_grab.axis = ra;
+            g_grab.pivot = rp;
+            g_grab.roll_n = v3_norm(n);
+            v3 radial = v3_sub(rel, v3_scale(ra, g_grab.h0));
+            g_grab.radial0 = g_grab.r0 > 1e-3f ? v3_scale(radial, 1.0f / g_grab.r0) : g_grab.roll_n;
+            g_grab.roll_r = 0.04f;
+            g_grab.r0 = fmaxf(g_grab.r0, 0.03f);  // the hand stays off the axis, where its angle is defined
+        } else if (g_grab.r0 > 0.02f) {
+            g_grab.kind = K_CYLINDER;
+            g_grab.axis = ra;
+            g_grab.pivot = rp;
+            // the slide limits (LimitSliderModifier Upper/Lower displacement) as heights of the grab point
+            float lo = -1e6f, hi = 1e6f;
+            void* mods = *(void**)(sk + 0xe0);  // SliderGrabbable.Modifiers
+            for (int i = 0; i < rf_list_size(mods); i++) {
+                char* m = rf_list_get(mods, i);
+                if (!rf_alive(m) || !rf_class_is(m, "LimitSliderModifier")) continue;
+                float lim = *(float*)(m + 0x48);  // Displacement
+                if (*(int32_t*)(m + 0x44) == 0) hi = fminf(hi, lim);  // LimitType Upper
+                else lo = fmaxf(lo, lim);
+            }
+            float disp = *(float*)(sk + 0xe8), dir = v3_dot(sa[0], ra) > 0 ? 1.0f : -1.0f;  // TotalDisplacement
+            float e1 = g_grab.h0 + dir * (lo - disp), e2 = g_grab.h0 + dir * (hi - disp);
+            g_grab.hmin = fminf(e1, e2);
+            g_grab.hmax = fmaxf(e1, e2);
+        }
+    } else if (!nr && ns == 2 && v3_len(v3_cross(sa[0], sa[1])) > 0.3f) {
+        g_grab.axis = v3_norm(v3_cross(sa[0], sa[1]));
+    } else if (nr && ns == 1) {
+        v3 rel = v3_sub(p, rp);
+        v3 tangent = v3_cross(ra, v3_sub(rel, v3_scale(ra, v3_dot(rel, ra))));
+        v3 n = v3_cross(sa[0], tangent);
+        if (v3_len(n) > 1e-4f) g_grab.axis = v3_norm(n);
+    }
+}
+
 // Constraint of the grabbed object: slider axis, rotation axis/pivot, or wrist twist.
 static void setup_constraint(void* gr, v3 p, float nx, float ny) {
     void* tr = rf_transform(gr);
@@ -354,6 +430,8 @@ static void setup_constraint(void* gr, v3 p, float nx, float ny) {
         // the rope is one hand-over-hand pull
         g_grab.kind = K_SLIDER;
         g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // LocalSlideAxis
+    } else if (rf_class_is(gr, "CombinationGrabbable")) {
+        setup_combination(gr, p);
     } else if (rf_class_is(gr, "RotationGrabbable")) {
         g_grab.kind = *((char*)gr + 0xa8) /* TwistControl */ ? K_TWIST : K_ROTATION;
         g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // RotateAxis
@@ -409,8 +487,8 @@ int rf_act_grab_begin(float nx, float ny) {
     g_grab.target_rot = g_grab.rot0;
     g_grab.state = G_HOVER;
     g_grab.frames = 0;
-    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f twistControl=%d", rf_class_name(gr), g_grab.kind,
-           g_grab.inv, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0,
+    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f h=%.3f..%.3f twistControl=%d", rf_class_name(gr),
+           g_grab.kind, g_grab.inv, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0, g_grab.hmin, g_grab.hmax,
            rf_class_is(gr, "RotationGrabbable") ? *((char*)gr + 0xa8) : -1);
     return RF_GRAB_OK;
 }
@@ -564,6 +642,81 @@ static v3 drag_target(void) {
     }
     case K_TWIST:
         return g_grab.point0;
+    case K_PLANE: {
+        v3 n = g_grab.axis;
+        if (v3_len(n) < 0.5f || fabsf(v3_dot(d, n)) < 0.15f) {
+            // no plane of its own, or seen edge-on: the upright plane through the grab point facing the player
+            n = v3_sub(g_grab.point0, g_grab.cam0);
+            n.y = 0;
+            if (v3_len(n) < 1e-3f) return v3_add(c, v3_scale(d, g_grab.depth));
+            n = v3_norm(n);
+        }
+        float dn = v3_dot(d, n);
+        if (fabsf(dn) < 0.05f) return v3_add(c, v3_scale(d, g_grab.depth));
+        float s = v3_dot(v3_sub(g_grab.point0, c), n) / dn;
+        if (s <= 0) return g_grab.target;
+        return v3_add(c, v3_scale(d, s));
+    }
+    case K_CYLINDER: {
+        // The finger ray against the cylinder (axis through the pivot, radius r0): the grabbed point stays under
+        // the finger. A ray crosses the cylinder twice (the side facing the eyes and the far side) — seen from
+        // above, a handle at rest can sit on the far side and has to come round the outline to swing out. Of the
+        // two, the one the slide limits allow wins (at the bottom a drag towards the player swings the handle out
+        // instead of pushing it below its lowest position; at the top a drag past the outline swings it back
+        // over), otherwise the one nearer the current hand position.
+        v3 a = g_grab.axis, w = v3_sub(c, g_grab.pivot);
+        v3 dp = v3_sub(d, v3_scale(a, v3_dot(d, a))), wp = v3_sub(w, v3_scale(a, v3_dot(w, a)));
+        float A = v3_dot(dp, dp), B = 2.0f * v3_dot(dp, wp), C = v3_dot(wp, wp) - g_grab.r0 * g_grab.r0;
+        if (A < 1e-4f) return g_grab.target;  // looking along the axis
+        float disc = B * B - 4.0f * A * C, sq = disc > 0 ? sqrtf(disc) : 0;
+        if (disc < 0) {
+            // Off the outline the part rolls on over it: from the outline point (the ray's closest approach) it
+            // turns on towards the far side by the arc the finger has gone past the outline. Coming back inside,
+            // the far side is then the nearer of the two hits, so a twist can go all the way round.
+            float s = -B / (2.0f * A);
+            if (s <= 0) return g_grab.target;
+            v3 rel = v3_sub(v3_add(c, v3_scale(d, s)), g_grab.pivot);
+            float h = v3_dot(rel, a);
+            v3 radial = v3_sub(rel, v3_scale(a, h));
+            float dist = v3_len(radial);
+            if (dist < 1e-4f) return g_grab.target;
+            float beta = fminf((dist - g_grab.r0) / g_grab.r0, 2.0f);
+            v3 r = v3_add(v3_scale(radial, cosf(beta) / dist), v3_scale(v3_norm(dp), sinf(beta)));
+            return v3_add(g_grab.pivot, v3_add(v3_scale(a, h), v3_scale(r, g_grab.r0)));
+        }
+        float cand[2] = {(-B - sq) / (2.0f * A), (-B + sq) / (2.0f * A)};
+        v3 best = g_grab.target;
+        float best_score = 1e9f;
+        for (int i = 0; i < 2; i++) {
+            if (cand[i] <= 0) continue;
+            v3 rel = v3_sub(v3_add(c, v3_scale(d, cand[i])), g_grab.pivot);
+            float h = v3_dot(rel, a);
+            v3 radial = v3_sub(rel, v3_scale(a, h));
+            if (v3_len(radial) < 1e-4f) continue;
+            v3 t = v3_add(g_grab.pivot, v3_add(v3_scale(a, h), v3_scale(v3_norm(radial), g_grab.r0)));
+            float out = h < g_grab.hmin ? g_grab.hmin - h : h > g_grab.hmax ? h - g_grab.hmax : 0;
+            float score = (out > 0.003f ? 1.0f + out : 0) + v3_len(v3_sub(t, g_grab.target));
+            if (score < best_score) {
+                best_score = score;
+                best = t;
+            }
+        }
+        return best;
+    }
+    case K_ROLL: {
+        // the finger on the plane through the grab point facing the eyes: its move along the bar slides it, across
+        // the bar turns it by the arc the finger travelled (the surface under the finger moves with it)
+        v3 n = g_grab.roll_n, a = g_grab.axis;
+        float dn = v3_dot(d, n);
+        if (fabsf(dn) < 0.05f) return g_grab.target;
+        float s = v3_dot(v3_sub(g_grab.point0, c), n) / dn;
+        if (s <= 0) return g_grab.target;
+        v3 w = v3_sub(v3_add(c, v3_scale(d, s)), g_grab.point0);
+        float phi = v3_dot(w, v3_cross(a, n)) / g_grab.roll_r;
+        v3 r = g_grab.radial0;  // turned about the axis by phi (Rodrigues; r is perpendicular to the axis)
+        r = v3_add(v3_scale(r, cosf(phi)), v3_scale(v3_cross(a, r), sinf(phi)));
+        return v3_add(g_grab.pivot, v3_add(v3_scale(a, g_grab.h0 + v3_dot(w, a)), v3_scale(r, g_grab.r0)));
+    }
     default: {
         v3 t;
         if (receiver_magnet(g_grab.fx, g_grab.fy, &t)) return t;
@@ -602,6 +755,23 @@ static void tick_grab(void) {
             rf_screen_ray(g_grab.fx, g_grab.fy, &o, &d);
             rf_log("rotate: finger(%.3f %.3f) target screen(%.3f %.3f) dn=%.2f totalRotation=%.1f", g_grab.fx, g_grab.fy, fx, fy,
                    v3_dot(d, g_grab.axis), *(float*)((char*)g_grab.grabbable + 0x118));
+        }
+        if (g_dev && (g_grab.kind == K_CYLINDER || g_grab.kind == K_ROLL) && (g_grab.frames % 15) == 0) {
+            // hand angle about the axis (from the grab direction) and position along it, vs the children's state
+            v3 a = g_grab.axis, r0v = v3_sub(g_grab.point0, g_grab.pivot), rv = v3_sub(g_grab.target, g_grab.pivot);
+            r0v = v3_sub(r0v, v3_scale(a, v3_dot(r0v, a)));
+            float h = v3_dot(rv, a);
+            rv = v3_sub(rv, v3_scale(a, h));
+            float ang = atan2f(v3_dot(v3_cross(r0v, rv), a), v3_dot(r0v, rv)) / DEG2RAD;
+            void* kids = *(void**)((char*)g_grab.grabbable + 0x98);
+            float rot = 0, disp = 0;
+            for (int i = 0; i < rf_list_size(kids); i++) {
+                char* k = rf_list_get(kids, i);
+                if (rf_class_is(k, "RotationGrabbable")) rot = *(float*)(k + 0x118);
+                else if (rf_class_is(k, "SliderGrabbable")) disp = *(float*)(k + 0xe8);
+            }
+            rf_log("combo: finger(%.3f %.3f) hand angle %.1f along %.3f (grab %.3f) -> rotation %.1f displacement %.3f",
+                   g_grab.fx, g_grab.fy, ang, h, g_grab.h0, rot, disp);
         }
         if (g_grab.kind == K_TWIST && !g_grab.twist_armed && finger_off_pivot(g_grab.fx, g_grab.fy)) {
             g_grab.twist_armed = true;
@@ -712,6 +882,7 @@ static struct {
     int aim_frames;
     void* target_loc;
     v3 target_pt;
+    bool forced;  // the pointer's arc ends on another location in front: teleport through Player.TeleportTo
 } g_tp;
 
 static void* teleporter_transform(void** tp_out) {
@@ -797,6 +968,7 @@ bool rf_act_teleport_tap(float nx, float ny) {
     g_tp.target_loc = best_loc;
     g_tp.target_pt = best_pt;
     g_tp.aim_frames = 1;
+    g_tp.forced = false;
     return true;
 }
 
@@ -810,13 +982,26 @@ static void tick_teleport(void) {
         g_tp.aim_frames++;
         v3 o = rf_tr_pos(rf_transform(rf_main_camera()));
         v3 from = v3_add(o, (v3){0, -0.25f, 0});
-        rf_aim_transform(RIGHT, tt, from, v3_norm(v3_sub(g_tp.target_pt, from)));
+        if (g_tp.forced) rf_aim_transform(RIGHT, tt, from, (v3){0, 1, 0});  // at nothing while we teleport
+        else rf_aim_transform(RIGHT, tt, from, v3_norm(v3_sub(g_tp.target_pt, from)));
         if (g_tp.aim_frames == 16) {
             void* pointed = *(void**)((char*)tp + 0xb0), *pointed_z = *(void**)((char*)tp + 0xc8);
-            rf_log("teleport: pointer on %s", (pointed == g_tp.target_loc || pointed_z == g_tp.target_loc) ? "target" : "something else");
-            g_hand[RIGHT].stick = (v2){0, 0};  // release -> TeleportIfPossible
+            bool on_target = pointed == g_tp.target_loc || pointed_z == g_tp.target_loc;
+            if (on_target || !rf_class_is(g_tp.target_loc, "PlayerLocation") || !rf_alive(g_player)) {
+                rf_log("teleport: pointer on %s", on_target ? "target" : "something else");
+                g_hand[RIGHT].stick = (v2){0, 0};  // release -> TeleportIfPossible
+            } else {
+                // a VR player bends the arc over the nearer location; a tap cannot, so the tapped (active) location
+                // is used directly: aim the pointer at nothing, release, then the game's own Player.TeleportTo
+                g_tp.forced = true;
+            }
         }
-        if (g_tp.aim_frames > 20) {
+        if (g_tp.forced && g_tp.aim_frames == 20) {
+            g_hand[RIGHT].stick = (v2){0, 0};
+            CALLP(C_PLAYER_TELEPORTTO, void (*)(void*, void*, const void*))(g_player, g_tp.target_loc, NULL);
+            rf_log("teleport: arc ended on another location; Player.TeleportTo the tapped one");
+        }
+        if (g_tp.aim_frames > (g_tp.forced ? 24 : 20)) {
             g_tp.on = false;
             g_tp.aim_frames = 0;
             rf_hand_rest(RIGHT);
