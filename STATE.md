@@ -1,12 +1,12 @@
 # Game port state — The Room VR: A Dark Matter (PICO build) → flat touch phone
 
 ## Current
-- state_revision: 3
-- updated_at: 2026-10-14T10:45+03:00
+- state_revision: 4
+- updated_at: 2026-10-14T13:40+03:00
 - objective: ADAPTATION_COMPLETE for a VR→flat conversion (user /goal 2026-10-14: «/adapt-arm32-game адаптируй vr игру под плоские сенсорные экраны. работай только с adb устройством redmi-note8pro»)
 - workflow_status: IN_PROGRESS
-- current_step: phase 4–6 research reports; DEVICE_EFFECTS closed on Mali (R012); phase 5 touch/HUD/options/localisation/manifest modernisation done on device (R007–R011)
-- next_action: GRAPHICS_UPGRADE + HIDDEN_CONTENT (quality level Low by VrPlatform_Oculus, hidden GraphicsScreen, MSAA, skip-level/debug menu), then CODE/RESOURCE/PERMISSION/OBB/TEXTURE reports; FPS_LIMIT_VERIFIED measurements; FOV policy → Hor+ against a 16:9 reference (default 90); lifecycle + data-root restart/update checks; release build without dev paths
+- current_step: eight research reports PASSED (R012–R016 device evidence); FPS limit verified; full-screen render; touch route beyond the tutorial pending (chapter mechanics: Egypt ropes/spinners, Chapel superzoom/ropes/organ keyboard/lockpick, Witch painting/symbol drawing/cauldron/pouring, Desert painting)
+- next_action: chapter mechanics by real touch via the authored pause-menu skip secret (work/manifests/scene_mechanics.txt), fix touch gaps, close VR_ACTIONS_COVERED / TOUCH_GAMEPLAY_VERIFIED; then release build (no RF_DEV), lifecycle matrix rows, PORT_FEATURES.md, final checks
 - blocker: none
 - bridge_mode: NOT_APPLICABLE — input is native arm64-v8a only (lib/arm64-v8a: libil2cpp, libunity, libmain, libpxr_api, libPxrPlatform, libpxrplatformloader); no armeabi-v7a code exists
 - bridge_input_snapshot: NOT_APPLICABLE (no bridge); ARM32_READY is interpreted as "restoration snapshot verified" for a native arm64 game (workflow.md "Native arm64 runtime")
@@ -33,7 +33,7 @@
 | obb_unpack_policy | Cache | Skill default | KEEP_CONTAINER (no OBB exists; data already inside the base APK) | — |
 | Git payload policy | Repo | Agent 2026-10-14 | Binary payloads ignored, hashed in work/manifests; modified binaries produced by tracked scripts with preimage checks | — |
 | FPS limit | Options screen | Skill contract | rows 30 / 45 / 60 / display rate, default 60, Application.targetFrameRate; stored in port_settings.cfg | — |
-| FOV | Options screen | Agent 2026-10-14 | option row 70–110 (default 100, hor at actual aspect) — to change: Hor+ against 16:9 reference, default 90 | — |
+| FOV | Options screen | Agent 2026-10-14 | option row 70–110 = horizontal FOV of a 16:9 reference, vertical kept (hor+), default 90 | hor at actual aspect, default 100 |
 
 ## Toolchain
 - machine_config.json: skill copy; java <jdk-24.0.1>/bin/java.exe
@@ -48,20 +48,20 @@
 |---|---|---|---|---|
 | test device (all roles allowed by the user) | redmi-note8pro | Redmi Note 8 Pro (begonia, MT6785, Mali-G76 MC4), Android 11/SDK 30, MIUI 12.5, abilist arm64-v8a,armeabi-v7a,armeabi | 4096 (getconf PAGESIZE) | online; root via Magisk `su -c` |
 
-- display 1080x2340 (landscape 2340x1080), 440 dpi, single mode 60 Hz, cutout top 76 px; MIUI letterboxes the cutout side for this app (window [76,0][2340,1080]) despite shortEdges + MIUI notch flags — open item
+- display 1080x2340 (landscape 2340x1080), 440 dpi, single mode 60 Hz, cutout top 76 px; the left bar was Unity's own safe-area letterbox (boot.config androidRenderOutsideSafeArea=0) — set to 1 in p060: full 2340x1080 render, HUD inside the safe insets
 - final_acceptance (arm64-only + 16 KB runtime): no allowed device has 16 KB pages → open, device-limited (not faked)
 
 ## Artifacts
 | Role | Source revision/patch | Build inputs | APK/set hash manifest | Evidence |
 |---|---|---|---|---|
 | accepted | none yet | | | |
-| candidate (dev) | HEAD a01750b | app/ (dev libroomfix 36fe29b9…, 31 patched shaders) | out/room_p057.apk aae8d362da1f467ff358c0a83bb69303139fb55de94869b32f58ecccdccc2762 | R012 |
-| previous candidate | d0e54fb | app/ | out/room_p055.apk e34a72319d54…16a3 (clean-install baseline for R011) | R011 |
-| installed per serial | redmi-note8pro: room_p057.apk (install -r over p055, data kept) | a01750b | — | R012 |
+| candidate (dev) | HEAD b404304 | app/ (dev libroomfix effe1fa8… pushed in place; APK carries a2e6650e…; 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p061.apk 6225b0026ee8df7dec1ce472682399db7ee8d88485ab5d4fb9dd4d9c97acdb04 | R013–R016 |
+| previous candidates | d0e54fb / a01750b | app/ | out/room_p055.apk e34a7231… (R011 clean install), out/room_p057.apk aae8d362… (R012) | R011, R012 |
+| installed per serial | redmi-note8pro: room_p061.apk (install -r chain since p055) + dev libroomfix effe1fa8… pushed | b404304 | — | R015, R016 |
 | ARM32_LASTGOOD and snapshot | none | | | |
 | ARM64_ACCEPTED before additions | none | | | |
 
-- storage_cleanup: out/room_p007.apk and old build-cache attempts are obsolete (superseded by p055/p057) — remove at the next cleanup pass
+- storage_cleanup: 2026-10-14 removed out/room_p007.apk; keep p055 (clean-install baseline), p057, p061 until the release candidate; leaked adb logcat captures killed and route.start now stops previous captures
 
 ## Gates
 | Phase/subgate | Status | Evidence | Dependency |
@@ -69,14 +69,14 @@
 | PHASE0_1_SETUP | PASSED | inputs hashed, decode, app copy, git; portable signer builds | — |
 | ORIGINAL_BEHAVIOUR_RECORDED | PASSED | work/evidence/R001_original_baseline/RESULT.md | — |
 | VR_RUNTIME_DETACHED | IN_PROGRESS | R002 no PICO dialog/crash; R011 XR subsystem manifests pruned, PXR verify service skipped, entitlement forced, VR meta-data removed | release build (no dev paths) + soak |
-| FLAT_FRAME_VERIFIED | IN_PROGRESS | R002 validated frames; R012 FastGlow disc fixed, Mali link errors 30 → 0 | open: MIUI cutout letterbox re-check |
-| FLAT_CAMERA_VERIFIED | IN_PROGRESS | R003 look, R008 FOV row, R009 arrival facing/resting hands, R010 pinch lean | FOV Hor+ (16:9 ref, default 90) change + check |
+| FLAT_FRAME_VERIFIED | PASSED | R002 validated frames; R012 FastGlow disc fixed, Mali link errors 30 → 0; p060 full-screen render (no static bar), HUD in safe insets | — |
+| FLAT_CAMERA_VERIFIED | PASSED | R003 look, R008 FOV row, R009 arrival facing/resting hands, R010 pinch lean; hor+ policy (16:9 reference, default 90 → 101° across at 2340x1080) | — |
 | VR_ACTIONS_COVERED | IN_PROGRESS | R003–R010: menus, snap/teleport, grab/levers/sliders/knobs/cranks, inventory/receivers, eyepiece, hints, pinch lean, hold+look, Back | superzoom/poke/ropes reached on device or exact debts |
-| TOUCH_GAMEPLAY_VERIFIED | IN_PROGRESS | R009 new game → tutorial safe by real touch; R010 later-mechanics samples; work/touch_controls.md | full route beyond the tutorial puzzles |
+| TOUCH_GAMEPLAY_VERIFIED | IN_PROGRESS | R009 new game → tutorial safe by real touch; R010 later-mechanics samples; R014 skip secret by touch; work/touch_controls.md | chapter mechanics (scene_mechanics.txt) by touch |
 | DEVICE_EFFECTS_VERIFIED | PASSED (Mali-G76) | R012; work/device_effects.md | other GPUs device-limited |
 | RESTORATION_RESEARCH_COMPLETE | NOT_STARTED | Nine reviewed reports | All research rows PASSED |
-| DATA_EXTERNAL_ROOT (5.1.1) | IN_PROGRESS | R011 clean install: files/shared_prefs/databases redirected to getExternalFilesDir, saves written | restart/resume/update-install checks |
-| FPS_LIMIT_VERIFIED | IN_PROGRESS | R008 selector (30/45/60/display, default 60) → targetFrameRate | SurfaceFlinger measurements of 4 modes, persistence, lifecycle, simulation speed |
+| DATA_EXTERNAL_ROOT (5.1.1) | IN_PROGRESS | R011 clean install redirect; R012–R016 update installs (install -r) kept saves, PlayerPrefs (graphics QUALITY/MSAA) and port_settings.cfg | final release run |
+| FPS_LIMIT_VERIFIED | PASSED | R016: SF 30.0/45.2/60.0/60.0 fps, game time = wall time, persistence across cold restart/scene change/Home-resume; default 60 | Hz-change rows device-limited (single-mode panel) |
 | ARM32_READY (restoration snapshot) | NOT_STARTED | | phases 0–6 |
 | BRIDGE (phase 7 guest gates) | NOT_APPLICABLE | native arm64 input | — |
 | ARM64_ACCEPTED | NOT_STARTED | | final matrix; 16 KB runtime proof device-limited |
@@ -85,27 +85,27 @@
 ## Required research
 | Direction | Research | Report and input revision/hash | Implementation gate, evidence, dependency |
 |---|---|---|---|
-| CODE_CLEANUP | NOT_STARTED | work/code_cleanup.md (input d6608b54…) | partial: XR subsystem manifests pruned, PXR/entitlement neutralised (R011); report + dead-SDK decisions pending |
-| RESOURCE_CLEANUP | NOT_STARTED | work/resource_cleanup.md | NOT_STARTED; VR-only shaders (Oculus/*, PXR/*, SteamVR/*) and controller models are candidates after HIDDEN_CONTENT |
-| PERMISSION_CLEANUP | NOT_STARTED | work/permission_audit.md | implemented: all original permissions removed, runtime R011; consumer analysis report pending |
-| OBB_EMBEDDING | NOT_STARTED | work/cache_embedding.md | no OBB in input (KEEP_CONTAINER); report pending |
-| HIDDEN_CONTENT | NOT_STARTED | work/hidden_content.md | candidates seen: DebugMenuManager, skip-level secret (PauseMenuController.SkipLevelPressed), GraphicsScreen, dev saves |
-| GRAPHICS_UPGRADE | IN_PROGRESS | work/graphics_upgrade.md (to write) | findings: default quality Low (VrPlatform_Oculus.GetDefaultQualityLevel=1), MSAA 4, shadows off in all levels, post FX/AO/volumetrics code stripped |
-| TEXTURE_PORTABILITY | NOT_STARTED | work/texture_portability.md | ASTC declared; UnityPy format inventory pending |
+| CODE_CLEANUP | PASSED | work/code_cleanup.md (input d6608b54…) | applied: XR subsystem manifests, xrsdk pre-init, sdcard request, otacert removed; PICO/Oculus SDK kept inert with neutralised entry points |
+| RESOURCE_CLEANUP | PASSED | work/resource_cleanup.md | no dead Android resources; VR-only Unity data (~43 MB textures) kept inside shared serialized files with reasons |
+| PERMISSION_CLEANUP | PASSED | work/permission_audit.md | all five removed (consumers traced), runtime R011–R016 |
+| OBB_EMBEDDING | PASSED | work/cache_embedding.md | NOT_APPLICABLE implementation: single base APK, no OBB (Unity probe only) |
+| HIDDEN_CONTENT | PASSED | work/hidden_content.md | AUTO_PROCESSED: graphics screen exposed; skip secret verified by touch (R014); debug menu/level select/demo/dev saves are stubs |
+| GRAPHICS_UPGRADE | PASSED | work/graphics_upgrade.md | MSAA restored (4x), graphics settings screen exposed, idle depth pass removed; default Low+4x by measurement (R013) |
+| TEXTURE_PORTABILITY | PASSED | work/texture_portability.md | inventory: ASTC 6x6/4x4 + uncompressed; the one DXT5 Crunched texture → ASTC 4x4 (R015); TEXTURES_RUNTIME_VERIFIED on Mali |
 | DEVICE_EFFECTS | PASSED | work/device_effects.md (input d6608b54…, shader manifest work/manifests/shader_patches.json) | DEVICE_EFFECTS_VERIFIED on Mali-G76 (R012); Adreno/PowerVR device-limited |
 | TOUCH_CONTROLS | IN_PROGRESS | work/touch_controls.md (action map, multi-touch rules, debts) | TOUCH_GAMEPLAY_VERIFIED pending full route |
 
 ## Current blocker and experiments
-- blocker_id: none; consecutive_no_progress 0/3; candidate_id 57 (p057); diagnostic_runs R001–R012
+- blocker_id: none; consecutive_no_progress 0/3; candidate_id 61 (p061); diagnostic_runs R001–R016
 
 ## Content and cache
-- hidden_content_status: NOT_STARTED
+- hidden_content_status: AUTO_PROCESSED (automatic_unlocks H1; deferred H4 H5 H6 H11 H15 H17; no purchase-gated content; no QA dialog needed)
 - obb_unpack_policy: KEEP_CONTAINER; obb_unpack_instruction: NONE; cache_layout: base-assets as shipped by the original (no external cache exists)
 
 ## Acceptance evidence
 - R001 original: storage permission → "This SDK can not run on this device" (PICO platform loader) → black
 - R002 first flat frame; R003 touch look + menu tap; R004 snap/teleport; R005 lever; R006 inventory key → safe
-- R007 HUD + real touch; R008 options rows (FPS limit, FOV) + localisation + Back; R009 tutorial to the open safe by real multi-touch; R010 later mechanics by touch; R011 modern manifest (min 24 / target 37, no permissions, data redirect); R012 device effects on Mali
+- R007 HUD + real touch; R008 options rows (FPS limit, FOV) + localisation + Back; R009 tutorial to the open safe by real multi-touch; R010 later mechanics by touch; R011 modern manifest (min 24 / target 37, no permissions, data redirect); R012 device effects on Mali; R013 graphics upgrade; R014 hidden content; R015 texture portability; R016 FPS limit
 
 ## Port documentation
 - PORT_FEATURES.md: not started
