@@ -71,9 +71,13 @@ static struct {
     float d0, lean0;
     float mx0, my0, sx0, sy0;  // two-finger pan: midpoint and sway at the start
     bool look;  // second finger turns the view while the first one holds an object
-} g_f2;  // second finger: pinch, or look while holding
+    bool turn;  // second finger, put down next to the held object, turns it in the hand
+    float tx, ty;  // turn: last position of finger 2 relative to finger 1 (ball radii)
+    int turn_moves;
+} g_f2;  // second finger: pinch, look while holding, or turn the held object
 
 #define LEAN_PER_UNIT 0.5f  // metres of lean per screen height of finger spread
+#define TURN_R 0.3f         // second finger this close to the holding one (screen heights) turns the object
 #define SWAY_PER_UNIT 0.5f  // metres of head sway per screen height of two-finger pan
 
 #define TAP_MS 350
@@ -132,6 +136,7 @@ static void cancel_all(void) {
     if (g_f.mode == F_GRAB) rf_act_grab_end();
     g_f.mode = F_NONE;
     g_f2.look = false;
+    g_f2.turn = false;
 }
 
 static void on_event(const touch_ev* e) {
@@ -146,12 +151,21 @@ static void on_event(const touch_ev* e) {
     if (e->action == 0) {
         if (g_f.mode == F_NONE) {
             finger_down(e);
-        } else if (g_f.mode == F_GRAB && !g_f2.look && e->id != g_f.id) {
-            // hold an object with one finger and look around with another (carry it, look through it)
-            g_f2.look = true;
+        } else if (g_f.mode == F_GRAB && !g_f2.look && !g_f2.turn && e->id != g_f.id) {
+            // hold an object with one finger and look around with another (carry it, look through it); a second
+            // finger put down right next to a carried object turns it instead (tip a jar, show another side)
+            float dx = (e->x - g_f.x) * g_aspect, dy = e->y - g_f.y;
             g_f2.id = e->id;
             g_f2.x = e->x;
             g_f2.y = e->y;
+            if (sqrtf(dx * dx + dy * dy) < TURN_R && rf_act_grab_can_roll()) {
+                g_f2.turn = true;
+                g_f2.tx = dx / TURN_R;
+                g_f2.ty = dy / TURN_R;
+                g_f2.turn_moves = 0;
+            } else {
+                g_f2.look = true;
+            }
         } else if ((g_f.mode == F_PENDING || g_f.mode == F_LOOK) && !rf_menu_context() && e->id != g_f.id) {
             g_f.mode = F_PINCH;
             g_f2.id = e->id;
@@ -163,6 +177,20 @@ static void on_event(const touch_ev* e) {
             g_f2.my0 = (g_f.y + g_f2.y) * 0.5f;
             g_f2.sx0 = g_sway_x;
             g_f2.sy0 = g_sway_y;
+        }
+        return;
+    }
+    if (g_f2.turn && e->id == g_f2.id) {
+        if (e->action == 2) {
+            // incremental, so circling keeps turning (pour a jar out, turn a note over and back)
+            float tx = (e->x - g_f.x) * g_aspect / TURN_R, ty = (e->y - g_f.y) / TURN_R;
+            rf_act_grab_turn(g_f2.tx, g_f2.ty, tx, ty);
+            g_f2.tx = tx;
+            g_f2.ty = ty;
+            g_f2.turn_moves++;
+        } else {
+            g_f2.turn = false;
+            rf_log("touch: turned the held object (%d moves)", g_f2.turn_moves);
         }
         return;
     }
@@ -200,6 +228,7 @@ static void on_event(const touch_ev* e) {
     else {
         finger_up(e, e->action == 3);
         g_f2.look = false;
+        g_f2.turn = false;
     }
 }
 

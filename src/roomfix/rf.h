@@ -171,6 +171,8 @@ void rf_gc_remove(void* gc);
 void rf_act_grab_drag(float nx, float ny);
 void rf_act_grab_end(void);
 bool rf_act_grabbing(void);
+bool rf_act_grab_can_roll(void);  // a carried object can be turned in the hand
+void rf_act_grab_turn(float x0, float y0, float x1, float y1);  // second finger moved (ball radii from the first)
 void rf_act_grab_depth(float depth);
 void rf_act_teleport_mode(bool on);
 bool rf_act_teleport_mode_on(void);

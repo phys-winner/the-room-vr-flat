@@ -521,6 +521,39 @@ void rf_act_grab_end(void) {
 
 bool rf_act_grabbing(void) { return g_grab.state != G_IDLE; }
 
+// Turning a carried object in the hand (tip a jar to pour it, turn a note over to read it): a virtual ball
+// around the holding finger. The second finger drags the ball's surface: circling the holding finger rolls the
+// object about the view axis, a sideways drag across it turns it about the vertical, an up/down drag tips it.
+bool rf_act_grab_can_roll(void) {
+    return (g_grab.state == G_HOLD || g_grab.state == G_HOVER) && g_grab.kind == K_FREE && !g_grab.inv;
+}
+
+// (x, y): second finger relative to the holding one, in ball radii (x right, y down on screen)
+static v3 ball_point(float x, float y, v3 right, v3 up, v3 fwd) {
+    float r2 = x * x + y * y, z = 0;
+    if (r2 > 1.0f) {
+        float r = sqrtf(r2);
+        x /= r;
+        y /= r;
+    } else {
+        z = sqrtf(1.0f - r2);
+    }
+    return v3_add(v3_add(v3_scale(right, x), v3_scale(up, -y)), v3_scale(fwd, -z));  // z: towards the eyes
+}
+
+void rf_act_grab_turn(float x0, float y0, float x1, float y1) {
+    if (!rf_act_grab_can_roll()) return;
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    quat cq = rf_tr_rot(rf_transform(cam));
+    v3 right = q_rot(cq, (v3){1, 0, 0}), up = q_rot(cq, (v3){0, 1, 0}), fwd = q_rot(cq, (v3){0, 0, 1});
+    v3 a = ball_point(x0, y0, right, up, fwd), b = ball_point(x1, y1, right, up, fwd);
+    v3 n = v3_cross(a, b);
+    float sn = v3_len(n), cs = v3_dot(a, b);
+    if (sn < 1e-5f) return;
+    g_grab.target_rot = q_mul(q_axis(v3_scale(n, 1.0f / sn), atan2f(sn, cs)), g_grab.target_rot);
+}
+
 void rf_act_grab_depth(float depth) {
     if (g_grab.state == G_HOLD || g_grab.state == G_HOVER) g_grab.depth = depth;
 }
