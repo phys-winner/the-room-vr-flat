@@ -24,6 +24,7 @@ static pthread_mutex_t g_log_mu = PTHREAD_MUTEX_INITIALIZER;
 static FILE* g_log_file;
 char g_ext_dir[512];
 bool g_dev;  // diagnostics enabled by <extDir>/roomfix.dev
+#define LOG_MAX_LINES 3000
 
 void rf_log(const char* fmt, ...) {
     char buf[1024];
@@ -33,10 +34,14 @@ void rf_log(const char* fmt, ...) {
     va_end(ap);
     __android_log_write(ANDROID_LOG_INFO, TAG, buf);
     pthread_mutex_lock(&g_log_mu);
-    if (g_log_file) {
+    // the file keeps start-up provenance and the session's first events; for players it is bounded (and rewritten
+    // at every start), unbounded only with the developer flag file
+    static int lines;
+    if (g_log_file && (g_dev || lines < LOG_MAX_LINES)) {
         struct timespec ts;
         clock_gettime(CLOCK_MONOTONIC, &ts);
         fprintf(g_log_file, "%5ld.%03ld %s\n", (long)ts.tv_sec, ts.tv_nsec / 1000000, buf);
+        if (!g_dev && ++lines == LOG_MAX_LINES) fprintf(g_log_file, "log: %d lines, the rest only in logcat\n", lines);
         fflush(g_log_file);
     }
     pthread_mutex_unlock(&g_log_mu);

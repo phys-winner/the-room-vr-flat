@@ -45,14 +45,18 @@ def stop_captures():
         pf.unlink()
 
 
-def start(tag):
+def start(tag, dev=True):
+    """dev=False: player mode (no developer flag file, so no dev console and a bounded log) for release checks"""
     stop_captures()
     out = d.LOGS / tag
     out.mkdir(parents=True, exist_ok=True)
     (out / "crash_before.txt").write_text(d.sh("logcat -b crash -d"), encoding="utf-8")
     d.sh(f"am force-stop {d.PKG}")
     # dev console on: the flag file lives in the app's external files dir (created by the app on first start)
-    d.sh(f"su -c 'test -d {d.EXT} && touch {d.EXT}/roomfix.dev && chown $(stat -c %u:%g {d.EXT}) {d.EXT}/roomfix.dev'")
+    if dev:
+        d.sh(f"su -c 'test -d {d.EXT} && touch {d.EXT}/roomfix.dev && chown $(stat -c %u:%g {d.EXT}) {d.EXT}/roomfix.dev'")
+    else:
+        d.sh(f"su -c 'rm -f {d.EXT}/roomfix.dev {d.EXT}/roomfix.cmd'")
     d.sh("logcat -c")
     f = open(out / "logcat.txt", "wb")
     p = subprocess.Popen([d.ADB, "-s", d.SERIAL, "logcat", "-v", "epoch", "-b", "main", "-b", "system", "-b", "crash"],
@@ -76,8 +80,8 @@ def tap_n(x, y):  # normalised landscape screen coords -> pixels (2340x1080 pane
     d.sh(f"input tap {int(x * 2340)} {int(y * 1080)}")
 
 
-def route_menu(tag):
-    start(tag)
+def route_menu(tag, dev=True):
+    start(tag, dev)
     print("main menu after %.1fs" % wait_marker("scene -> 'MainMenu'", 150, after=8))
 
 
