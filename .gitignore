@@ -4,7 +4,8 @@
 /decoded_original/assets/bin/
 /decoded_original/assets/Videos/
 /decoded_original/lib/
-/app/assets/bin/
+/app/assets/bin/Data/*
+!/app/assets/bin/Data/boot.config
 /app/assets/Videos/
 /app/lib/
 # Generated outputs and caches
