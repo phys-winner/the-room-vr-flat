@@ -32,7 +32,8 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Teleport | stick forward, aim arc, release | HUD teleport → tap a glowing location marker | TeleportPointer aimed at PlayerLocation, stick release | gameplay | R004, R007, R009 |
 | Teleport past a nearer location | aim the arc further | same tap | the arc ends on another location → the game's Player.TeleportTo on the tapped one | gameplay | p063, R017 (RigHandle, PullRopeWheel, Canopic chest, sarcophagus side) |
 | Arrival view | body faces location | camera turns to the location's forward (−20°) | head yaw from PlayerLocation.forward | after teleport | R009 |
-| Superzoom (enter/exit miniature) | stick forward at crystals | teleport mode → tap the portal | TeleportPointer at Superzoom ZoomIn/Portal/ZoomOut trigger | chapters | implemented; not reached on device (debt: first crystals, chapel level) |
+| Superzoom (enter/exit miniature) | stick forward at crystals | teleport mode → tap the portal | TeleportPointer at Superzoom ZoomIn/Portal/ZoomOut trigger | chapters | implemented; debt: Chapel, first crystals at the hymn board (hint "Enter Hymn Board Top SZ"); all 7 chapel superzooms are Inactive at the chapel start (R018) |
+| Hub between chapters: artefact into its slot, letter through the eyepiece | carry the artefact, hold the letter up | inventory → drag the artefact onto the slot; hold the letter, turn with a second finger, bring its hole over the wisp | InventoryReceiver; grab + head pose | hub | R018 (scene -> Chapel) |
 | Grab and move objects (levers, handles) | grip + arm motion | press on the object, drag | right Controller.Grabber pose; GrabbableCollider math volumes; constraint-aware drag (slider line, rotation plane, twist) | gameplay | R005, R009, R010 |
 | Sliders (drawers, grilles, tabs) | grip + pull | drag along the slide | SliderGrabbable LocalSlideAxis | gameplay, inventory | R009, R010 |
 | Knobs / keys (wrist twist) | twist wrist | finger on the knob, out to the side, circle around it (multi-turn) | hand rotation about RotateAxis (TwistControl) | gameplay | R006, R009, R010 |
@@ -42,6 +43,8 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Twist a bar and pull it | twist wrist, pull | press the grip, drag across the bar (past its outline to keep turning), then along it | same cylinder; a grip on the axis itself rolls the bar under the finger | gameplay | R017 |
 | Winch with a return spring (many turns at once) | crank continuously | one continuous circle gesture (≈14 turns, 400°/s cap) | K_ROTATION; SpringToLimit returns the crank when released | gameplay | R017 (4000°) |
 | Look through a note's hole (eyepiece) | hold the note up to the eye | finger 0 holds the note, finger 1 turns the view, finger 0 brings the hole over the glowing target | grab + head yaw/pitch; the game's own look check | gameplay | R017 |
+| Turn a held object in the hand (read a note, tip a jar to pour) | rotate the wrist | second finger next to the holding one drags a virtual ball: circle = roll, across = turn over, up/down = tip | right hand rotation (rf_act_grab_turn) | gameplay | R018 (note turned to its text); pouring itself: debt, Witch chapter "MixFirstSpell" (CauldronIngredientBottle chunks) |
+| Look-through mirror / glass at crystals | hold the glass up, align | same as the note hole (hold + turn + align) | grab + head pose | Witch chapter | debt: "RevealTreeWithMirror" |
 | Pick up item (proxy) | grip, release | long press, lift | InventoryItemProxy grab/release → inventory | gameplay | R009 |
 | Read notes | hold in front of eyes | long press | same | gameplay | R009 |
 | Carry item to a place | carry in hand | drag; item follows the surface under the finger | depth from physics raycast (ignores held item, inventory grid) | gameplay | R010 |
@@ -59,7 +62,10 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Pause | left menu button | HUD pause, Back | GameStateManager.Pause | gameplay | R007 |
 | Posture wizard (VR) | choose sitting/standing | answered automatically (Sitting) | PostureSelectScreen.SittingPressed | front end | R007 |
 | Recenter / height calibration / turn fade / VR controls map | VR settings | hidden | OptionsScreen rows hidden | options | R008 |
-| Poke-slide panels and buttons | push with the fingertip | press on it and drag / press | Controller.PokeProbe placed on the target for CanBePoked volumes (the game feeds the probe position and lets go when it leaves the volume) | gameplay | R017 (finger-lock panel); organ keys: debt |
+| Poke-slide panels and buttons | push with the fingertip | press on it and drag / press | Controller.PokeProbe placed on the target for CanBePoked volumes (the game feeds the probe position and lets go when it leaves the volume) | gameplay | R017 (finger-lock panel) |
+| Organ keyboard | press keys with the fingers | tap the keys (grab/poke path) | KeyboardVolume | Chapel | debt: "Organ Holo Press Black Key" (after the organ superzoom chain) |
+| Lockpick | turn the pick in the lock | knob twist gesture | RotationGrabbable (LockpickPuzzle) | Chapel | debt: "Solve Lockpick Organ" / "Solve Lockpick Clock" |
+| Bellows, candles | pump, carry a flame | drag the handle; carry the firelighter to the coals and candles | Slider/Rotation grabbables; carried item | Witch chapter | debt: "PumpBellowsForFirstSpell", "ThreeCandles" |
 | Ropes | pull rope hand over hand | downward drags on the rope, one per pull | RopeGrabbable along its LocalSlideAxis | gameplay | R017 (door rope, RopeSystem 2.355) |
 | Text input | none in the game | — | — | — | no text entry exists |
 | Save / load | autosave, Continue | Continue game / profiles by tap | SaveManager (external files dir) | front end | R009 continue runs |
@@ -73,6 +79,7 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 - Full cycle cold start → new game → tutorial → save → restart/resume: done up to the open safe + continue (R009,
   R010); the rest of the tutorial needs puzzle solving, not new controls.
 - Egypt front half by touch (R017): door bolts, lever, rope, winch, note through the eyepiece, box, lens,
-  eyepiece tab, poke panel. Remaining on device: superzoom (chapel crystals), organ keys (poke), drawing and
-  pouring (witch chapter).
+  eyepiece tab, poke panel; hub → Chapel and turning a held object (R018).
+- Story-placed debts (the route did not reach them; flat paths implemented): Chapel superzoom ("Enter Hymn Board
+  Top SZ"), organ keys, lockpick; Witch chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles.
 - First-run hint for the gestures (in-game hint or PORT_FEATURES.md).
