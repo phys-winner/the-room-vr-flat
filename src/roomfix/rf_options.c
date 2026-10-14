@@ -91,8 +91,13 @@ static void patch(void* screen) {
 
     set_active(*(void**)(s + 0x68), false);  // OptionsScreen.PostureChanger
     set_active(*(void**)(s + 0x88), false);  // OptionsScreen.CalibrateStandingButton
-    void* controls = find(rf_transform(screen), "Layout [Option Selectors]/VERT Layout [Option Buttons]/Button [Controls]");
-    if (controls) set_active(rf_gameobject(controls), false);
+    // VR controller map: pause-menu and front-end layouts name the button's parent differently
+    static const char* const CONTROLS[] = {"Layout [Option Selectors]/VERT Layout [Option Buttons]/Button [Controls]",
+                                           "Layout [Profile Option Buttons]/Button [Controls]"};
+    for (size_t i = 0; i < sizeof CONTROLS / sizeof CONTROLS[0]; i++) {
+        void* controls = find(rf_transform(screen), CONTROLS[i]);
+        if (controls) set_active(rf_gameobject(controls), false);
+    }
 
     void* fade = *(void**)(s + 0x50);  // OptionsScreen.TurnFadeSelector
     if (!rf_alive(fade)) return;
