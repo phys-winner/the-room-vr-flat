@@ -461,6 +461,11 @@ static jint native_want_max_refresh(JNIEnv* env, jclass cls) {
     return g_fps_idx == RF_FPS_DISPLAY;
 }
 
+static jint native_help_request(JNIEnv* env, jclass cls) {
+    (void)env; (void)cls;
+    return rf_help_take();
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
     JNIEnv* env = NULL;
@@ -474,6 +479,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeDisplay", "(FF)V", (void*)native_display},
         {"nativeWantMaxRefresh", "()I", (void*)native_want_max_refresh},
         {"nativeAppLocale", "(Ljava/lang/String;)V", (void*)native_app_locale},
+        {"nativeHelpRequest", "()I", (void*)native_help_request},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

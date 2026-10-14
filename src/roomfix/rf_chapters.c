@@ -174,10 +174,12 @@ void* h_mainmenu_setup(void* self, const void* mi) {
     char cur[64] = "";
     if (s) rf_str_utf8(*(const Il2CppString**)(s + 0x18), cur, sizeof cur);
     set_active(g_mm.chapters, (g_qa & QA_CHAPTERS) || (s && (s[0x2d] || cur[0])));
+    rf_help_first_menu();
     return r;
 }
 
-// presses on the port's menu buttons (clones keep the authored button's click listener, so it is not called)
+// presses on the port's menu buttons (clones keep the authored button's click listener, so it is not called) and
+// on Options "view controls" (rf_help.c)
 void h_button_press(void* self, const void* mi) {
     if (self && (self == g_mm.chapters || self == g_mm.back)) {
         if (self == g_mm.chapters) open_list();
@@ -189,6 +191,7 @@ void h_button_press(void* self, const void* mi) {
             start_replay(g_mm.level_info[i]);
             return;
         }
+    if (rf_help_press(self)) return;
     ORIG(H_BUTTON_PRESS, void (*)(void*, const void*))(self, mi);
 }
 

@@ -220,6 +220,7 @@ int rf_fps_value(int idx);              // frames per second for an FPS-limit op
 int rf_fov_value(int idx);              // horizontal degrees for a field-of-view option
 void rf_settings_load(void);
 void rf_settings_changed(void);         // apply + save
+void rf_settings_save(void);
 void rf_settings_tick(void);            // main thread: keep Application.targetFrameRate on the chosen limit
 void* rf_type_of(void* obj);            // System.Type of an object's class
 
@@ -238,6 +239,11 @@ void h_gsm_story_load(void* self, void* level, const void* mi);
 void* h_pause_setup(void* self, const void* mi);
 void* h_loadscene_name(void* level, const void* mi);
 void rf_chapters_scene(const char* scene);  // scene change: a replay ends in the front end
+// stage 8 (rf_help.c): gesture card requests for the Java overlay (HelpCard.java)
+extern int g_help_seen;          // help= in port_settings.cfg: the card was shown once
+int rf_help_take(void);          // pending request (language index + 1) or 0; clears it (any thread)
+void rf_help_first_menu(void);   // main menu: the card once per installation
+bool rf_help_press(void* btn);   // Options "view controls": the card instead of the VR controller map
 void h_uiopt_left(void* self, const void* mi);
 void h_uiopt_right(void* self, const void* mi);
 void h_uiopt_update(void* self, const void* mi);

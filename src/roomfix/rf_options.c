@@ -4,7 +4,8 @@
 //   QA (TESTING)   < off | level select | skip level | all >   default off (stage 8, rf_chapters.c)
 // The rows are clones of the authored "turn fade" selector row (same layout, buttons, sounds and fonts) placed
 // where that row was. VR-only entries are hidden: turn fade (snap-turn comfort fade), posture (sitting /
-// standing), standing-height calibration and the VR controller map ("view controls").
+// standing) and standing-height calibration. The VR controller map button ("view controls") stays: it opens the
+// port's gesture card (rf_help.c).
 // The clones' arrow handlers (UiOptionSelector.OnLeftPressed/OnRightPressed) and UpdateText are answered here,
 // so the authored OnChanged event of the turn-fade row never fires for them.
 #include <stdio.h>
@@ -20,6 +21,7 @@ enum { ROW_FPS = 0, ROW_FOV = 1, ROW_QA = 2, NROW };
 static struct {
     void* screen;
     void* sel[NROW];  // UiOptionSelector of the cloned rows
+    bool roomy;       // front end: divider and buttons moved down for the fifth row
 } g_os[NSCREEN];
 
 static void* str(const char* s) { return g_il2.string_new ? g_il2.string_new(s) : NULL; }
@@ -81,6 +83,22 @@ static void* clone_row(void* row, void* parent, int sibling, const char* name, c
     return rf_alive(sel) ? sel : NULL;
 }
 
+// The front end's Options screen has room for four selector rows above its divider; with the QA row there are
+// five, so the divider and the buttons below move down by one row pitch (Hints -> Language, authored).
+static void make_room(void* screen) {
+    void* st = rf_transform(screen);
+    void* hints = find(st, "Layout [Profile Option types]/HintsOption");
+    void* lang = find(st, "Layout [Profile Option types]/LanguageOption");
+    if (!hints || !lang) return;
+    v3 pitch = v3_sub(rf_tr_pos(lang), rf_tr_pos(hints));
+    static const char* const BELOW[] = {"Sprite [line] (1)", "Layout [Profile Option Buttons]"};
+    for (size_t i = 0; i < sizeof BELOW / sizeof BELOW[0]; i++) {
+        void* t = find(st, BELOW[i]);
+        if (t) CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(t, v3_add(rf_tr_pos(t), pitch), NULL);
+    }
+    rf_log("options: divider and buttons moved by one row (%.3f %.3f %.3f)", pitch.x, pitch.y, pitch.z);
+}
+
 static void patch(void* screen) {
     char* s = (char*)screen;
     int slot = -1;
@@ -96,12 +114,12 @@ static void patch(void* screen) {
 
     set_active(*(void**)(s + 0x68), false);  // OptionsScreen.PostureChanger
     set_active(*(void**)(s + 0x88), false);  // OptionsScreen.CalibrateStandingButton
-    // VR controller map: pause-menu and front-end layouts name the button's parent differently
+    // "view controls" (the gesture card): pause-menu and front-end layouts name the button's parent differently
     static const char* const CONTROLS[] = {"Layout [Option Selectors]/VERT Layout [Option Buttons]/Button [Controls]",
                                            "Layout [Profile Option Buttons]/Button [Controls]"};
     for (size_t i = 0; i < sizeof CONTROLS / sizeof CONTROLS[0]; i++) {
         void* controls = find(rf_transform(screen), CONTROLS[i]);
-        if (controls) set_active(rf_gameobject(controls), false);
+        if (controls) set_active(rf_gameobject(controls), true);
     }
 
     void* fade = *(void**)(s + 0x50);  // OptionsScreen.TurnFadeSelector
@@ -128,6 +146,10 @@ static void patch(void* screen) {
             g_os[slot].sel[ROW_QA] = clone_row(row, parent, idx + 3, "PortQaOption", "PORT_QA", sel_type, txt_type);
     }
     set_active(rf_gameobject(row), false);
+    if (want_qa && rf_alive(g_os[slot].sel[ROW_QA]) && !g_os[slot].roomy) {
+        make_room(screen);
+        g_os[slot].roomy = true;
+    }
     for (int r = 0; r < NROW; r++) show_value(g_os[slot].sel[r], r);
 }
 

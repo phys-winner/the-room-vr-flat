@@ -1,4 +1,5 @@
-// Port settings: FPS limit (30 / 45 / 60 / display refresh rate, default 60) and horizontal field of view.
+// Port settings: FPS limit (30 / 45 / 60 / display refresh rate, default 60) and horizontal field of view; the
+// stage-8 QA row (qa=) and whether the gesture card was shown (help=).
 // Stored in <getExternalFilesDir>/port_settings.cfg as "key=value" lines; shown as rows of the game's own
 // Options screen (rf_options.c).
 //
@@ -43,6 +44,7 @@ void rf_settings_load(void) {
             if (sscanf(line, "fps=%d", &v) == 1 && v >= 0 && v < RF_FPS_COUNT) g_fps_idx = v;
             else if (sscanf(line, "fov=%d", &v) == 1 && v >= 0 && v < RF_FOV_COUNT) g_fov_idx = v;
             else if (sscanf(line, "qa=%d", &v) == 1 && v >= 0 && v < QA_COUNT) g_qa = v;  // else: off
+            else if (sscanf(line, "help=%d", &v) == 1) g_help_seen = v == 1;
             else if (!strncmp(line, "applocale=", 10)) {
                 snprintf(g_app_locale, sizeof g_app_locale, "%s", line + 10);
                 g_app_locale[strcspn(g_app_locale, "\r\n")] = 0;
@@ -54,13 +56,14 @@ void rf_settings_load(void) {
     rf_log("settings: fps limit %d (option %d), field of view %d", rf_fps_value(g_fps_idx), g_fps_idx, rf_fov_value(g_fov_idx));
 }
 
-static void save(void) {
+void rf_settings_save(void) {
     char p[600], tmp[620];
     path(p, sizeof p);
     snprintf(tmp, sizeof tmp, "%s.tmp", p);
     FILE* f = fopen(tmp, "w");
     if (!f) return;
-    fprintf(f, "fps=%d\nfov=%d\nqa=%d\napplocale=%s\n", g_fps_idx, g_fov_idx, g_qa, g_app_locale);
+    fprintf(f, "fps=%d\nfov=%d\nqa=%d\nhelp=%d\napplocale=%s\n", g_fps_idx, g_fov_idx, g_qa, g_help_seen,
+            g_app_locale);
     fclose(f);
     rename(tmp, p);
 }
@@ -70,7 +73,7 @@ static int g_applied_fps = -2;
 void rf_settings_changed(void) {
     g_fov_h = (float)rf_fov_value(g_fov_idx);
     g_applied_fps = -2;  // re-apply on the next tick
-    save();
+    rf_settings_save();
     rf_log("settings: fps limit %d (option %d), field of view %d", rf_fps_value(g_fps_idx), g_fps_idx, rf_fov_value(g_fov_idx));
 }
 

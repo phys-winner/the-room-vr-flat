@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.SparseIntArray;
 import android.view.Display;
 import android.view.KeyEvent;
@@ -17,7 +18,8 @@ import java.io.File;
 /**
  * Flat-screen port bootstrap: loads libroomfix.so before Unity creates its player, adds the touch HUD and
  * routes touches: a finger that lands on a HUD button belongs to that button, every other finger goes to
- * libroomfix (look, grab, pinch, menu taps) with coordinates normalised to the Unity view.
+ * libroomfix (look, grab, pinch, menu taps) with coordinates normalised to the Unity view. While the gesture
+ * card (HelpCard) is shown it takes every touch and Back; a tap closes it.
  */
 public final class RoomFix {
     private RoomFix() {}
@@ -42,12 +44,18 @@ public final class RoomFix {
     /** Per-app language tags from the Android 13+ system picker ("" when the app follows the system). */
     static native void nativeAppLocale(String tags);
 
+    /** Pending gesture-card request: game language index + 1, or 0. Taking it clears it. */
+    static native int nativeHelpRequest();
+
     private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
     private static final int OWNER_GAME = 0;
 
     private static Activity sActivity;
     private static boolean sReady;
     private static HudView sHud;
+    private static HelpCard sHelp;
+    private static long sHelpShownAt;
+    private static boolean sHelpDown;  // a finger went down on the shown card (its lift closes the card)
     private static Handler sMain;
     private static final SparseIntArray sOwner = new SparseIntArray();  // pointer id -> HUD button or OWNER_GAME
     private static final int[] sLoc = new int[2];
@@ -84,6 +92,10 @@ public final class RoomFix {
         }
         sActivity.addContentView(sHud, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        sHelp = new HelpCard(sActivity);
+        if (android.os.Build.VERSION.SDK_INT >= 29) sHelp.setForceDarkAllowed(false);
+        sActivity.addContentView(sHelp, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         sMain.post(sPoll);
     }
 
@@ -99,6 +111,8 @@ public final class RoomFix {
                 if ((s & HudView.S_VISIBLE) == 0 && (sHud.state() & HudView.S_VISIBLE) != 0) releaseHudFingers();
                 sHud.setState(s);
             }
+            int help = nativeHelpRequest();
+            if (help > 0 && sHelp != null) showHelp(help - 1);
             if (sPollCount++ % 20 == 0) updateDisplay();
             sMain.postDelayed(this, 100);
         }
@@ -150,6 +164,16 @@ public final class RoomFix {
         return sActivity.getWindow().getDecorView();
     }
 
+    /** Shows the gesture card; fingers already on the game or the HUD are cancelled. */
+    private static void showHelp(int language) {
+        sOwner.clear();
+        if (sHud != null) sHud.clearPressed();
+        nativeTouch(A_CANCEL_ALL, 0, 0, 0, 0);
+        sHelpDown = false;
+        sHelpShownAt = SystemClock.uptimeMillis();
+        sHelp.show(language);
+    }
+
     private static void releaseHudFingers() {
         for (int i = sOwner.size() - 1; i >= 0; i--) {
             if (sOwner.valueAt(i) != OWNER_GAME) sOwner.removeAt(i);
@@ -160,6 +184,17 @@ public final class RoomFix {
     /** Called from UnityPlayerActivity.dispatchTouchEvent; returns true when the port consumed the event. */
     public static boolean onTouch(MotionEvent ev) {
         if (!sReady || sActivity == null) return false;
+        if (sHelp != null && sHelp.showing()) {
+            // a tap that starts on the card closes it (not the lift of a finger that was down before it opened)
+            int m = ev.getActionMasked();
+            if (m == MotionEvent.ACTION_DOWN) sHelpDown = ev.getEventTime() - sHelpShownAt > 300;
+            else if (m == MotionEvent.ACTION_CANCEL) sHelpDown = false;
+            else if (m == MotionEvent.ACTION_UP && sHelpDown) {
+                sHelpDown = false;
+                sHelp.hide();
+            }
+            return true;
+        }
         View gv = gameView();
         gv.getLocationInWindow(sLoc);
         float gx = sLoc[0], gy = sLoc[1];
@@ -230,6 +265,10 @@ public final class RoomFix {
     /** Called from UnityPlayerActivity.dispatchKeyEvent: Back opens / closes the game's pause menu. */
     public static boolean onKey(KeyEvent ev) {
         if (!sReady || ev.getKeyCode() != KeyEvent.KEYCODE_BACK) return false;
+        if (sHelp != null && sHelp.showing()) {
+            if (ev.getAction() == KeyEvent.ACTION_UP && !ev.isCanceled()) sHelp.hide();
+            return true;
+        }
         if (ev.getAction() == KeyEvent.ACTION_UP && !ev.isCanceled()) {
             nativeTouch(A_HUD, 7 /* HB_BACK */, 0, 0, ev.getEventTime());
         }
