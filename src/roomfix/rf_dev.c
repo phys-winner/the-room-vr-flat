@@ -232,6 +232,15 @@ static void cmd_setact(const char* name, bool on) {
     rf_log("setact: '%s' -> %d", name, on);
 }
 
+static void cmd_menutree(int maxdepth) {
+    void* mc = rf_menu_controller();
+    void* scr = mc ? *(void**)((char*)mc + 0xd8) : NULL;
+    void* cam = rf_main_camera();
+    if (!rf_alive(scr) || !cam) { rf_log("menutree: no menu screen"); return; }
+    void* ct = rf_transform(cam);
+    tree(rf_transform(scr), 0, maxdepth, rf_tr_pos(ct), rf_tr_rot(ct));
+}
+
 static void cmd_tree(int up, int maxdepth) {
     void* cam = rf_main_camera();
     if (!cam) { rf_log("tree: no camera"); return; }
@@ -266,6 +275,8 @@ static void exec_line(char* line) {
         rf_act_dev_aim_tip(false, 0, 0, 0);
     } else if (!strcmp(argv[0], "setact") && argc >= 3) {
         cmd_setact(argv[1], atoi(argv[2]) != 0);
+    } else if (!strcmp(argv[0], "menutree") && argc >= 2) {
+        cmd_menutree(atoi(argv[1]));
     } else if (!strcmp(argv[0], "tree") && argc >= 3) {
         cmd_tree(atoi(argv[1]), atoi(argv[2]));
     } else if (!strcmp(argv[0], "inv")) {

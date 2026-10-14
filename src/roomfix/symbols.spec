@@ -81,3 +81,25 @@ CALL GO_ACTIVESELF    UnityEngine.GameObject$$get_activeSelf
 CALL GO_SETACTIVE     UnityEngine.GameObject$$SetActive
 CALL TR_LOSSYSCALE    UnityEngine.Transform$$get_lossyScale
 HOOK MENU_UPDATE      MenuController$$Update
+# ---- port settings in the game's Options screen (rf_options.c), localisation (rf_loc.c), FPS limit ----
+HOOK OPTIONS_SETUP    OptionsScreen$$OnSetupScreen
+HOOK UIOPT_LEFT       UiOptionSelector$$OnLeftPressed
+HOOK UIOPT_RIGHT      UiOptionSelector$$OnRightPressed
+HOOK UIOPT_UPDATE     UiOptionSelector$$UpdateText
+HOOK LOC_GETSTRING    Localisation$$GetString|LocaliseContext_o* context
+CALL LOC_GETLANG      Localisation$$GetLanguage
+CALL LOCTEXT_SETKEY   LocaliseText$$set_Key
+CALL LOCTEXT_REFRESH  LocaliseText$$OnLocalise
+CALL OBJ_INSTANTIATE  UnityEngine.Object$$Instantiate|UnityEngine_Transform_o* parent, bool instantiateInWorldSpace
+CALL OBJ_SETNAME      UnityEngine.Object$$set_name
+CALL TR_SETSIBLING    UnityEngine.Transform$$SetSiblingIndex
+CALL TR_GETSIBLING    UnityEngine.Transform$$GetSiblingIndex
+CALL TR_FIND          UnityEngine.Transform$$Find
+CALL COMP_GETCOMP     UnityEngine.Component$$GetComponent|System_Type_o* type
+CALL GO_GETCHILDCOMP  UnityEngine.GameObject$$GetComponentInChildren
+CALL APP_SETFPS       UnityEngine.Application$$set_targetFrameRate
+CALL APP_GETFPS       UnityEngine.Application$$get_targetFrameRate
+CALL MENU_TOSCREEN    MenuController$$TransitionToScreen
+CALL GOGGLESHUD_RELEASE GogglesHudManager$$ReleaseGrab
+CALL GOGGLESHUD_ON    GogglesHudManager$$ActivateWithFade
+CALL GOGGLESHUD_OFF   GogglesHudManager$$DeactivateWithFade

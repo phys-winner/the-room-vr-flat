@@ -8,6 +8,8 @@
 // PostureSelectScreen ("Select Posture: Sitting / Standing") appears before every level load. Flat play is
 // seated (camera at the authored seated eye height), so once the screen has faded in the port presses its
 // own Sitting button handler (PostureSelectScreen.SittingPressed: SlotManager sitting mode + continue).
+#include <string.h>
+
 #include "rf.h"
 
 typedef float (*fn_f_1)(void*, const void*);
@@ -32,11 +34,45 @@ static struct {
     int since;      // frames since the screen appeared
 } g_menu;
 
+// screens visited in the active menu, oldest first (Android Back walks it backwards)
+#define STACK 8
+static void* g_stack[STACK];
+static int g_depth;
+
 void h_menu_update(void* self, const void* mi) {
     ORIG(H_MENU_UPDATE, void (*)(void*, const void*))(self, mi);
-    if (self != g_menu.ctrl || g_frame - g_menu.frame > 5) g_menu.screen = NULL;  // (re)activated
+    if (self != g_menu.ctrl || g_frame - g_menu.frame > 5) {  // (re)activated
+        g_menu.screen = NULL;
+        g_depth = 0;
+    }
     g_menu.ctrl = self;
     g_menu.frame = g_frame;
+}
+
+static void stack_visit(void* scr) {
+    if (g_depth >= 2 && g_stack[g_depth - 2] == scr) {
+        g_depth--;  // went back
+    } else {
+        if (g_depth == STACK) {
+            memmove(g_stack, g_stack + 1, sizeof g_stack[0] * (STACK - 1));
+            g_depth--;
+        }
+        g_stack[g_depth++] = scr;
+    }
+}
+
+// Back inside a menu: previous screen of this menu, never into the start-up chain. False when at the root.
+bool rf_menu_back(void) {
+    void* mc = rf_menu_controller();
+    if (!mc || g_depth < 2) return false;
+    if (*((char*)mc + 0x120)) return true;  // MenuController.ScreenTransitionInProgress: ignore the press
+    void* target = g_stack[g_depth - 2];
+    if (!rf_alive(target) || rf_class_is(target, "StartupSplashScreen") || rf_class_is(target, "SelectProfileScreen") ||
+        rf_class_is(target, "PostureSelectScreen"))
+        return false;
+    rf_log("menu: back to '%s'", rf_class_name(target));
+    CALLP(C_MENU_TOSCREEN, void (*)(void*, void*, const void*))(mc, target, NULL);
+    return true;
 }
 
 void* rf_menu_controller(void) {
@@ -50,6 +86,7 @@ static void tick_face_menu(void) {
     if (scr != g_menu.screen) {
         g_menu.screen = scr;
         g_menu.since = 0;
+        stack_visit(scr);
     }
     g_menu.since++;
     // turn right away and once more after the screen's transition / position reset has settled

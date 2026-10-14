@@ -75,11 +75,24 @@ void rf_hud_button(int id) {
             rf_act_button(RIGHT, 0, 6);
         }
         break;
-    case HB_GOGGLES:  // RwAction 28 -> GogglesHudManager.Activate/DeactivateWithFade
-        if (gameplay()) rf_act_button(RIGHT, 1, 6);
+    case HB_GOGGLES:
+        // the eyepiece button path of Player.UpdateGogglesInput (RwAction 28, gated by GogglesInput):
+        // GogglesHudManager.ReleaseGrab, then Activate/DeactivateWithFade by Goggles.GogglesActive
+        if (gameplay() && input_allowed(0x108)) {
+            void* gh = static_field0(META_GOGGLESHUD_TYPEINFO);
+            if (rf_alive(gh)) {
+                CALLP(C_GOGGLESHUD_RELEASE, void (*)(void*, const void*))(gh, NULL);
+                if (rf_goggles_on()) CALLP(C_GOGGLESHUD_OFF, void (*)(void*, const void*))(gh, NULL);
+                else CALLP(C_GOGGLESHUD_ON, void (*)(void*, const void*))(gh, NULL);
+            }
+        }
         break;
-    case HB_PAUSE:  // left menu button: RwAction 22 (GameStateManager.Pause), RwAction 27 in the pause menu (UnPause)
     case HB_BACK:
+        // menus: previous screen; pause menu root: resume; gameplay: pause
+        if (rf_menu_context() && rf_menu_back()) break;
+        if (rf_menu_context() && g_frame - g_pause_frame > 2) break;  // front-end root: nothing to go back to
+        // fall through
+    case HB_PAUSE:  // left menu button: RwAction 22 (GameStateManager.Pause), RwAction 27 in the pause menu (UnPause)
         if (gameplay() || g_frame - g_pause_frame <= 2) {
             if (rf_act_teleport_mode_on()) rf_act_teleport_mode(false);
             rf_act_button(LEFT, 2, 6);

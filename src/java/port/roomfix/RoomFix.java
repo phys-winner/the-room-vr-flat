@@ -1,13 +1,17 @@
 package port.roomfix;
 
 import android.app.Activity;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.SparseIntArray;
+import android.view.Display;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import java.io.File;
 
 /**
@@ -29,6 +33,12 @@ public final class RoomFix {
     /** HUD_* flags computed by libroomfix every frame. */
     static native int nativeHudState();
 
+    /** Current and highest refresh rate of the display (FPS limit option "display"). */
+    static native void nativeDisplay(float hz, float maxHz);
+
+    /** 1 when the player chose the display refresh rate as FPS limit. */
+    static native int nativeWantMaxRefresh();
+
     private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
     private static final int OWNER_GAME = 0;
 
@@ -41,6 +51,7 @@ public final class RoomFix {
 
     public static void init(Activity activity) {
         sActivity = activity;
+        miuiCutout(activity);
         System.loadLibrary("roomfix");
         File ext = activity.getExternalFilesDir(null);
         String dir = ext != null ? ext.getAbsolutePath() : activity.getFilesDir().getAbsolutePath();
@@ -69,6 +80,10 @@ public final class RoomFix {
         sMain.post(sPoll);
     }
 
+    private static int sPollCount;
+    private static int sMaxModeId;
+    private static boolean sWantMax;
+
     private static final Runnable sPoll = new Runnable() {
         @Override
         public void run() {
@@ -77,9 +92,46 @@ public final class RoomFix {
                 if ((s & HudView.S_VISIBLE) == 0 && (sHud.state() & HudView.S_VISIBLE) != 0) releaseHudFingers();
                 sHud.setState(s);
             }
+            if (sPollCount++ % 20 == 0) updateDisplay();
             sMain.postDelayed(this, 100);
         }
     };
+
+    /** Reports the display rates; with FPS limit "display" asks for the highest refresh mode of this size. */
+    private static void updateDisplay() {
+        Display d = sActivity.getWindowManager().getDefaultDisplay();
+        float hz = d.getRefreshRate(), max = hz;
+        int maxId = 0;
+        if (Build.VERSION.SDK_INT >= 23) {
+            Display.Mode cur = d.getMode();
+            for (Display.Mode m : d.getSupportedModes()) {
+                if (m.getPhysicalWidth() == cur.getPhysicalWidth() && m.getPhysicalHeight() == cur.getPhysicalHeight()
+                        && m.getRefreshRate() >= max) {
+                    max = m.getRefreshRate();
+                    maxId = m.getModeId();
+                }
+            }
+        }
+        sMaxModeId = maxId;
+        nativeDisplay(hz, max);
+        boolean want = nativeWantMaxRefresh() != 0;
+        if (want != sWantMax && Build.VERSION.SDK_INT >= 23) {
+            sWantMax = want;
+            WindowManager.LayoutParams lp = sActivity.getWindow().getAttributes();
+            lp.preferredDisplayModeId = want ? sMaxModeId : 0;
+            sActivity.getWindow().setAttributes(lp);
+        }
+    }
+
+    /** MIUI letterboxes the cutout side in landscape unless the window asks for it with its own extra flags. */
+    private static void miuiCutout(Activity activity) {
+        try {
+            java.lang.reflect.Method m = Window.class.getMethod("addExtraFlags", int.class);
+            m.invoke(activity.getWindow(), 0x100 | 0x200 | 0x400);  // notch: use, portrait, landscape
+        } catch (Exception ignored) {
+            // not MIUI
+        }
+    }
 
     /** The Unity player view (first child of the content frame), or the decor view as a fallback. */
     private static View gameView() {

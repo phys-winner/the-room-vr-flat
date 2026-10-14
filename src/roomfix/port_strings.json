@@ -1,0 +1,161 @@
+{
+  "_comment": "Flat-port strings served by libroomfix's Localisation.GetString hook. Languages are the game's own dictionary names. Only device-specific VR instructions are replaced; device-neutral authored texts stay untouched. Generated into gen_port_strings.h by work/tools/gen_strings.py (checks every glyph against the game's dictionary of that language).",
+  "languages": [
+    "English",
+    "French",
+    "German",
+    "Spanish",
+    "Italian",
+    "Russian",
+    "Japanese",
+    "Korean",
+    "Simplified Chinese",
+    "Traditional Chinese"
+  ],
+  "strings": {
+    "SNAP_TURN_TUTORIAL": {
+      "English": "Swipe across the screen to look around, or tap the arrows to turn.",
+      "French": "Faites glisser votre doigt sur l'écran pour regarder autour de vous, ou touchez les flèches pour tourner.",
+      "German": "Wische über den Bildschirm, um dich umzusehen, oder tippe auf die Pfeile, um dich zu drehen.",
+      "Spanish": "Desliza el dedo por la pantalla para mirar a tu alrededor o toca las flechas para girar.",
+      "Italian": "Scorri il dito sullo schermo per guardarti intorno oppure tocca le frecce per girarti.",
+      "Russian": "Проведите пальцем по экрану, чтобы осмотреться, или нажмите на стрелки, чтобы повернуться.",
+      "Japanese": "スワイプして周りを見回そう。矢印をタップすると向きを変えられる。",
+      "Korean": "화면을 밀어 주위를 둘러보거나 화살표를 눌러 방향을 전환하세요.",
+      "Simplified Chinese": "滑动来查看四周，或点击转向按钮来转向。",
+      "Traditional Chinese": "滑動即可查看四周，或按下轉身按鈕即可轉身。"
+    },
+    "TELEPORT_TUTORIAL": {
+      "English": "Tap the teleport button to show the locations you can teleport to.\\nThen tap a location to teleport.",
+      "French": "Touchez le bouton de téléportation pour afficher les lieux où vous pouvez vous téléporter. Touchez ensuite un lieu pour vous y téléporter.",
+      "German": "Tippe auf die Teleport-Schaltfläche, damit die Orte angezeigt werden, zu denen du dich teleportieren kannst. Tippe dann auf einen Ort, um dich zu teleportieren.",
+      "Spanish": "Toca el botón de teletransporte para mostrar las ubicaciones a las que te puedes teletransportar. Después, toca una ubicación para teletransportarte.",
+      "Italian": "Tocca il pulsante del teletrasporto per visualizzare i punti in cui puoi teletrasportarti. Poi tocca un punto per teletrasportarti.",
+      "Russian": "Нажмите кнопку телепорта, чтобы увидеть места, куда можно телепортироваться.\\nЗатем коснитесь нужного места.",
+      "Japanese": "テレポートボタンをタップすると、テレポート可能な場所が表示される。\\n場所をタップするとテレポートする。",
+      "Korean": "텔레포트 버튼을 누르면 텔레포트할 수 있는 위치가 표시됩니다.\\n위치를 눌러 텔레포트하세요.",
+      "Simplified Chinese": "点击瞬移按钮来显示你可以瞬移至的地点。\\n然后点击一个地点来瞬移。",
+      "Traditional Chinese": "按下瞬間移動按鈕就會顯示您能夠瞬間移動的地點。\n按下地點即可瞬間移動。"
+    },
+    "TELEPORT_TUTORIAL_RELEASE": {
+      "English": "Tap one of the highlighted locations to teleport.",
+      "French": "Touchez l'un des lieux en surbrillance pour vous téléporter.",
+      "German": "Tippe auf einen der hervorgehobenen Orte, um dich zu teleportieren.",
+      "Spanish": "Toca una de las ubicaciones resaltadas para teletransportarte.",
+      "Italian": "Tocca uno dei punti evidenziati per teletrasportarti.",
+      "Russian": "Коснитесь одного из подсвеченных мест, чтобы телепортироваться.",
+      "Japanese": "光っている場所をタップするとテレポートする。",
+      "Korean": "빛나는 위치 중 하나를 눌러 텔레포트하세요.",
+      "Simplified Chinese": "点击一个发光的地点来瞬移。",
+      "Traditional Chinese": "按下發光的地點即可瞬間移動。"
+    },
+    "TUTORIAL_OPERATE_LEVER": {
+      "_also": [
+        "TUTORIAL_OPERATE_LEVER_Quest"
+      ],
+      "English": "Touch the projector handle and drag it down.",
+      "French": "Touchez la poignée du projecteur, puis faites-la glisser vers le bas.",
+      "German": "Berühre den Projektorgriff und ziehe ihn nach unten.",
+      "Spanish": "Toca la empuñadura del proyector y arrástrala hacia abajo.",
+      "Italian": "Tocca la maniglia del proiettore e trascinala verso il basso.",
+      "Russian": "Коснитесь ручки проектора и потяните ее вниз.",
+      "Japanese": "プロジェクターのハンドルに触れて、下にドラッグしよう。",
+      "Korean": "프로젝터의 손잡이를 터치하고 아래로 끌어내리세요.",
+      "Simplified Chinese": "按住投影仪的把手，然后向下拖动。",
+      "Traditional Chinese": "按住投影機的拉桿，然後往下拉。"
+    },
+    "TUTORIAL_PICK_UP_KEY": {
+      "_also": [
+        "TUTORIAL_PICK_UP_KEY_Quest"
+      ],
+      "English": "Drag the drawer open, then touch and hold the key to pick it up.",
+      "French": "Faites glisser le tiroir pour l'ouvrir, puis maintenez votre doigt sur la clé pour la prendre.",
+      "German": "Ziehe die Schublade auf und halte dann den Schlüssel gedrückt, um ihn zu nehmen.",
+      "Spanish": "Arrastra el cajón para abrirlo y, después, mantén pulsada la llave para cogerla.",
+      "Italian": "Trascina il cassetto per aprirlo, poi tieni premuta la chiave per prenderla.",
+      "Russian": "Потяните ящик, чтобы открыть его, затем коснитесь ключа и удерживайте палец, чтобы забрать его.",
+      "Japanese": "引き出しをドラッグして開け、鍵を長押しして拾おう。",
+      "Korean": "서랍을 끌어서 열고, 열쇠를 길게 눌러 집으세요.",
+      "Simplified Chinese": "拖动抽屉来打开它，然后按住钥匙来拾起它。",
+      "Traditional Chinese": "按住抽屜往外拉以打開抽屜，然後按住鑰匙即可拾取。"
+    },
+    "TUTORIAL_READ_NOTE": {
+      "_also": [
+        "TUTORIAL_READ_NOTE_Quest"
+      ],
+      "English": "Touch and hold the note to pick it up and read it.",
+      "French": "Maintenez votre doigt sur la note pour la ramasser et la lire.",
+      "German": "Halte die Notiz gedrückt, um sie aufzuheben und zu lesen.",
+      "Spanish": "Mantén pulsada la nota para cogerla y leerla.",
+      "Italian": "Tieni premuto il biglietto per raccoglierlo e leggerlo.",
+      "Russian": "Коснитесь записки и удерживайте палец, чтобы подобрать и прочитать ее.",
+      "Japanese": "メモを長押しして拾って読もう。",
+      "Korean": "쪽지를 길게 눌러 집어서 읽으세요.",
+      "Simplified Chinese": "按住纸条来拾起并阅读它。",
+      "Traditional Chinese": "按住紙條即可拾取並閱讀紙條。"
+    },
+    "TUTORIAL_OPEN_INVENTORY": {
+      "_also": [
+        "TUTORIAL_OPEN_INVENTORY_Quest"
+      ],
+      "English": "Tap the inventory button, then drag the key to the keyhole and lift your finger to use it.",
+      "French": "Touchez le bouton d'inventaire, puis faites glisser la clé jusqu'à la serrure et relâchez-la pour l'utiliser.",
+      "German": "Tippe auf die Inventar-Schaltfläche, ziehe dann den Schlüssel zum Schlüsselloch und lass ihn los, um ihn zu benutzen.",
+      "Spanish": "Toca el botón del inventario, arrastra la llave hasta la cerradura y suéltala para usarla.",
+      "Italian": "Tocca il pulsante dell'inventario, poi trascina la chiave sulla serratura e rilasciala per usarla.",
+      "Russian": "Нажмите кнопку инвентаря, перетащите ключ к замочной скважине и уберите палец, чтобы открыть замок.",
+      "Japanese": "インベントリーボタンをタップし、鍵を鍵穴までドラッグして指を離すと、鍵が使用できる。",
+      "Korean": "인벤토리 버튼을 누른 다음 열쇠를 열쇠 구멍으로 끌어다 놓아 사용하세요.",
+      "Simplified Chinese": "点击物品栏按钮，然后将钥匙拖到钥匙孔上并松开手指来使用它。",
+      "Traditional Chinese": "按下物品欄按鈕，然後將鑰匙移到鑰匙孔並放開手指即可使用鑰匙。"
+    },
+    "CHP_SUPERZOOM_TUTORIAL03": {
+      "English": "Tap the teleport button, then tap the crystals to enter.",
+      "French": "Touchez le bouton de téléportation, puis touchez les cristaux pour entrer.",
+      "German": "Tippe auf die Teleport-Schaltfläche und dann auf die Kristalle, um sie zu betreten.",
+      "Spanish": "Toca el botón de teletransporte y, después, toca los cristales para entrar.",
+      "Italian": "Tocca il pulsante del teletrasporto, poi tocca i cristalli per entrare.",
+      "Russian": "Нажмите кнопку телепорта, затем коснитесь кристаллов, чтобы войти.",
+      "Japanese": "テレポートボタンをタップしてから、クリスタルをタップすると入れる。",
+      "Korean": "텔레포트 버튼을 누른 다음 크리스털을 눌러 들어가세요.",
+      "Simplified Chinese": "点击瞬移按钮，然后点击晶体以进入。",
+      "Traditional Chinese": "按下瞬間移動按鈕，然後按下水晶即可進入內部。"
+    },
+    "PORT_FPS_LIMIT": {
+      "English": "fps limit",
+      "French": "limite de fps",
+      "German": "fps-limit",
+      "Spanish": "limitar fps",
+      "Italian": "limite fps",
+      "Russian": "ограничение fps",
+      "Japanese": "フレームレート上限",
+      "Korean": "프레임 제한",
+      "Simplified Chinese": "最大 FPS",
+      "Traditional Chinese": "最大 FPS"
+    },
+    "PORT_FOV": {
+      "English": "field of view",
+      "French": "champ de vision",
+      "German": "sichtfeld",
+      "Spanish": "campo de visión",
+      "Italian": "campo visivo",
+      "Russian": "угол обзора",
+      "Japanese": "FOV",
+      "Korean": "시야각",
+      "Simplified Chinese": "视角",
+      "Traditional Chinese": "視角"
+    },
+    "PORT_DISPLAY": {
+      "English": "display",
+      "French": "écran",
+      "German": "display",
+      "Spanish": "pantalla",
+      "Italian": "schermo",
+      "Russian": "экран",
+      "Japanese": "ディスプレイ",
+      "Korean": "화면",
+      "Simplified Chinese": "显示器",
+      "Traditional Chinese": "顯示器"
+    }
+  }
+}

@@ -120,6 +120,9 @@ static void resolve_api(void* h) {
     g_il2.class_get_name = (const char* (*)(void*))dlsym(h, "il2cpp_class_get_name");
     g_il2.class_get_namespace = (const char* (*)(void*))dlsym(h, "il2cpp_class_get_namespace");
     g_il2.class_get_parent = (void* (*)(void*))dlsym(h, "il2cpp_class_get_parent");
+    g_il2.string_new = (void* (*)(const char*))dlsym(h, "il2cpp_string_new");
+    g_il2.class_get_type = (void* (*)(void*))dlsym(h, "il2cpp_class_get_type");
+    g_il2.type_get_object = (void* (*)(void*))dlsym(h, "il2cpp_type_get_object");
 }
 
 // ---------------------------------------------------------------- core hooks
@@ -189,6 +192,7 @@ void rf_frame_tick(void) {
     rf_interact_tick();
     rf_menu_tick();
     rf_hud_tick();
+    rf_settings_tick();
 }
 
 void* g_vrim;    // VrInputModule (menus' laser pointer input), captured in Process
@@ -256,6 +260,11 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_MSG_BOX, (void*)h_msg_box, true, false},
     {H_POSTURE_SETUP, (void*)h_posture_setup, true, false},
     {H_MENU_UPDATE, (void*)h_menu_update, true, false},
+    {H_OPTIONS_SETUP, (void*)h_options_setup, true, false},
+    {H_UIOPT_LEFT, (void*)h_uiopt_left, true, false},
+    {H_UIOPT_RIGHT, (void*)h_uiopt_right, true, false},
+    {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
+    {H_LOC_GETSTRING, (void*)h_loc_getstring, true, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 
@@ -329,6 +338,7 @@ static void native_init(JNIEnv* env, jclass cls, jstring jext, jstring jlibdir, 
         rf_log("libil2cpp base=%#lx build-id ok", (unsigned long)g_il2cpp_base);
         install_hooks();
     }
+    rf_settings_load();
     if (ext) (*env)->ReleaseStringUTFChars(env, jext, ext);
     if (libdir) (*env)->ReleaseStringUTFChars(env, jlibdir, libdir);
 }
@@ -343,6 +353,18 @@ static jint native_hud_state(JNIEnv* env, jclass cls) {
     return g_hud_state;
 }
 
+static void native_display(JNIEnv* env, jclass cls, jfloat hz, jfloat max_hz) {
+    (void)env; (void)cls;
+    if (hz != g_display_hz || max_hz != g_display_max_hz) rf_log("display: %.1f Hz (max %.1f Hz)", hz, max_hz);
+    g_display_hz = hz;
+    g_display_max_hz = max_hz;
+}
+
+static jint native_want_max_refresh(JNIEnv* env, jclass cls) {
+    (void)env; (void)cls;
+    return g_fps_idx == RF_FPS_DISPLAY;
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
     JNIEnv* env = NULL;
@@ -353,6 +375,8 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;I)V", (void*)native_init},
         {"nativeTouch", "(IIFFJ)V", (void*)native_touch},
         {"nativeHudState", "()I", (void*)native_hud_state},
+        {"nativeDisplay", "(FF)V", (void*)native_display},
+        {"nativeWantMaxRefresh", "()I", (void*)native_want_max_refresh},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

@@ -103,6 +103,9 @@ typedef struct {
     const char* (*class_get_name)(void* klass);
     const char* (*class_get_namespace)(void* klass);
     void* (*class_get_parent)(void* klass);
+    void* (*string_new)(const char* utf8);       // System.String from UTF-8
+    void* (*class_get_type)(void* klass);        // Il2CppType*
+    void* (*type_get_object)(void* type);        // System.Type object
 } rf_il2cpp_api_t;
 extern rf_il2cpp_api_t g_il2;
 const char* rf_class_name(void* obj);  // "?" when unknown
@@ -193,7 +196,29 @@ bool rf_goggles_on(void);
 void* h_posture_setup(void* self, const void* mi);
 void h_menu_update(void* self, const void* mi);
 void* rf_menu_controller(void);  // MenuController active this frame, or NULL
+bool rf_menu_back(void);         // Back inside the active menu; false at its root
 void rf_menu_tick(void);
+
+// ---- rf_settings.c: port settings (FPS limit, field of view), <ext>/port_settings.cfg ----
+enum { RF_FPS_30 = 0, RF_FPS_45, RF_FPS_60, RF_FPS_DISPLAY, RF_FPS_COUNT };
+#define RF_FOV_COUNT 5
+extern int g_fps_idx, g_fov_idx;
+extern volatile float g_display_hz;    // current display refresh rate (from Java)
+extern volatile float g_display_max_hz;  // highest refresh rate of the display at this resolution
+int rf_fps_value(int idx);              // frames per second for an FPS-limit option
+int rf_fov_value(int idx);              // horizontal degrees for a field-of-view option
+void rf_settings_load(void);
+void rf_settings_changed(void);         // apply + save
+void rf_settings_tick(void);            // main thread: keep Application.targetFrameRate on the chosen limit
+void* rf_type_of(void* obj);            // System.Type of an object's class
+
+// ---- rf_options.c / rf_loc.c ----
+void* h_options_setup(void* self, const void* mi);
+void h_uiopt_left(void* self, const void* mi);
+void h_uiopt_right(void* self, const void* mi);
+void h_uiopt_update(void* self, const void* mi);
+void* h_loc_getstring(void* key, void* ctx, const void* mi);
+int rf_lang(void);                      // index into RF_LANG_NAMES of the game's current language
 
 // ---- rf_view.c: flat camera (FOV, lean) ----
 extern float g_lean;      // metres the head leans along the view direction (pinch gesture)
