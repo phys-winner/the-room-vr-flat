@@ -113,15 +113,46 @@ bool rf_place_transform(int h, void* T, v3 pos, quat rot) {
     v3 want_ap = v3_sub(pos, q_rot(want_aq, lp));
     g_hand[h].rot = q_mul(q_conj(pq), want_aq);
     g_hand[h].pos = q_rot(q_conj(pq), v3_sub(want_ap, pp));
+    g_hand_resting[h] = false;
     return true;
 }
 
 bool rf_aim_transform(int h, void* T, v3 origin, v3 dir) { return rf_place_transform(h, T, origin, rf_q_look(dir, (v3){0, 1, 0})); }
 
-const v3 RF_REST_POS[2] = {{-0.2f, -0.55f, 0.25f}, {0.2f, -0.55f, 0.25f}};
+// Rest pose: hands lowered beside and slightly behind the seated body, outside the view at any pitch
+// (|pitch| <= 80), turning with the head yaw like a body that faces where the player looks.
+static const v3 REST_OFF[2] = {{-0.2f, -0.5f, -0.3f}, {0.2f, -0.5f, -0.3f}};
+bool g_hand_resting[2] = {true, true};
+
+static void rest_pose(int h) {
+    quat yaw = q_axis((v3){0, 1, 0}, g_head.yaw * DEG2RAD);
+    g_hand[h].pos = v3_add(g_head.pos, q_rot(yaw, REST_OFF[h]));
+    // in menus the resting controllers point at the floor: the menu laser only appears when a controller
+    // points towards the menu (MenuController.DotToleranceToStartInputLine)
+    g_hand[h].rot = rf_menu_context() ? q_mul(yaw, q_axis((v3){1, 0, 0}, 80.0f * DEG2RAD)) : yaw;
+    g_hand[h].vel = (v3){0, 0, 0};
+}
+
+void rf_face_point(v3 p) {
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* ct = rf_transform(cam);
+    void* rig = rf_tr_parent(ct);  // the head pose is local to the camera's parent
+    quat r = rf_alive(rig) ? rf_tr_rot(rig) : (quat){0, 0, 0, 1};
+    v3 l = q_rot(q_conj(r), v3_sub(p, rf_tr_pos(ct)));
+    if (v3_len(l) < 1e-3f) return;
+    g_head.yaw = atan2f(l.x, l.z) / DEG2RAD;
+    g_head.pitch = atan2f(l.y, sqrtf(l.x * l.x + l.z * l.z)) / DEG2RAD;
+    if (g_head.pitch > 80) g_head.pitch = 80;
+    if (g_head.pitch < -80) g_head.pitch = -80;
+}
 
 void rf_hand_rest(int h) {
-    g_hand[h].pos = RF_REST_POS[h];
-    g_hand[h].rot = (quat){0, 0, 0, 1};
-    g_hand[h].vel = (v3){0, 0, 0};
+    g_hand_resting[h] = true;
+    rest_pose(h);
+}
+
+void rf_hand_rest_apply(void) {
+    for (int h = 0; h < 2; h++)
+        if (g_hand_resting[h]) rest_pose(h);
 }

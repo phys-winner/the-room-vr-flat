@@ -12,13 +12,19 @@ typedef bool (*fn_b1)(void*, const void*);
 #define RIGHT 1
 
 // ------------------------------------------------------------------------------------------ laser click
+// Menus draw the laser of one controller at a time; MenuController hands the pointer to a controller when its
+// trigger is pressed. A click points the right controller at the tapped spot; if the menu's VrInputModule ray
+// still belongs to the left hand, a short trigger press hands the pointer over first. Then the right ray is put
+// exactly on the finger's camera ray and the trigger is pulsed.
 static struct {
-    int frames;
+    int frames;  // frames since the tap (0 = idle)
+    int armed;   // frame the right-hand ray took over (0 = not yet)
     float x, y;
 } g_click;
 
 void rf_act_laser_click(float nx, float ny) {
     g_click.frames = 1;
+    g_click.armed = 0;
     g_click.x = nx;
     g_click.y = ny;
 }
@@ -28,17 +34,42 @@ static void* menu_ray_transform(void) {
     return rf_alive(rt) ? rt : NULL;
 }
 
+// Point the right controller (kept at its rest position) towards a world point.
+static void rough_aim_right(v3 target) {
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* rig = rf_tr_parent(rf_transform(cam));  // hand anchors share the camera rig's tracking space
+    quat r = rf_alive(rig) ? rf_tr_rot(rig) : (quat){0, 0, 0, 1};
+    v3 rp = rf_alive(rig) ? rf_tr_pos(rig) : (v3){0, 0, 0};
+    v3 hp = v3_add(rp, q_rot(r, g_hand[RIGHT].pos));
+    g_hand[RIGHT].rot = rf_q_look(q_rot(q_conj(r), v3_norm(v3_sub(target, hp))), (v3){0, 1, 0});
+    g_hand_resting[RIGHT] = false;
+}
+
+#define CLICK_WAIT_MAX 30  // frames to wait for the menu to switch to the right-hand ray
+
 static void tick_click(void) {
     if (!g_click.frames) return;
     int f = g_click.frames++;
     v3 o, d;
     void* rt = menu_ray_transform();
-    if (f <= 14 && rt && rf_screen_ray(g_click.x, g_click.y, &o, &d)) {
+    if (rf_screen_ray(g_click.x, g_click.y, &o, &d)) {
         // laser origin 30 cm behind the eye on the same ray: the beam passes exactly under the finger
-        rf_aim_transform(RIGHT, rt, v3_sub(o, v3_scale(d, 0.30f)), d);
+        if (rt && rf_aim_transform(RIGHT, rt, v3_sub(o, v3_scale(d, 0.30f)), d)) {
+            if (!g_click.armed) g_click.armed = f;
+        } else {
+            rough_aim_right(v3_add(o, v3_scale(d, 2.0f)));
+        }
     }
-    g_hand[RIGHT].trigger = (f >= 4 && f < 10) ? 1.0f : 0.0f;
-    if (f > 16) {
+    int start = g_click.armed ? g_click.armed + 3 : CLICK_WAIT_MAX;
+    bool handover = !g_click.armed && f >= 2 && f < 5;  // press that makes the right controller the pointer
+    g_hand[RIGHT].trigger = (handover || (f >= start && f < start + 6)) ? 1.0f : 0.0f;
+    if (g_dev && (f == 1 || f == start || f == start + 6)) {
+        void* mc = rf_menu_controller();
+        rf_log("click f=%d armed=%d ray=%p pointerHand=%p inputEnabled=%d", f, g_click.armed, rt,
+               mc ? *(void**)((char*)mc + 0x100) : NULL, mc ? *((char*)mc + 0x108) : -1);
+    }
+    if (f > start + 12) {
         g_click.frames = 0;
         g_hand[RIGHT].trigger = 0;
         rf_hand_rest(RIGHT);

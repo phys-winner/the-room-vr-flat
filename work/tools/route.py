@@ -71,12 +71,14 @@ def route_menu(tag):
 
 
 def route_tut(tag, new=False):
+    # libroomfix turns the camera to every menu screen (rf_menu.c), so screen positions are stable;
+    # coordinates are normalised to the full 2340x1080 panel
     route_menu(tag)
+    wait_marker("menu: screen 'Select Profile Screen'", 60, after=1.5)
     tap_n(0.5175, 0.5176)   # profile 2
-    time.sleep(4)
-    tap_n(0.5325, 0.5269)   # Continue game / New game (same row)
-    time.sleep(4)
-    tap_n(0.5423, 0.6046)   # Sitting
+    wait_marker("menu: screen 'Main Menu Screen'", 30, after=1.5)
+    tap_n(0.5564, 0.588)    # Continue game / New game (same row)
+    # the posture wizard (Sitting/Standing) is answered by libroomfix (rf_menu.c)
     print("player in level after %.1fs" % wait_marker("player ready", 150, after=4))
 
 

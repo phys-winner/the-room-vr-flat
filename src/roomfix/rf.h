@@ -142,9 +142,11 @@ quat rf_q_look(v3 f, v3 up);
 void* rf_controller(int h);  // Player.LeftHand (0) / RightHand (1)
 bool rf_place_transform(int h, void* T, v3 pos, quat rot);
 bool rf_aim_transform(int h, void* T, v3 origin, v3 dir);
-void rf_hand_rest(int h);
+void rf_face_point(v3 world);   // turn the synthetic head to look at a world point
+void rf_hand_rest(int h);        // hand h goes back to rest and follows the head yaw from now on
+void rf_hand_rest_apply(void);   // per frame: resting hands follow the head yaw
+extern bool g_hand_resting[2];
 bool rf_class_is(void* obj, const char* name);  // obj's class or any base class has this name
-extern const v3 RF_REST_POS[2];
 extern v3 g_hand_prev_pos[2];
 
 // ---- rf_interact.c: game actions driven by touch ----
@@ -166,6 +168,37 @@ void rf_act_snap_turn(int dir);  // -1 left, +1 right
 void rf_act_button(int h, int which, int frames);  // pulse a controller button: 0 primary, 1 secondary, 2 menu
 void rf_interact_tick(void);
 void rf_act_dev_aim_tip(bool on, float x, float y, float depth);
+
+// ---- rf_hud.c: state for the Java HUD overlay, HUD button actions ----
+enum {
+    HUD_VISIBLE = 1 << 0,      // gameplay: overlay shown
+    HUD_TELEPORT = 1 << 1,     // Player.TeleportInput allowed
+    HUD_TELEPORT_ON = 1 << 2,  // teleport mode active (tap a location marker)
+    HUD_INVENTORY = 1 << 3,    // Player.InventoryInput allowed
+    HUD_INV_OPEN = 1 << 4,     // HudManager.Showing
+    HUD_GOGGLES = 1 << 5,      // Player.GogglesInput allowed
+    HUD_GOGGLES_ON = 1 << 6,   // Goggles.GogglesActive
+    HUD_SNAP = 1 << 7,         // tutorial asks for a snap turn
+    HUD_MENU = 1 << 8,         // main menu / pause menu (taps click the menu)
+};
+enum { HB_TELEPORT = 1, HB_INVENTORY, HB_GOGGLES, HB_PAUSE, HB_TURN_L, HB_TURN_R, HB_BACK };
+extern volatile int g_hud_state;
+extern int g_tut_action;  // RwAction the current tutorial box asks for (-1 none)
+void rf_hud_tick(void);
+void rf_hud_button(int id);
+bool rf_inventory_open(void);
+bool rf_goggles_on(void);
+
+// ---- rf_menu.c: VR setup wizards answered with flat defaults ----
+void* h_posture_setup(void* self, const void* mi);
+void h_menu_update(void* self, const void* mi);
+void* rf_menu_controller(void);  // MenuController active this frame, or NULL
+void rf_menu_tick(void);
+
+// ---- rf_view.c: flat camera (FOV, lean) ----
+extern float g_lean;      // metres the head leans along the view direction (pinch gesture)
+extern float g_fov_h;     // horizontal field of view on screen, degrees
+void rf_view_tick(void);
 
 // ---- module entry points ----
 void rf_xr_init(void);      // XR device emulation (head)

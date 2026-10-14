@@ -66,3 +66,18 @@ CALL RECV_CENTRE     InventoryReceiver$$GetCentre
 META INVRECV_TYPEINFO InventoryReceiver_TypeInfo
 CALL TR_INVPOINT     UnityEngine.Transform$$InverseTransformPoint
 CALL TR_POINT        UnityEngine.Transform$$TransformPoint
+# ---- HUD state (rf_hud.c) ----
+META HUDMGR_TYPEINFO HudManager_TypeInfo
+META GOGGLES_TYPEINFO Goggles_TypeInfo
+META GOGGLESHUD_TYPEINFO GogglesHudManager_TypeInfo
+# ---- VR setup wizards skipped with flat defaults (rf_menu.c) ----
+HOOK POSTURE_SETUP    PostureSelectScreen$$OnSetupScreen
+CALL POSTURE_SITTING  PostureSelectScreen$$SittingPressed
+CALL CG_ALPHA         UnityEngine.CanvasGroup$$get_alpha
+# ---- hierarchy inspection (dev) ----
+CALL TR_CHILDCOUNT    UnityEngine.Transform$$get_childCount
+CALL TR_GETCHILD      UnityEngine.Transform$$GetChild
+CALL GO_ACTIVESELF    UnityEngine.GameObject$$get_activeSelf
+CALL GO_SETACTIVE     UnityEngine.GameObject$$SetActive
+CALL TR_LOSSYSCALE    UnityEngine.Transform$$get_lossyScale
+HOOK MENU_UPDATE      MenuController$$Update

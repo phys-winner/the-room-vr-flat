@@ -192,6 +192,55 @@ static void cmd_inv(void) {
            c ? ((char*)c)[0xb8] : -1, tp.x, tp.y, tp.z, tf.x, tf.y, tf.z);
 }
 
+// dev: transform subtree with active flags and positions relative to the camera
+static void tree(void* t, int depth, int maxdepth, v3 cam_p, quat cam_q) {
+    if (!rf_alive(t) || depth > maxdepth) return;
+    char nm[64];
+    rf_obj_name(t, nm, sizeof nm);
+    void* go = rf_gameobject(t);
+    bool act = rf_alive(go) && CALLP(C_GO_ACTIVESELF, bool (*)(void*, const void*))(go, NULL);
+    v3 rel = q_rot(q_conj(cam_q), v3_sub(rf_tr_pos(t), cam_p));
+    v3 sc = CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(t, NULL);
+    int n = CALLP(C_TR_CHILDCOUNT, int32_t (*)(void*, const void*))(t, NULL);
+    rf_log("tree %*s'%s' act=%d cam(%.2f %.2f %.2f) scale(%.2f %.2f %.2f) kids=%d", depth * 2, "", nm, act, rel.x, rel.y,
+           rel.z, sc.x, sc.y, sc.z, n);
+    for (int i = 0; i < n && i < 40; i++)
+        tree(CALLP(C_TR_GETCHILD, void* (*)(void*, int32_t, const void*))(t, i, NULL), depth + 1, maxdepth, cam_p, cam_q);
+}
+
+static void* find_named(void* t, const char* name, int depth) {
+    if (!rf_alive(t) || depth > 6) return NULL;
+    char nm[64];
+    rf_obj_name(t, nm, sizeof nm);
+    if (!strcmp(nm, name)) return t;
+    int n = CALLP(C_TR_CHILDCOUNT, int32_t (*)(void*, const void*))(t, NULL);
+    for (int i = 0; i < n && i < 64; i++) {
+        void* r = find_named(CALLP(C_TR_GETCHILD, void* (*)(void*, int32_t, const void*))(t, i, NULL), name, depth + 1);
+        if (r) return r;
+    }
+    return NULL;
+}
+
+// dev: setact NAME 0|1 - (de)activate a GameObject under the camera rig
+static void cmd_setact(const char* name, bool on) {
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* rig = rf_tr_parent(rf_transform(cam));
+    void* t = find_named(rig ? rig : rf_transform(cam), name, 0);
+    if (!t) { rf_log("setact: '%s' not found", name); return; }
+    CALLP(C_GO_SETACTIVE, void (*)(void*, bool, const void*))(rf_gameobject(t), on, NULL);
+    rf_log("setact: '%s' -> %d", name, on);
+}
+
+static void cmd_tree(int up, int maxdepth) {
+    void* cam = rf_main_camera();
+    if (!cam) { rf_log("tree: no camera"); return; }
+    void* ct = rf_transform(cam);
+    void* t = ct;
+    for (int i = 0; i < up && rf_alive(rf_tr_parent(t)); i++) t = rf_tr_parent(t);
+    tree(t, 0, maxdepth, rf_tr_pos(ct), rf_tr_rot(ct));
+}
+
 static void exec_line(char* line) {
     char* argv[8];
     int argc = 0;
@@ -215,6 +264,10 @@ static void exec_line(char* line) {
         rf_act_dev_aim_tip(true, strtof(argv[1], NULL), strtof(argv[2], NULL), strtof(argv[3], NULL));
     } else if (!strcmp(argv[0], "tipoff")) {
         rf_act_dev_aim_tip(false, 0, 0, 0);
+    } else if (!strcmp(argv[0], "setact") && argc >= 3) {
+        cmd_setact(argv[1], atoi(argv[2]) != 0);
+    } else if (!strcmp(argv[0], "tree") && argc >= 3) {
+        cmd_tree(atoi(argv[1]), atoi(argv[2]));
     } else if (!strcmp(argv[0], "inv")) {
         cmd_inv();
     } else if (!strcmp(argv[0], "vols")) {
@@ -236,9 +289,15 @@ static void exec_line(char* line) {
     } else if (!strcmp(argv[0], "snap") && argc >= 2) {
         rf_act_snap_turn(atoi(argv[1]) < 0 ? -1 : 1);
     } else if (!strcmp(argv[0], "press") && argc >= 3) {
-        // press L|R primary|secondary|menu : one 6-frame pulse
+        // press L|R primary|secondary|menu [frames] : one pulse (default 6 frames)
         int h = argv[1][0] == 'R', k = !strcmp(argv[2], "secondary") ? 1 : !strcmp(argv[2], "menu") ? 2 : 0;
-        rf_act_button(h, k, 6);
+        rf_act_button(h, k, argc >= 4 ? atoi(argv[3]) : 6);
+    } else if (!strcmp(argv[0], "hud") && argc >= 2) {
+        rf_hud_button(atoi(argv[1]));
+    } else if (!strcmp(argv[0], "lean") && argc >= 2) {
+        g_lean = strtof(argv[1], NULL);
+    } else if (!strcmp(argv[0], "fov") && argc >= 2) {
+        g_fov_h = strtof(argv[1], NULL);
     } else if (!strcmp(argv[0], "tap") && argc >= 3) {
         rf_touch_post(0, 99, strtof(argv[1], NULL), strtof(argv[2], NULL), 0);
         rf_touch_post(1, 99, strtof(argv[1], NULL), strtof(argv[2], NULL), 50);
@@ -251,6 +310,7 @@ static void exec_line(char* line) {
         rf_hand_t* h = &g_hand[argv[1][0] == 'R'];
         if (!strcmp(argv[0], "hand") && argc >= 5) {
             h->pos = (v3){strtof(argv[2], NULL), strtof(argv[3], NULL), strtof(argv[4], NULL)};
+            g_hand_resting[argv[1][0] == 'R'] = false;
         } else if (!strcmp(argv[0], "trig")) {
             h->trigger = strtof(argv[2], NULL);
         } else if (!strcmp(argv[0], "grip")) {

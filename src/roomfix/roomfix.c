@@ -184,7 +184,11 @@ void rf_frame_tick(void) {
     g_hand_prev_pos[0] = g_hand[0].pos;
     g_hand_prev_pos[1] = g_hand[1].pos;
     rf_touch_tick();
+    rf_view_tick();
+    rf_hand_rest_apply();
     rf_interact_tick();
+    rf_menu_tick();
+    rf_hud_tick();
 }
 
 void* g_vrim;    // VrInputModule (menus' laser pointer input), captured in Process
@@ -250,6 +254,8 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_GC_AWAKE, (void*)h_gc_awake, true, false},
     {H_GC_DESTROY, (void*)h_gc_destroy, true, false},
     {H_MSG_BOX, (void*)h_msg_box, true, false},
+    {H_POSTURE_SETUP, (void*)h_posture_setup, true, false},
+    {H_MENU_UPDATE, (void*)h_menu_update, true, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 
@@ -332,6 +338,11 @@ static void native_touch(JNIEnv* env, jclass cls, jint action, jint id, jfloat x
     rf_touch_post(action, id, x, y, (int64_t)t);
 }
 
+static jint native_hud_state(JNIEnv* env, jclass cls) {
+    (void)env; (void)cls;
+    return g_hud_state;
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
     JNIEnv* env = NULL;
@@ -341,6 +352,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     static const JNINativeMethod m[] = {
         {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;I)V", (void*)native_init},
         {"nativeTouch", "(IIFFJ)V", (void*)native_touch},
+        {"nativeHudState", "()I", (void*)native_hud_state},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

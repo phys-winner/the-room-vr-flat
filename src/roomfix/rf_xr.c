@@ -15,9 +15,9 @@
 #include "rf.h"
 
 rf_head_t g_head = {.yaw = 0, .pitch = 0, .pos = {0, 0, 0}, .ipd = 0.064f};
-rf_hand_t g_hand[2] = {
-    {.pos = {-0.2f, -0.55f, 0.25f}, .rot = {0, 0, 0, 1}},
-    {.pos = {0.2f, -0.55f, 0.25f}, .rot = {0, 0, 0, 1}},
+rf_hand_t g_hand[2] = {  // rest pose (rf_unity.c REST_OFF); resting hands follow the head yaw every frame
+    {.pos = {-0.2f, -0.5f, -0.3f}, .rot = {0, 0, 0, 1}},
+    {.pos = {0.2f, -0.5f, -0.3f}, .rot = {0, 0, 0, 1}},
 };
 
 #define FAKE_BASE 0x524F4F4D00000000ULL  // "ROOM"

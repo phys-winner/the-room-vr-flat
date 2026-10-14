@@ -5,7 +5,10 @@
 //   gameplay                       press on a grabbable -> grab it with the right hand, drag moves it
 //                                  along its constraint, lift releases;
 //                                  press elsewhere + drag -> look around (head yaw/pitch);
+//                                  second finger while looking -> pinch: lean in / back;
 //                                  teleport mode (HUD) + tap on a location marker -> teleport.
+// HUD buttons are hit-tested in Java; their presses arrive here as action 10 (id = button) so every game
+// action still runs on the Unity main thread. Action 11 cancels all fingers (window focus lost).
 #include <pthread.h>
 #include <string.h>
 
@@ -13,7 +16,7 @@
 
 // ---------------------------------------------------------------- event queue (UI thread -> main thread)
 typedef struct {
-    int action;  // 0 down, 1 up, 2 move, 3 cancel
+    int action;  // 0 down, 1 up, 2 move, 3 cancel, 10 HUD button (id), 11 cancel all
     int id;
     float x, y;  // 0..1 of the game view, y down
     int64_t t;   // ms (MotionEvent time base)
@@ -40,19 +43,20 @@ static int pop(touch_ev* out, int max) {
 
 // ---------------------------------------------------------------- look scale
 typedef float (*fn_f_1)(void*, const void*);
-static float g_deg_per_x = 120.0f, g_deg_per_y = 60.0f;
+static float g_deg_per_x = 120.0f, g_deg_per_y = 60.0f, g_aspect = 2.1667f;
 
 static void update_look_scale(void) {
     void* cam = rf_main_camera();
     if (!cam) return;
     float vfov = CALLP(C_CAM_GET_FOV, fn_f_1)(cam, NULL);
     float aspect = CALLP(C_CAM_ASPECT, fn_f_1)(cam, NULL);
+    if (aspect > 0.2f) g_aspect = aspect;
     g_deg_per_x = 2.0f * atanf(tanf(vfov * 0.5f * DEG2RAD) * aspect) / DEG2RAD;
     g_deg_per_y = vfov;
 }
 
 // ---------------------------------------------------------------- primary finger gestures
-enum { F_NONE = 0, F_PENDING, F_LOOK, F_GRAB };
+enum { F_NONE = 0, F_PENDING, F_LOOK, F_GRAB, F_PINCH };
 
 static struct {
     int mode;
@@ -60,6 +64,14 @@ static struct {
     float x0, y0, x, y;
     int64_t t0;
 } g_f;
+
+static struct {
+    int id;
+    float x, y;
+    float d0, lean0;
+} g_f2;  // second finger of a pinch
+
+#define LEAN_PER_UNIT 0.5f  // metres of lean per screen height of finger spread
 
 #define TAP_MS 350
 #define MOVE_X 0.012f
@@ -108,10 +120,48 @@ static void finger_up(const touch_ev* e, bool cancel) {
     g_f.mode = F_NONE;
 }
 
+static float pinch_dist(void) {
+    float dx = (g_f.x - g_f2.x) * g_aspect, dy = g_f.y - g_f2.y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+static void cancel_all(void) {
+    if (g_f.mode == F_GRAB) rf_act_grab_end();
+    g_f.mode = F_NONE;
+}
+
 static void on_event(const touch_ev* e) {
+    if (e->action == 10) {
+        rf_hud_button(e->id);
+        return;
+    }
+    if (e->action == 11) {
+        cancel_all();
+        return;
+    }
     if (e->action == 0) {
-        if (g_f.mode != F_NONE) return;  // single-finger controls for now
-        finger_down(e);
+        if (g_f.mode == F_NONE) {
+            finger_down(e);
+        } else if ((g_f.mode == F_PENDING || g_f.mode == F_LOOK) && !rf_menu_context() && e->id != g_f.id) {
+            g_f.mode = F_PINCH;
+            g_f2.id = e->id;
+            g_f2.x = e->x;
+            g_f2.y = e->y;
+            g_f2.d0 = pinch_dist();
+            g_f2.lean0 = g_lean;
+        }
+        return;
+    }
+    if (g_f.mode == F_PINCH) {
+        if (e->id != g_f.id && e->id != g_f2.id) return;
+        if (e->action == 2) {
+            if (e->id == g_f.id) { g_f.x = e->x; g_f.y = e->y; }
+            else { g_f2.x = e->x; g_f2.y = e->y; }
+            g_lean = g_f2.lean0 + (pinch_dist() - g_f2.d0) * LEAN_PER_UNIT;
+        } else {
+            g_f.mode = F_NONE;  // the remaining finger is ignored until it lifts
+            rf_log("touch: pinch lean %.2f m", g_lean);
+        }
         return;
     }
     if (g_f.mode == F_NONE || e->id != g_f.id) return;
