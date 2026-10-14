@@ -240,7 +240,7 @@ void rf_view_tick(void);
 // ---- rf_scene.c: scene inspection (dev), volumetric leftovers ----
 void rf_dev_comps(const char* name);
 void rf_dev_orphans(void);
-void rf_dev_rlist(void);
+void rf_dev_rlist(const char* filter);
 void rf_dev_rhide(const char* name, bool hide);
 
 // ---- rf_gfx.c: graphics state (dev) ----

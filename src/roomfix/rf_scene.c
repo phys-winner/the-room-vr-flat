@@ -100,18 +100,22 @@ void rf_dev_rhide(const char* name, bool hide) {
     rf_log("rhide: '%s' renderers %s", name, hide ? "off" : "on");
 }
 
-// every active renderer with its materials/shaders and screen position
-void rf_dev_rlist(void) {
+// active renderers with their materials/shaders and screen position; filter: substring of object, material or
+// shader name (NULL or "" = the first 200)
+void rf_dev_rlist(const char* filter) {
     if (!types_ready()) return;
     void* rs = CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(g_t_renderer, NULL);
-    int n = arr_len(rs);
-    rf_log("rlist: %d renderers", n);
-    for (int i = 0; i < n && i < 200; i++) {
+    int n = arr_len(rs), shown = 0;
+    bool all = !filter || !*filter;
+    rf_log("rlist: %d renderers%s%s", n, all ? "" : " matching ", all ? "" : filter);
+    for (int i = 0; i < n && shown < 200; i++) {
         void* r = arr_get(rs, i);
         if (!rf_alive(r)) continue;
         char nm[64], sh[256];
         rf_obj_name(rf_gameobject(r), nm, sizeof nm);
         renderer_shaders(r, sh, sizeof sh);
+        if (!all && !strstr(nm, filter) && !strstr(sh, filter)) continue;
+        shown++;
         float sx = -1, sy = -1;
         bool vis = rf_world_to_screen(rf_tr_pos(rf_transform(r)), &sx, &sy);
         rf_log("  r '%s' %s en=%d %s screen(%.2f %.2f) vis=%d", nm, rf_class_name(r),

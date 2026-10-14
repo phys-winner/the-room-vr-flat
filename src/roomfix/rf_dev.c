@@ -423,7 +423,7 @@ static void exec_line(char* line) {
     } else if (!strcmp(argv[0], "aa") && argc >= 3) {
         rf_dev_aa(atoi(argv[1]) != 0, atoi(argv[2]));
     } else if (!strcmp(argv[0], "rlist")) {
-        rf_dev_rlist();
+        rf_dev_rlist(argc >= 2 ? argv[1] : NULL);
     } else if (!strcmp(argv[0], "orphans")) {
         rf_dev_orphans();
     } else if (!strcmp(argv[0], "rhide") && argc >= 3) {
