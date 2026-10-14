@@ -31,3 +31,4 @@
 *.p12
 *.pfx
 .env
+/work/loc/
