@@ -1,0 +1,17 @@
+{
+  "artifact_type": "directory",
+  "entries": [
+    {
+      "path": ".",
+      "type": "directory"
+    },
+    {
+      "path": "original.apk",
+      "sha256": "d6608b54f62f3b2166292655945e8a32e717b18e07b1de010d410a68acfbe65e",
+      "size": 2061253795,
+      "type": "file"
+    }
+  ],
+  "manifest_sha256": "6a19ab5364e854a72270f6be3e9b74957654d82eaeb391fce8e69028bb9f098c",
+  "version": 1
+}

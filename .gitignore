@@ -1,0 +1,32 @@
+# Large immutable payloads: tracked by SHA-256 manifests in work/manifests/, not by Git
+/original.apk
+/original/*.apk
+/decoded_original/assets/bin/
+/decoded_original/assets/Videos/
+/decoded_original/lib/
+/app/assets/bin/
+/app/assets/Videos/
+/app/lib/
+# Generated outputs and caches
+/out/
+/app/build/
+/app/dist/
+/work/tmp/
+/work/logs/
+/work/ida/
+/work/il2cppdumper/
+/work/tool-cache/
+/work/native/build/
+**/__pycache__/
+# Secrets
+/work/keys/
+/signing/
+*.jks
+*.keystore
+*.pk8
+*.pem
+*.crt
+*.der
+*.p12
+*.pfx
+.env
