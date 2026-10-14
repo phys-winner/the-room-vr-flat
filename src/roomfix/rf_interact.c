@@ -47,7 +47,7 @@ static void tick_click(void) {
 
 // ------------------------------------------------------------------------------------------ grabbing
 enum { K_FREE = 0, K_SLIDER = 1, K_ROTATION = 2, K_TWIST = 3 };
-enum { G_IDLE = 0, G_HOVER, G_HOLD, G_RELEASE };
+enum { G_IDLE = 0, G_HOVER, G_HOLD, G_RELEASE, G_REGRAB };
 
 static struct {
     int state, frames, kind;
@@ -63,6 +63,8 @@ static struct {
     float twist0;  // finger angle around the projected pivot at grab time
     v3 target;
     quat target_rot;
+    bool inv;   // item taken out of the inventory grid with the pointing finger ray
+    v3 inv_dir;
 } g_grab;
 
 #define REACH_M 1.6f       // farthest grab point from the eyes (seated VR reach incl. leaning)
@@ -251,6 +253,23 @@ __attribute__((unused)) static void* pick_grabbable_physics(float nx, float ny, 
     return best_g;
 }
 
+// InventoryManager.Instance (static field 0) .IsItemInInventory(item)
+static bool in_inventory(void* item) {
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + META_INVMGR_TYPEINFO);
+    if (!k || (k & 1) || k < 0x10000) return false;           // metadata slot not initialised yet
+    void* statics = *(void**)(k + 0xb8);
+    void* mgr = statics ? *(void**)statics : NULL;
+    if (!rf_alive(mgr)) return false;
+    return ((bool (*)(void*, void*, const void*))RVA(g_call_desc[C_INV_ISIN].rva))(mgr, item, NULL);
+}
+
+static void* pointing_tip(void) {
+    void* c = rf_controller(RIGHT);
+    void* hc = c ? *(void**)((char*)c + 0x38) : NULL;  // Controller.HandController
+    void* tip = rf_alive(hc) ? *(void**)((char*)hc + 0x20) : NULL;  // HandController.PointingFingerTip
+    return rf_alive(tip) ? tip : NULL;
+}
+
 static float finger_angle(float nx, float ny) {
     float px, py;
     if (!rf_world_to_screen(g_grab.pivot, &px, &py)) return 0;
@@ -283,6 +302,26 @@ void rf_act_probe(float nx, float ny) {
     }
 }
 
+// Constraint of the grabbed object: slider axis, rotation axis/pivot, or wrist twist.
+static void setup_constraint(void* gr, v3 p, float nx, float ny) {
+    void* tr = rf_transform(gr);
+    g_grab.kind = K_FREE;
+    if (rf_class_is(gr, "SliderGrabbable")) {
+        g_grab.kind = K_SLIDER;
+        g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // LocalSlideAxis
+    } else if (rf_class_is(gr, "RotationGrabbable")) {
+        g_grab.kind = *((char*)gr + 0xa8) /* TwistControl */ ? K_TWIST : K_ROTATION;
+        g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // RotateAxis
+        g_grab.pivot = rf_tr_pos(tr);
+        v3 rel = v3_sub(p, g_grab.pivot);
+        g_grab.h0 = v3_dot(rel, g_grab.axis);
+        v3 radial = v3_sub(rel, v3_scale(g_grab.axis, g_grab.h0));
+        g_grab.r0 = v3_len(radial);
+        if (g_grab.kind == K_ROTATION && g_grab.r0 < 0.015f) g_grab.kind = K_TWIST;  // grabbed on the axis
+        g_grab.twist0 = finger_angle(nx, ny);
+    }
+}
+
 int rf_act_grab_begin(float nx, float ny) {
     if (!grabber_transform()) return RF_GRAB_NOPLAYER;
     v3 p;
@@ -303,26 +342,14 @@ int rf_act_grab_begin(float nx, float ny) {
     g_grab.rot0 = rf_q_look(d, (v3){0, 1, 0});
     g_grab.fx0 = g_grab.fx = nx;
     g_grab.fy0 = g_grab.fy = ny;
-    void* tr = rf_transform(gr);
-    if (rf_class_is(gr, "SliderGrabbable")) {
-        g_grab.kind = K_SLIDER;
-        g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // LocalSlideAxis
-    } else if (rf_class_is(gr, "RotationGrabbable")) {
-        g_grab.kind = *((char*)gr + 0xa8) /* TwistControl */ ? K_TWIST : K_ROTATION;
-        g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // RotateAxis
-        g_grab.pivot = rf_tr_pos(tr);
-        v3 rel = v3_sub(p, g_grab.pivot);
-        g_grab.h0 = v3_dot(rel, g_grab.axis);
-        v3 radial = v3_sub(rel, v3_scale(g_grab.axis, g_grab.h0));
-        g_grab.r0 = v3_len(radial);
-        if (g_grab.kind == K_ROTATION && g_grab.r0 < 0.015f) g_grab.kind = K_TWIST;  // grabbed on the axis
-        g_grab.twist0 = finger_angle(nx, ny);
-    }
+    setup_constraint(gr, p, nx, ny);
+    g_grab.inv = rf_class_is(gr, "InventoryItemGrabbable") && in_inventory(gr);
+    g_grab.inv_dir = d;
     g_grab.target = p;
     g_grab.target_rot = g_grab.rot0;
     g_grab.state = G_HOVER;
     g_grab.frames = 0;
-    rf_log("grab: %s kind=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f", rf_class_name(gr), g_grab.kind, dist,
+    rf_log("grab: %s kind=%d inv=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f", rf_class_name(gr), g_grab.kind, g_grab.inv, dist,
            g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0);
     return RF_GRAB_OK;
 }
@@ -340,6 +367,75 @@ void rf_act_grab_end(void) {
 }
 
 bool rf_act_grabbing(void) { return g_grab.state != G_IDLE; }
+
+void rf_act_grab_depth(float depth) {
+    if (g_grab.state == G_HOLD || g_grab.state == G_HOVER) g_grab.depth = depth;
+}
+
+// ---- inventory receivers (keyholes, sockets): InventoryReceiver.AllReceivers (static field 0) ----
+static void* static_field0(uintptr_t meta) {
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + meta);
+    if (!k || (k & 1) || k < 0x10000) return NULL;
+    void* statics = *(void**)(k + 0xb8);
+    return statics ? *(void**)statics : NULL;
+}
+
+static bool list_contains(void* list, void* obj) {
+    for (int i = 0; i < rf_list_size(list); i++)
+        if (rf_list_get(list, i) == obj) return true;
+    return false;
+}
+
+// When the finger is over a receiver that accepts the held item, returns the grabber position that puts
+// the item's probe point (InventoryItemGrabbable.ProbeTransform) on the receiver centre.
+static bool receiver_magnet(float nx, float ny, v3* grabber_target) {
+    void* ctrl = rf_controller(RIGHT);
+    void* held = ctrl ? CALLP(C_CTRL_GRABBED, fn_obj1)(ctrl, NULL) : NULL;
+    if (!rf_alive(held) || !rf_class_is(held, "InventoryItemGrabbable")) return false;
+    void* all = static_field0(META_INVRECV_TYPEINFO);
+    void* gt = grabber_transform();
+    if (!all || !gt) return false;
+    // The game's own probe point (InventoryItemGrabbable.GetBestTarget):
+    //   Controller.InventoryPoint.TransformPoint(GrabTransform.InverseTransformPoint(ProbeTransform.position))
+    // It moves rigidly with the hand, so shifting the grabber by (centre - probe) lands the probe on the
+    // centre; recomputed every frame (closed loop) because the held item lerps after the hand.
+    void* inv_pt = *(void**)((char*)ctrl + 0x20);  // Controller.InventoryPoint
+    if (!rf_alive(inv_pt)) return false;
+    void* probe = *(void**)((char*)held + 0xd8);
+    void* grab_t = *(void**)((char*)held + 0xb0);
+    if (!rf_alive(grab_t)) grab_t = rf_transform(held);
+    v3 probe_p = rf_tr_pos(rf_alive(probe) ? probe : rf_transform(held));
+    v3 local = ((v3(*)(void*, v3, const void*))RVA(g_call_desc[C_TR_INVPOINT].rva))(grab_t, probe_p, NULL);
+    v3 pgame = ((v3(*)(void*, v3, const void*))RVA(g_call_desc[C_TR_POINT].rva))(inv_pt, local, NULL);
+    v3 off = v3_sub(pgame, rf_tr_pos(gt));
+    float best = 0.075f;
+    bool found = false;
+    for (int i = 0; i < rf_list_size(all) && i < 256; i++) {
+        void* r = rf_list_get(all, i);
+        if (!rf_alive(r) || !list_contains(*(void**)((char*)r + 0x50) /* ValidItems */, held)) continue;
+        v3 c = ((v3(*)(void*, const void*))RVA(g_call_desc[C_RECV_CENTRE].rva))(r, NULL);
+        float sx, sy;
+        if (!rf_world_to_screen(c, &sx, &sy)) continue;
+        float dx = (sx - nx) * 2.1f, dy = sy - ny, dd = sqrtf(dx * dx + dy * dy);
+        if (dd < best) {
+            best = dd;
+            *grabber_target = v3_sub(c, off);
+            found = true;
+            if (g_dev && (g_grab.frames % 30) == 0) {
+                char nm[64];
+                rf_obj_name(r, nm, sizeof nm);
+                void* cur = *(void**)((char*)held + 0x168);
+                rf_log("magnet: receiver '%s' d=%.3f centre(%.2f %.2f %.2f) off(%.3f %.3f %.3f) radius=%.3f sticky=%.3f target=%s snapped=%d state=%d",
+                       nm, dd, c.x, c.y, c.z, off.x, off.y, off.z, *(float*)((char*)r + 0x78), *(float*)((char*)held + 0xe0),
+                       cur == r ? "this" : (cur ? "other" : "-"), *((char*)held + 0x170), *(int32_t*)((char*)held + 0x190));
+                rf_log("magnet: receiver state=%d currentItem=%p sincePickup=%.2f conditions=%d requireRelease=%d",
+                       *(int32_t*)((char*)r + 0x40), *(void**)((char*)r + 0xa8), *(float*)((char*)r + 0xb0),
+                       *(int32_t*)((char*)r + 0x3c), *((char*)r + 0x94));
+            }
+        }
+    }
+    return found;
+}
 
 static v3 drag_target(void) {
     v3 c, d;
@@ -376,8 +472,11 @@ static v3 drag_target(void) {
     }
     case K_TWIST:
         return g_grab.point0;
-    default:
+    default: {
+        v3 t;
+        if (receiver_magnet(g_grab.fx, g_grab.fy, &t)) return t;
         return v3_add(c, v3_scale(d, g_grab.depth));
+    }
     }
 }
 
@@ -395,27 +494,78 @@ static void tick_grab(void) {
         g_grab.target = drag_target();
         if (g_grab.kind == K_TWIST) {
             float da = finger_angle(g_grab.fx, g_grab.fy) - g_grab.twist0;
-            // screen angle grows counter-clockwise as seen by the player; the axis may point either way
+            // the finger angle (screen, y down) grows clockwise as seen by the player, while a positive Unity
+            // rotation about an axis pointing into the screen is counter-clockwise: follow the finger 1:1
             void* cam = rf_main_camera();
             v3 fwd = cam ? q_rot(rf_tr_rot(rf_transform(cam)), (v3){0, 0, 1}) : (v3){0, 0, 1};
             float sign = v3_dot(g_grab.axis, fwd) > 0 ? 1.0f : -1.0f;
-            g_grab.target_rot = q_mul(q_axis(g_grab.axis, sign * da), g_grab.rot0);
+            g_grab.target_rot = q_mul(q_axis(g_grab.axis, -sign * da), g_grab.rot0);
+            if (g_dev && (g_grab.frames % 10) == 0 && rf_class_is(g_grab.grabbable, "RotationGrabbable")) {
+                char* gr = (char*)g_grab.grabbable;
+                quat cg = *(quat*)(gr + 0xe4), cc = *(quat*)(gr + 0xf4);
+                rf_log("twist: finger da=%.1f deg -> totalRotation=%.1f grabOri(%.2f %.2f %.2f %.2f) curOri(%.2f %.2f %.2f %.2f)",
+                       da / DEG2RAD, *(float*)(gr + 0x118), cg.x, cg.y, cg.z, cg.w, cc.x, cc.y, cc.z, cc.w);
+            }
         }
     }
-    rf_place_transform(RIGHT, gt, g_grab.target, g_grab.target_rot);
+    if (g_grab.inv && g_grab.state == G_HOVER && pointing_tip()) {
+        // inventory slots are selected by the pointing finger ray (InventoryHud.RaycastInventory: starts 0.10 m
+        // behind the fingertip, 0.20 m long), so the tip hovers 5 cm in front of the slot
+        rf_aim_transform(RIGHT, pointing_tip(), v3_sub(g_grab.point0, v3_scale(g_grab.inv_dir, 0.05f)), g_grab.inv_dir);
+    } else {
+        rf_place_transform(RIGHT, gt, g_grab.target, g_grab.target_rot);
+    }
     switch (g_grab.state) {
-    case G_HOVER:
-        if (g_grab.frames >= HOVER_FRAMES) {
+    case G_HOVER: {
+        // close the grip once the controller's own probe reports a grabbable under the hand
+        // (Controller.ClosestGrabbableCollider +0x80; inventory slots highlight a few frames later)
+        void* ctrl = rf_controller(RIGHT);
+        void* closest = ctrl ? *(void**)((char*)ctrl + 0x80) : NULL;
+        if ((g_grab.frames >= HOVER_FRAMES && rf_alive(closest)) || g_grab.frames >= 30) {
             g_hand[RIGHT].grip = 1.0f;
             g_grab.state = G_HOLD;
             g_grab.frames = 0;
+            if (g_dev) rf_log("grab: grip after %d hover frames (probe %s)", g_grab.frames, rf_alive(closest) ? "ready" : "timeout");
         }
         break;
-    case G_HOLD:
-        if (g_grab.frames == 3) {
+    }
+    case G_HOLD: {
+        // the game may hand the grab over to another object (key inserted into a lock becomes the lock's
+        // rotating key): re-derive the drag constraint from what the hand really holds now
+        void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
+        if (rf_alive(held) && held != g_grab.grabbable && !rf_class_is(held, "InventoryItemGrabbable")) {
+            // The game handed the grab to another object (an item placed into its receiver becomes e.g. the
+            // lock's rotating key) without a grab start. A VR player lets go and grabs the new object to turn
+            // it: release for a few frames and grab it again on the spot.
+            v3 hp = rf_tr_pos(gt);
+            g_grab.grabbable = held;
+            g_grab.point0 = hp;
+            g_grab.target = hp;
+            g_grab.rot0 = g_grab.target_rot;
+            g_grab.inv = false;
+            v3 o, d;
+            if (rf_screen_ray(g_grab.fx, g_grab.fy, &o, &d)) g_grab.depth = v3_len(v3_sub(hp, o));
+            setup_constraint(held, hp, g_grab.fx, g_grab.fy);
+            g_hand[RIGHT].grip = 0;
+            g_grab.state = G_REGRAB;
+            g_grab.frames = 0;
+            rf_log("grab: transferred to %s kind=%d axis(%.2f %.2f %.2f) r0=%.3f -> re-grab", rf_class_name(held),
+                   g_grab.kind, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z, g_grab.r0);
+            break;
+        }
+    }
+        if (g_grab.frames == 3 || g_grab.frames == 12) {
             void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
             rf_log("grab: holding %s (%s)", rf_alive(held) ? rf_class_name(held) : "nothing",
                    held == g_grab.grabbable ? "picked" : "other/none");
+        }
+        break;
+    case G_REGRAB:
+        // grip released for 4 frames, then back to hover: the grip closes again once the probe sees it
+        if (g_grab.frames >= 4) {
+            g_grab.state = G_HOVER;
+            g_grab.frames = 0;
+            g_grab.twist0 = finger_angle(g_grab.fx, g_grab.fy);
         }
         break;
     case G_RELEASE:
@@ -556,7 +706,24 @@ static void tick_buttons(void) {
     }
 }
 
+// dev: keep the pointing finger aimed through a screen point at a given depth
+static struct { bool on; float x, y, depth; } g_dev_tip;
+void rf_act_dev_aim_tip(bool on, float x, float y, float depth) {
+    g_dev_tip.on = on;
+    g_dev_tip.x = x;
+    g_dev_tip.y = y;
+    g_dev_tip.depth = depth;
+    if (!on) rf_hand_rest(RIGHT);
+}
+static void tick_dev_tip(void) {
+    if (!g_dev_tip.on || !pointing_tip()) return;
+    v3 o, d;
+    if (!rf_screen_ray(g_dev_tip.x, g_dev_tip.y, &o, &d)) return;
+    rf_aim_transform(RIGHT, pointing_tip(), v3_add(o, v3_scale(d, g_dev_tip.depth)), d);
+}
+
 void rf_interact_tick(void) {
+    tick_dev_tip();
     tick_buttons();
     tick_click();
     tick_teleport();

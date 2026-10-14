@@ -158,12 +158,14 @@ void rf_gc_remove(void* gc);
 void rf_act_grab_drag(float nx, float ny);
 void rf_act_grab_end(void);
 bool rf_act_grabbing(void);
+void rf_act_grab_depth(float depth);
 void rf_act_teleport_mode(bool on);
 bool rf_act_teleport_mode_on(void);
 bool rf_act_teleport_tap(float nx, float ny);
 void rf_act_snap_turn(int dir);  // -1 left, +1 right
 void rf_act_button(int h, int which, int frames);  // pulse a controller button: 0 primary, 1 secondary, 2 menu
 void rf_interact_tick(void);
+void rf_act_dev_aim_tip(bool on, float x, float y, float depth);
 
 // ---- module entry points ----
 void rf_xr_init(void);      // XR device emulation (head)

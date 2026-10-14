@@ -106,6 +106,23 @@ TUT_TO_PROJECTOR = [
     "wait:'TUTORIAL_OPERATE_LEVER_TITLE'", "cmd:look -40 -25", "sleep:2",
 ]
 
+PULL_LEVER = ["cmd:grab 0.53 0.548", "sleep:0.6", "cmd:drag 0.53 0.62", "sleep:0.3", "cmd:drag 0.53 0.70", "sleep:0.3",
+              "cmd:drag 0.53 0.78", "sleep:0.8", "cmd:release"]
+TUT_TO_DESK = TUT_TO_PROJECTOR + sum(([*PULL_LEVER, f"wait:VIEW_SLIDE_{k}_MESSAGE", "sleep:7"] for k in range(1, 6)), []) + [
+    "wait:'TUTORIAL_TELEPORT_TO_DESK_TITLE'", "cmd:faceloc DeskPosition;tmode 1", "sleep:2", "cmd:ttaploc DeskPosition",
+    "sleep:4",
+]
+
+TUT_TO_SAFE = TUT_TO_DESK + [
+    "wait:'TUTORIAL_READ_NOTE_TITLE'", "cmd:look 0 -35", "sleep:2", "cmd:grab 0.513 0.544", "sleep:3", "cmd:release",
+    "wait:'TUTORIAL_PICK_UP_KEY_TITLE'", "cmd:grab 0.312 0.538", "sleep:0.6", "cmd:drag 0.31 0.58", "sleep:0.3",
+    "cmd:drag 0.30 0.63", "sleep:0.3", "cmd:drag 0.29 0.68", "sleep:0.3", "cmd:drag 0.28 0.73", "sleep:0.8",
+    "cmd:release", "sleep:2", "cmd:grab 0.311 0.560", "sleep:2",
+    "wait:'TUTORIAL_RELEASE_KEY_TITLE'", "cmd:release", "wait:'TUTORIAL_FOUND_KEY'",
+    "cmd:faceloc SafePosition;tmode 1", "sleep:2", "cmd:ttaploc SafePosition",
+    "wait:'TUTORIAL_OPEN_INVENTORY_TITLE'", "sleep:2", "cmd:look 0 -10", "sleep:1",
+]
+
 
 if __name__ == "__main__":
     cmd, tag = sys.argv[1], sys.argv[2]
@@ -114,6 +131,12 @@ if __name__ == "__main__":
     elif cmd == "projector":
         route_tut(tag)
         run_steps(tag, TUT_TO_PROJECTOR + sys.argv[3:])
+    elif cmd == "safe":
+        route_tut(tag)
+        run_steps(tag, TUT_TO_SAFE + sys.argv[3:])
+    elif cmd == "desk":
+        route_tut(tag)
+        run_steps(tag, TUT_TO_DESK + sys.argv[3:])
     elif cmd == "tut":
         route_tut(tag, "--new" in sys.argv)
     elif cmd == "menu":

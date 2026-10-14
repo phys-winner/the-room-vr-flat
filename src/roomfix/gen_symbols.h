@@ -71,6 +71,10 @@ enum {
     C_CTRL_GRABBED,
     C_TR_TRANSDIR,
     C_GO_ACTIVEH,
+    C_INV_ISIN,
+    C_RECV_CENTRE,
+    C_TR_INVPOINT,
+    C_TR_POINT,
     C_COUNT
 };
 static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[8]; } g_call_desc[C_COUNT] = {
@@ -107,6 +111,13 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
     [C_CTRL_GRABBED] = {"Controller$$GetGrabbedGrabbable", 0x161585c, {0xf4, 0x4f, 0xbe, 0xa9, 0xfd, 0x7b, 0x01, 0xa9}},
     [C_TR_TRANSDIR] = {"UnityEngine.Transform$$TransformDirection", 0x228c5e0, {0xff, 0x03, 0x01, 0xd1, 0xf4, 0x4f, 0x02, 0xa9}},
     [C_GO_ACTIVEH] = {"UnityEngine.GameObject$$get_activeInHierarchy", 0x24183e4, {0xf4, 0x4f, 0xbe, 0xa9, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_INV_ISIN] = {"InventoryManager$$IsItemInInventory", 0x137c5f8, {0xf5, 0x0f, 0x1d, 0xf8, 0xf4, 0x4f, 0x01, 0xa9}},
+    [C_RECV_CENTRE] = {"InventoryReceiver$$GetCentre", 0x137df1c, {0xf4, 0x4f, 0xbe, 0xa9, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_TR_INVPOINT] = {"UnityEngine.Transform$$InverseTransformPoint", 0x228d0ec, {0xff, 0x03, 0x01, 0xd1, 0xf4, 0x4f, 0x02, 0xa9}},
+    [C_TR_POINT] = {"UnityEngine.Transform$$TransformPoint", 0x228d028, {0xff, 0x03, 0x01, 0xd1, 0xf4, 0x4f, 0x02, 0xa9}},
 };
 
 #define OFF_STORE_RESULT 0x10
+#define META_INVMGR_TYPEINFO 0x3dc0378UL /* InventoryManager_TypeInfo */
+#define META_INVHUD_TYPEINFO 0x3e0fd00UL /* InventoryHud_TypeInfo */
+#define META_INVRECV_TYPEINFO 0x3dbb7c0UL /* InventoryReceiver_TypeInfo */

@@ -59,3 +59,10 @@ CALL GRAB_CANGRAB     Grabbable$$CanBeGrabbed
 CALL CTRL_GRABBED     Controller$$GetGrabbedGrabbable
 CALL TR_TRANSDIR      UnityEngine.Transform$$TransformDirection
 CALL GO_ACTIVEH       UnityEngine.GameObject$$get_activeInHierarchy
+CALL INV_ISIN        InventoryManager$$IsItemInInventory
+META INVMGR_TYPEINFO InventoryManager_TypeInfo
+META INVHUD_TYPEINFO InventoryHud_TypeInfo
+CALL RECV_CENTRE     InventoryReceiver$$GetCentre
+META INVRECV_TYPEINFO InventoryReceiver_TypeInfo
+CALL TR_INVPOINT     UnityEngine.Transform$$InverseTransformPoint
+CALL TR_POINT        UnityEngine.Transform$$TransformPoint

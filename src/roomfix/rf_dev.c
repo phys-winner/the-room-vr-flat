@@ -125,6 +125,73 @@ static void cmd_input(void) {
     }
 }
 
+// dev helpers for scripted routes: find a teleport location by name
+static void* find_location(const char* name) {
+    void* c = rf_controller(1);
+    void* tp = c ? *(void**)((char*)c + 0x50) : NULL;
+    if (!rf_alive(tp)) return NULL;
+    void* locs = *(void**)((char*)tp + 0xb8);
+    for (int i = 0; i < rf_list_size(locs); i++) {
+        void* loc = rf_list_get(locs, i);
+        char nm[64];
+        rf_obj_name(loc, nm, sizeof nm);
+        if (!strcmp(nm, name)) return loc;
+    }
+    return NULL;
+}
+
+static void cmd_face_loc(const char* name) {
+    void* loc = find_location(name);
+    void* cam = rf_main_camera();
+    if (!loc || !cam) { rf_log("faceloc: '%s' not found", name); return; }
+    v3 lp = rf_tr_pos(rf_transform(loc));
+    void* ct = rf_transform(cam);
+    v3 cp = rf_tr_pos(ct);
+    void* ts = rf_tr_parent(ct);  // camera rig: its rotation is the tracking-space yaw
+    v3 tsf = ts ? q_rot(rf_tr_rot(ts), (v3){0, 0, 1}) : (v3){0, 0, 1};
+    float want = atan2f(lp.x - cp.x, lp.z - cp.z) / DEG2RAD, base = atan2f(tsf.x, tsf.z) / DEG2RAD;
+    g_head.yaw = want - base;
+    while (g_head.yaw > 180) g_head.yaw -= 360;
+    while (g_head.yaw < -180) g_head.yaw += 360;
+    g_head.pitch = -20;
+    rf_log("faceloc '%s': yaw=%.1f", name, g_head.yaw);
+}
+
+static void cmd_ttap_loc(const char* name) {
+    void* loc = find_location(name);
+    float sx, sy;
+    if (!loc || !rf_world_to_screen(v3_add(rf_tr_pos(rf_transform(loc)), (v3){0, 0.9f, 0}), &sx, &sy)) {
+        rf_log("ttaploc: '%s' not visible", name);
+        return;
+    }
+    rf_log("ttaploc '%s' at %.3f %.3f -> %d", name, sx, sy, rf_act_teleport_tap(sx, sy));
+}
+
+static void* static_instance(uintptr_t meta) {
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + meta);
+    if (!k || (k & 1) || k < 0x10000) return NULL;
+    void* statics = *(void**)(k + 0xb8);
+    return statics ? *(void**)statics : NULL;
+}
+
+static void cmd_inv(void) {
+    void* hud = static_instance(META_INVHUD_TYPEINFO);
+    void* c = rf_controller(1);
+    void* closest = c ? *(void**)((char*)c + 0x80) : NULL;
+    if (!rf_alive(hud)) { rf_log("inv: no InventoryHud"); return; }
+    char* h = (char*)hud;
+    void* slot = *(void**)(h + 0x58);
+    void* sc = *(void**)(h + 0x60);
+    void* hc = c ? *(void**)((char*)c + 0x38) : NULL;
+    void* tip = rf_alive(hc) ? *(void**)((char*)hc + 0x20) : NULL;
+    v3 tp = rf_alive(tip) ? rf_tr_pos(tip) : (v3){0, 0, 0};
+    v3 tf = rf_alive(tip) ? q_rot(rf_tr_rot(tip), (v3){0, 0, 1}) : (v3){0, 0, 0};
+    rf_log("inv: hud=%p len=%.2f start=%.2f probeDist=%.2f slot=%p(%s) slotCtrl=%s closest=%s probeUsePointer=%d tip(%.2f %.2f %.2f) fwd(%.2f %.2f %.2f)",
+           hud, *(float*)(h + 0x1c), *(float*)(h + 0x20), *(float*)(h + 0x24), slot, rf_alive(slot) ? rf_class_name(slot) : "-",
+           sc == c ? "right" : (sc ? "other" : "-"), rf_alive(closest) ? rf_class_name(closest) : "-",
+           c ? ((char*)c)[0xb8] : -1, tp.x, tp.y, tp.z, tf.x, tf.y, tf.z);
+}
+
 static void exec_line(char* line) {
     char* argv[8];
     int argc = 0;
@@ -140,6 +207,16 @@ static void exec_line(char* line) {
         g_head.yaw = strtof(argv[1], NULL);
         g_head.pitch = strtof(argv[2], NULL);
         rf_log("look yaw=%.1f pitch=%.1f", g_head.yaw, g_head.pitch);
+    } else if (!strcmp(argv[0], "faceloc") && argc >= 2) {
+        cmd_face_loc(argv[1]);
+    } else if (!strcmp(argv[0], "ttaploc") && argc >= 2) {
+        cmd_ttap_loc(argv[1]);
+    } else if (!strcmp(argv[0], "aimtip") && argc >= 4) {
+        rf_act_dev_aim_tip(true, strtof(argv[1], NULL), strtof(argv[2], NULL), strtof(argv[3], NULL));
+    } else if (!strcmp(argv[0], "tipoff")) {
+        rf_act_dev_aim_tip(false, 0, 0, 0);
+    } else if (!strcmp(argv[0], "inv")) {
+        cmd_inv();
     } else if (!strcmp(argv[0], "vols")) {
         rf_act_list_volumes();
     } else if (!strcmp(argv[0], "probe") && argc >= 3) {
@@ -148,6 +225,8 @@ static void exec_line(char* line) {
         rf_log("grab -> %d", rf_act_grab_begin(strtof(argv[1], NULL), strtof(argv[2], NULL)));
     } else if (!strcmp(argv[0], "drag") && argc >= 3) {
         rf_act_grab_drag(strtof(argv[1], NULL), strtof(argv[2], NULL));
+    } else if (!strcmp(argv[0], "depth") && argc >= 2) {
+        rf_act_grab_depth(strtof(argv[1], NULL));
     } else if (!strcmp(argv[0], "release")) {
         rf_act_grab_end();
     } else if (!strcmp(argv[0], "tmode") && argc >= 2) {
