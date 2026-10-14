@@ -13,7 +13,7 @@
 
 char g_app_locale[64];  // app locale tags last applied (Android 13+ per-app language)
 int g_fps_idx = RF_FPS_60;
-int g_fov_idx = 3;  // 100 degrees
+int g_fov_idx = 2;  // 90 degrees across a 16:9 reference screen
 volatile float g_display_hz = 60.0f;
 volatile float g_display_max_hz = 60.0f;
 
@@ -28,7 +28,7 @@ int rf_fps_value(int idx) {
     return FPS_VALUES[idx >= 0 && idx < RF_FPS_COUNT ? idx : RF_FPS_60];
 }
 
-int rf_fov_value(int idx) { return FOV_VALUES[idx >= 0 && idx < RF_FOV_COUNT ? idx : 3]; }
+int rf_fov_value(int idx) { return FOV_VALUES[idx >= 0 && idx < RF_FOV_COUNT ? idx : 2]; }
 
 static void path(char* out, size_t n) { snprintf(out, n, "%s/port_settings.cfg", g_ext_dir); }
 

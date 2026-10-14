@@ -1,9 +1,10 @@
 // Flat camera: field of view for a wide phone screen and leaning in (pinch).
 //
 // FOV: without an XR display the centre camera renders with its own Camera.fieldOfView, authored as a VR
-// value (90 vertical). On a 19.5:9 screen that is ~130 degrees across. The port shows g_fov_h degrees
-// horizontally at the real aspect (hor+) and scales any FOV the game sets itself by the same factor, so
-// authored zoom effects keep their relative strength.
+// value (90 vertical). On a 19.5:9 screen that is ~130 degrees across. The option value g_fov_h is the
+// horizontal FOV of a 16:9 reference screen; the vertical FOV derived from it is kept on every screen, so
+// wider phones see more to the sides and taller ones lose nothing at the top and bottom (hor+). Any FOV the
+// game sets itself is scaled by the same factor, so authored zoom effects keep their relative strength.
 //
 // Lean: VR players lean in to look closely; the pinch gesture moves the synthetic head along the view
 // direction (g_lean metres). Teleports and scene changes reset it.
@@ -12,10 +13,11 @@
 typedef float (*fn_f_1)(void*, const void*);
 typedef void (*fn_set_f)(void*, float, const void*);
 
-float g_fov_h = 100.0f;
+float g_fov_h = 90.0f;
 float g_lean;
 
 #define VR_FOV 90.0f
+#define REF_ASPECT (16.0f / 9.0f)
 
 static struct {
     void* cam;
@@ -35,9 +37,7 @@ static void tick_fov(void) {
         if (g_dev && fabsf(cur - g_fov.game) > 0.01f) rf_log("view: camera fov set by the game: %.2f", cur);
         g_fov.game = cur;
     }
-    float aspect = CALLP(C_CAM_ASPECT, fn_f_1)(cam, NULL);
-    if (aspect < 0.2f) return;
-    float v = 2.0f * atanf(tanf(g_fov_h * 0.5f * DEG2RAD) / aspect);  // radians, flat vertical FOV
+    float v = 2.0f * atanf(tanf(g_fov_h * 0.5f * DEG2RAD) / REF_ASPECT);  // radians, kept vertical FOV
     float k = tanf(v * 0.5f) / tanf(VR_FOV * 0.5f * DEG2RAD);
     float want = 2.0f * atanf(tanf(g_fov.game * 0.5f * DEG2RAD) * k) / DEG2RAD;
     if (fabsf(want - cur) > 0.01f) {

@@ -20,7 +20,7 @@ import route as r  # noqa: E402
 PANEL_W, PANEL_H = 1080, 2340  # NVTCapacitiveTouchScreen natural (portrait) size
 SCREEN_W, SCREEN_H = 2340, 1080
 TOUCH_DEV = "/dev/input/event2"
-VIEW_X0, VIEW_W = 76, 2264  # game view inside the window (MIUI letterboxes the cutout side)
+VIEW_X0, VIEW_W = 0, 2340  # game view = whole panel since boot.config androidRenderOutsideSafeArea=1 (p060)
 
 # HUD button centres (screen px) for the default HUD layout (HudView.layoutButtons, 2.75 dp/px)
 HUD = {"teleport": (2189, 929), "inventory": (2189, 725), "eyepiece": (2189, 538), "pause": (194, 102),
