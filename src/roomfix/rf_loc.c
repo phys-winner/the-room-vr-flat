@@ -48,3 +48,33 @@ void* h_loc_getstring(void* key, void* ctx, const void* mi) {
     }
     return ORIG(H_LOC_GETSTRING, void* (*)(void*, void*, const void*))(key, ctx, mi);
 }
+
+// ---- per-app language (Android 13+ system picker) ----------------------------------------------------------
+// The game picks its language once: PlayerPrefs[Localisation.LanguagePrefsKey], or on first run the system
+// language (Application.systemLanguage, which follows the app locale). When the app locale chosen in the
+// system picker changed since the last start, the saved key is blanked before Localisation.LoadInitialDictionary
+// so the game's own first-run path selects (and saves) the new language. No hot switching while running.
+static bool g_lang_from_system;
+
+void rf_loc_app_locale(const char* tags) {
+    if (strcmp(tags, g_app_locale) != 0) {
+        rf_log("loc: app locale '%s' -> '%s'%s", g_app_locale, tags, tags[0] ? "" : " (follow system)");
+        g_lang_from_system = true;
+        snprintf(g_app_locale, sizeof g_app_locale, "%s", tags);
+        rf_settings_changed();
+    }
+}
+
+void h_loc_load_initial(const void* mi) {
+    if (g_lang_from_system) {
+        g_lang_from_system = false;
+        uintptr_t k = *(uintptr_t*)(g_il2cpp_base + META_LOCALISATION_TYPEINFO);
+        void* statics = (k && !(k & 1) && k > 0x10000) ? *(void**)(k + 0xb8) : NULL;
+        void* key = statics ? *(void**)statics : NULL;  // Localisation.LanguagePrefsKey
+        if (key && g_il2.string_new) {
+            CALLP(C_PREFS_SETSTRING, void (*)(void*, void*, const void*))(key, g_il2.string_new(""), NULL);
+            rf_log("loc: saved language cleared, the game follows the app locale");
+        }
+    }
+    ORIG(H_LOC_LOADINITIAL, void (*)(const void*))(mi);
+}

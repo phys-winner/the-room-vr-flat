@@ -32,3 +32,4 @@
 *.pfx
 .env
 /work/loc/
+/work/saves_backup/

@@ -148,6 +148,13 @@ static void h_store_init(void* self, const void* mi) {
     rf_log("store: entitlement forced to Success, PICO platform not initialised");
 }
 
+// PICO platform verify service (com.pvr.verify) does not exist on phones; the port's store entitlement is
+// answered in h_store_init, so the binding attempt from PXR_Manager / PVRManager is skipped.
+static void h_pxr_bind_verify(void* object_name, const void* mi) {
+    (void)object_name; (void)mi;
+    rf_log("pxr: verify service binding skipped");
+}
+
 static bool h_log_allowed(void* self, int32_t type, const void* mi) {
     (void)self; (void)type; (void)mi;
     return true;
@@ -298,6 +305,8 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
     {H_LOC_GETSTRING, (void*)h_loc_getstring, true, false},
     {H_INV_SHOWXFORM, (void*)h_inv_show_xform, true, false},
+    {H_LOC_LOADINITIAL, (void*)h_loc_load_initial, true, false},
+    {H_PXR_BINDVERIFY, (void*)h_pxr_bind_verify, false, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 
@@ -393,6 +402,13 @@ static void native_display(JNIEnv* env, jclass cls, jfloat hz, jfloat max_hz) {
     g_display_max_hz = max_hz;
 }
 
+static void native_app_locale(JNIEnv* env, jclass cls, jstring jtags) {
+    (void)cls;
+    const char* t = jtags ? (*env)->GetStringUTFChars(env, jtags, NULL) : NULL;
+    rf_loc_app_locale(t ? t : "");
+    if (t) (*env)->ReleaseStringUTFChars(env, jtags, t);
+}
+
 static jint native_want_max_refresh(JNIEnv* env, jclass cls) {
     (void)env; (void)cls;
     return g_fps_idx == RF_FPS_DISPLAY;
@@ -410,6 +426,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeHudState", "()I", (void*)native_hud_state},
         {"nativeDisplay", "(FF)V", (void*)native_display},
         {"nativeWantMaxRefresh", "()I", (void*)native_want_max_refresh},
+        {"nativeAppLocale", "(Ljava/lang/String;)V", (void*)native_app_locale},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

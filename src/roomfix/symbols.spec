@@ -108,3 +108,9 @@ CALL TR_SETROT        UnityEngine.Transform$$set_rotation
 HOOK INV_SHOWXFORM    HudManager$$CalculateShowTransform
 CALL RES_FINDALL      UnityEngine.Resources$$FindObjectsOfTypeAll|System_Type_o* type
 CALL PAUSE_SKIPLEVEL  PauseMenuController$$SkipLevelPressed
+# ---- per-app language (API 33+ picker) through the game's own first-run path ----
+HOOK LOC_LOADINITIAL  Localisation$$LoadInitialDictionary
+CALL PREFS_SETSTRING  UnityEngine.PlayerPrefs$$SetString
+META LOCALISATION_TYPEINFO Localisation_TypeInfo
+# ---- PICO platform services neutralised (CODE_CLEANUP) ----
+HOOK PXR_BINDVERIFY   Unity.XR.PXR.PXR_Plugin.PlatformSetting$$UPxr_BindVerifyService

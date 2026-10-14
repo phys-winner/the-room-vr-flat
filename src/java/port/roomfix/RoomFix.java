@@ -39,6 +39,9 @@ public final class RoomFix {
     /** 1 when the player chose the display refresh rate as FPS limit. */
     static native int nativeWantMaxRefresh();
 
+    /** Per-app language tags from the Android 13+ system picker ("" when the app follows the system). */
+    static native void nativeAppLocale(String tags);
+
     private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
     private static final int OWNER_GAME = 0;
 
@@ -56,6 +59,10 @@ public final class RoomFix {
         File ext = activity.getExternalFilesDir(null);
         String dir = ext != null ? ext.getAbsolutePath() : activity.getFilesDir().getAbsolutePath();
         nativeInit(dir, activity.getApplicationInfo().nativeLibraryDir, android.os.Build.VERSION.SDK_INT);
+        if (Build.VERSION.SDK_INT >= 33) {
+            android.app.LocaleManager lm = activity.getSystemService(android.app.LocaleManager.class);
+            nativeAppLocale(lm != null ? lm.getApplicationLocales().toLanguageTags() : "");
+        }
         sReady = true;
         sMain = new Handler(Looper.getMainLooper());
         // runs after onCreate has set the Unity player as the content view

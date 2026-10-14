@@ -220,6 +220,9 @@ void h_uiopt_right(void* self, const void* mi);
 void h_uiopt_update(void* self, const void* mi);
 void* h_loc_getstring(void* key, void* ctx, const void* mi);
 int rf_lang(void);                      // index into RF_LANG_NAMES of the game's current language
+extern char g_app_locale[64];
+void rf_loc_app_locale(const char* tags);  // from Java: LocaleManager.getApplicationLocales() (API 33+)
+void h_loc_load_initial(const void* mi);
 
 // ---- rf_view.c: flat camera (FOV, lean) ----
 extern float g_lean;      // metres the head leans along the view direction (pinch gesture)

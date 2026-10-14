@@ -11,6 +11,7 @@
 
 #include "rf.h"
 
+char g_app_locale[64];  // app locale tags last applied (Android 13+ per-app language)
 int g_fps_idx = RF_FPS_60;
 int g_fov_idx = 3;  // 100 degrees
 volatile float g_display_hz = 60.0f;
@@ -41,6 +42,10 @@ void rf_settings_load(void) {
             int v;
             if (sscanf(line, "fps=%d", &v) == 1 && v >= 0 && v < RF_FPS_COUNT) g_fps_idx = v;
             else if (sscanf(line, "fov=%d", &v) == 1 && v >= 0 && v < RF_FOV_COUNT) g_fov_idx = v;
+            else if (!strncmp(line, "applocale=", 10)) {
+                snprintf(g_app_locale, sizeof g_app_locale, "%s", line + 10);
+                g_app_locale[strcspn(g_app_locale, "\r\n")] = 0;
+            }
         }
         fclose(f);
     }
@@ -54,7 +59,7 @@ static void save(void) {
     snprintf(tmp, sizeof tmp, "%s.tmp", p);
     FILE* f = fopen(tmp, "w");
     if (!f) return;
-    fprintf(f, "fps=%d\nfov=%d\n", g_fps_idx, g_fov_idx);
+    fprintf(f, "fps=%d\nfov=%d\napplocale=%s\n", g_fps_idx, g_fov_idx, g_app_locale);
     fclose(f);
     rename(tmp, p);
 }

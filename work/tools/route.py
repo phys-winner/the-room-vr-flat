@@ -40,8 +40,8 @@ def start(tag):
     out.mkdir(parents=True, exist_ok=True)
     (out / "crash_before.txt").write_text(d.sh("logcat -b crash -d"), encoding="utf-8")
     d.sh(f"am force-stop {d.PKG}")
-    d.sh(f"pm grant {d.PKG} android.permission.WRITE_EXTERNAL_STORAGE")
-    d.sh(f"pm grant {d.PKG} android.permission.READ_EXTERNAL_STORAGE")
+    # dev console on: the flag file lives in the app's external files dir (created by the app on first start)
+    d.sh(f"su -c 'test -d {d.EXT} && touch {d.EXT}/roomfix.dev && chown $(stat -c %u:%g {d.EXT}) {d.EXT}/roomfix.dev'")
     d.sh("logcat -c")
     f = open(out / "logcat.txt", "wb")
     p = subprocess.Popen([d.ADB, "-s", d.SERIAL, "logcat", "-v", "epoch", "-b", "main", "-b", "system", "-b", "crash"],

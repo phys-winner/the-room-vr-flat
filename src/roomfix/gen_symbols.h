@@ -26,6 +26,8 @@ enum {
     H_UIOPT_UPDATE,
     H_LOC_GETSTRING,
     H_INV_SHOWXFORM,
+    H_LOC_LOADINITIAL,
+    H_PXR_BINDVERIFY,
     H_COUNT
 };
 static const struct rf_hook_desc { const char* name; uintptr_t rva; uint8_t pre[16]; } g_hook_desc[H_COUNT] = {
@@ -51,6 +53,8 @@ static const struct rf_hook_desc { const char* name; uintptr_t rva; uint8_t pre[
     [H_UIOPT_UPDATE] = {"UiOptionSelector$$UpdateText", 0x184cd30, {0xf6, 0x57, 0xbd, 0xa9, 0xf4, 0x4f, 0x01, 0xa9, 0xfd, 0x7b, 0x02, 0xa9, 0xfd, 0x83, 0x00, 0x91}}, /* 160 bytes */
     [H_LOC_GETSTRING] = {"Localisation$$GetString", 0x1993058, {0xff, 0x03, 0x01, 0xd1, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9}}, /* 440 bytes */
     [H_INV_SHOWXFORM] = {"HudManager$$CalculateShowTransform", 0x133b97c, {0xef, 0x3b, 0xb9, 0x6d, 0xed, 0x33, 0x01, 0x6d, 0xeb, 0x2b, 0x02, 0x6d, 0xe9, 0x23, 0x03, 0x6d}}, /* 740 bytes */
+    [H_LOC_LOADINITIAL] = {"Localisation$$LoadInitialDictionary", 0x1991a34, {0xff, 0x83, 0x02, 0xd1, 0xf8, 0x5f, 0x06, 0xa9, 0xf6, 0x57, 0x07, 0xa9, 0xf4, 0x4f, 0x08, 0xa9}}, /* 768 bytes */
+    [H_PXR_BINDVERIFY] = {"Unity.XR.PXR.PXR_Plugin.PlatformSetting$$UPxr_BindVerifyService", 0x2a7db40, {0xf7, 0x0f, 0x1c, 0xf8, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9}}, /* 472 bytes */
 };
 
 enum {
@@ -118,6 +122,7 @@ enum {
     C_TR_SETROT,
     C_RES_FINDALL,
     C_PAUSE_SKIPLEVEL,
+    C_PREFS_SETSTRING,
     C_COUNT
 };
 static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[8]; } g_call_desc[C_COUNT] = {
@@ -185,6 +190,7 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
     [C_TR_SETROT] = {"UnityEngine.Transform$$set_rotation", 0x228b76c, {0xff, 0xc3, 0x00, 0xd1, 0xf4, 0x4f, 0x01, 0xa9}},
     [C_RES_FINDALL] = {"UnityEngine.Resources$$FindObjectsOfTypeAll", 0x2283254, {0xf4, 0x4f, 0xbe, 0xa9, 0xfd, 0x7b, 0x01, 0xa9}},
     [C_PAUSE_SKIPLEVEL] = {"PauseMenuController$$SkipLevelPressed", 0x13ab254, {0xf4, 0x4f, 0xbe, 0xa9, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_PREFS_SETSTRING] = {"UnityEngine.PlayerPrefs$$SetString", 0x2458d24, {0xf5, 0x0f, 0x1d, 0xf8, 0xf4, 0x4f, 0x01, 0xa9}},
 };
 
 #define OFF_STORE_RESULT 0x10
@@ -194,3 +200,4 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
 #define META_HUDMGR_TYPEINFO 0x3dbf1d0UL /* HudManager_TypeInfo */
 #define META_GOGGLES_TYPEINFO 0x3dcefc0UL /* Goggles_TypeInfo */
 #define META_GOGGLESHUD_TYPEINFO 0x3dc7710UL /* GogglesHudManager_TypeInfo */
+#define META_LOCALISATION_TYPEINFO 0x3dc82e8UL /* Localisation_TypeInfo */
