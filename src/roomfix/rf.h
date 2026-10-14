@@ -247,6 +247,7 @@ void rf_dev_rlist(const char* filter);
 void rf_dev_objs(const char* cls);
 void rf_dev_tpto(const char* name);
 void rf_dev_peek(const char* cls, const char* spec, const char* filter);
+void rf_dev_szstate(const char* name, int state);
 void rf_dev_hint(void);
 void rf_dev_rhide(const char* name, bool hide);
 

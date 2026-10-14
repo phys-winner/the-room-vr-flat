@@ -32,7 +32,7 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Teleport | stick forward, aim arc, release | HUD teleport → tap a glowing location marker | TeleportPointer aimed at PlayerLocation, stick release | gameplay | R004, R007, R009 |
 | Teleport past a nearer location | aim the arc further | same tap | the arc ends on another location → the game's Player.TeleportTo on the tapped one | gameplay | p063, R017 (RigHandle, PullRopeWheel, Canopic chest, sarcophagus side) |
 | Arrival view | body faces location | camera turns to the location's forward (−20°) | head yaw from PlayerLocation.forward | after teleport | R009 |
-| Superzoom (enter/exit miniature) | stick forward at crystals | teleport mode → tap the portal | TeleportPointer at Superzoom ZoomIn/Portal/ZoomOut trigger | chapters | implemented; debt: Chapel, first crystals at the hymn board (hint "Enter Hymn Board Top SZ"); all 7 chapel superzooms are Inactive at the chapel start (R018) |
+| Superzoom (enter/exit miniature) | stick forward at crystals | eyepiece on, teleport mode → tap the crystals; inside: teleport mode → tap the exit portal | TeleportPointer at Superzoom ZoomIn/Portal/ZoomOut trigger (only from the superzoom's MainSceneLocation, goggles worn) | chapters | R019 (hymn board superzoom entered and left; unlocked ahead of the story by the game's SetState) |
 | Hub between chapters: artefact into its slot, letter through the eyepiece | carry the artefact, hold the letter up | inventory → drag the artefact onto the slot; hold the letter, turn with a second finger, bring its hole over the wisp | InventoryReceiver; grab + head pose | hub | R018 (scene -> Chapel) |
 | Grab and move objects (levers, handles) | grip + arm motion | press on the object, drag | right Controller.Grabber pose; GrabbableCollider math volumes; constraint-aware drag (slider line, rotation plane, twist) | gameplay | R005, R009, R010 |
 | Sliders (drawers, grilles, tabs) | grip + pull | drag along the slide | SliderGrabbable LocalSlideAxis | gameplay, inventory | R009, R010 |
@@ -80,6 +80,7 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
   R010); the rest of the tutorial needs puzzle solving, not new controls.
 - Egypt front half by touch (R017): door bolts, lever, rope, winch, note through the eyepiece, box, lens,
   eyepiece tab, poke panel; hub → Chapel and turning a held object (R018).
-- Story-placed debts (the route did not reach them; flat paths implemented): Chapel superzoom ("Enter Hymn Board
-  Top SZ"), organ keys, lockpick; Witch chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles.
+- Superzoom enter/exit by touch (R019).
+- Story-placed debts (the route did not reach them; flat paths implemented): Chapel organ keys, lockpick; Witch
+  chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles.
 - First-run hint for the gestures (in-game hint or PORT_FEATURES.md).

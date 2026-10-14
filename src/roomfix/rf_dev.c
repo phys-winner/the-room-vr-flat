@@ -421,6 +421,8 @@ static void exec_line(char* line) {
             strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
         }
         rf_dev_comps(nm);
+    } else if (!strcmp(argv[0], "szstate") && argc >= 3) {
+        rf_dev_szstate(argv[1], atoi(argv[2]));
     } else if (!strcmp(argv[0], "hint?")) {
         rf_dev_hint();
     } else if (!strcmp(argv[0], "peek") && argc >= 3) {

@@ -144,3 +144,4 @@ CALL TIME_MAXDT       UnityEngine.Time$$get_maximumDeltaTime
 CALL TIME_FIXEDDT     UnityEngine.Time$$get_fixedDeltaTime
 CALL TIME_SCALE       UnityEngine.Time$$get_timeScale
 CALL PLAYER_TELEPORTTO Player$$TeleportTo
+CALL SZ_SETSTATE      Superzoom$$SetState

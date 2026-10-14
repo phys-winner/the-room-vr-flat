@@ -153,6 +153,12 @@ void rf_dev_peek(const char* cls, const char* spec, const char* filter) {
             else if (kind == 'i') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(int32_t*)(o + off));
             else if (kind == 'b') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(uint8_t*)(o + off));
             else if (kind == 'p') n += snprintf(line + n, sizeof line - n, " %s=%p", tok, *(void**)(o + off));
+            else if (kind == 'o') {  // reference to a Unity object: its GameObject's name
+                char on[48] = "-";
+                void* ref = *(void**)(o + off);
+                if (rf_alive(ref)) rf_obj_name(rf_gameobject(ref), on, sizeof on);
+                n += snprintf(line + n, sizeof line - n, " %s='%s'", tok, on);
+            }
             else if (kind == 'l') n += snprintf(line + n, sizeof line - n, " %s=[%d]", tok,
                                                 *(char**)(o + off) ? *(int32_t*)(*(char**)(o + off) + 0x18) : -1);
         }
@@ -197,6 +203,24 @@ void rf_dev_tpto(const char* name) {
         }
     }
     rf_log("tpto: '%s' not found", name);
+}
+
+// dev test aid: the game's own Superzoom.SetState for a named superzoom (0 Active, 1 Inactive) — used only to reach
+// the superzoom touch path ahead of the story; entering it is then done by touch (teleport mode + tap)
+void rf_dev_szstate(const char* name, int state) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", "Superzoom"));
+    void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
+    for (int i = 0; i < arr_len(arr); i++) {
+        void* sz = arr_get(arr, i);
+        char nm[64];
+        rf_obj_name(rf_gameobject(sz), nm, sizeof nm);
+        if (rf_alive(sz) && !strcmp(nm, name)) {
+            CALLP(C_SZ_SETSTATE, void (*)(void*, int32_t, const void*))(sz, state, NULL);
+            rf_log("szstate: '%s' -> %d", nm, state);
+            return;
+        }
+    }
+    rf_log("szstate: '%s' not found", name);
 }
 
 void rf_dev_rhide(const char* name, bool hide) {

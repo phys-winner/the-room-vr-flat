@@ -154,6 +154,7 @@ enum {
     C_TIME_FIXEDDT,
     C_TIME_SCALE,
     C_PLAYER_TELEPORTTO,
+    C_SZ_SETSTATE,
     C_COUNT
 };
 static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[8]; } g_call_desc[C_COUNT] = {
@@ -245,6 +246,7 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
     [C_TIME_FIXEDDT] = {"UnityEngine.Time$$get_fixedDeltaTime", 0x228a378, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
     [C_TIME_SCALE] = {"UnityEngine.Time$$get_timeScale", 0x228a4d0, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
     [C_PLAYER_TELEPORTTO] = {"Player$$TeleportTo", 0x13ae658, {0xe8, 0x0f, 0x1c, 0xfc, 0xf7, 0x07, 0x00, 0xf9}},
+    [C_SZ_SETSTATE] = {"Superzoom$$SetState", 0x151e298, {0xe8, 0x0f, 0x1c, 0xfc, 0xf7, 0x07, 0x00, 0xf9}},
 };
 
 #define OFF_STORE_RESULT 0x10
