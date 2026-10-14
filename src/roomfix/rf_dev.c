@@ -80,6 +80,51 @@ static void cmd_dump(void) {
     }
 }
 
+typedef v3 (*fn_w2s)(void*, v3, const void*);
+
+static void cmd_tele(void) {
+    if (!rf_alive(g_player)) { rf_log("tele: no player"); return; }
+    void* c = *(void**)((char*)g_player + 0x40);
+    void* tp = rf_alive(c) ? *(void**)((char*)c + 0x50) : NULL;
+    if (!rf_alive(tp)) { rf_log("tele: no teleporter"); return; }
+    char* t = (char*)tp;
+    void* pointed = *(void**)(t + 0xb0);
+    void* locs = *(void**)(t + 0xb8);
+    char nm[64] = "-";
+    if (rf_alive(pointed)) rf_str_utf8((Il2CppString*)CALLP(C_OBJ_NAME, fn_obj1)(pointed, NULL), nm, sizeof nm);
+    rf_log("tele: active=%d pointedAt=%s locations=%d", t[0xe8], nm, rf_list_size(locs));
+    void* cam = CALLP(C_CAM_MAIN, fn_obj0)(NULL);
+    for (int i = 0; i < rf_list_size(locs) && i < 40; i++) {
+        void* loc = rf_list_get(locs, i);
+        if (!rf_alive(loc)) continue;
+        char ln[64] = "?";
+        rf_str_utf8((Il2CppString*)CALLP(C_OBJ_NAME, fn_obj1)(loc, NULL), ln, sizeof ln);
+        void* tr = CALLP(C_COMP_TRANSFORM, fn_obj1)(loc, NULL);
+        v3 p = CALLP(C_TR_POSITION, fn_v3_1)(tr, NULL);
+        v3 s = rf_alive(cam) ? CALLP(C_CAM_W2S, fn_w2s)(cam, p, NULL) : (v3){0, 0, 0};
+        rf_log("  loc[%d] '%s' state=%d pos(%.2f %.2f %.2f) screen(%.0f %.0f z=%.2f)", i, ln,
+               *(int32_t*)((char*)loc + 0x21c), p.x, p.y, p.z, s.x, s.y, s.z);
+    }
+}
+
+static void cmd_input(void) {
+    bool (*getb)(int32_t, int32_t, const void*) = (bool (*)(int32_t, int32_t, const void*))RVA(g_call_desc[C_FP_GETBUTTON].rva);
+    float (*geta)(int32_t, int32_t, const void*) = (float (*)(int32_t, int32_t, const void*))RVA(g_call_desc[C_FP_GETAXIS].rva);
+    rf_log("input: grabL=%.2f grabR=%.2f gripL=%.2f gripR=%.2f teleL=%d teleR=%d invL=%d invR=%d pause=%d goggles=%d menuL=%d menuR=%d",
+           geta(0, 0, NULL), geta(1, 0, NULL), geta(2, 0, NULL), geta(3, 0, NULL), getb(11, 0, NULL), getb(13, 0, NULL),
+           getb(12, 0, NULL), getb(21, 0, NULL), getb(22, 0, NULL), getb(28, 0, NULL), getb(25, 0, NULL), getb(26, 0, NULL));
+    if (rf_alive(g_player)) {
+        bool (*allowed)(void*, const void*) = (bool (*)(void*, const void*))RVA(g_call_desc[C_INPUTCTL_ALLOWED].rva);
+        bool (*allowtele)(void*, const void*) = (bool (*)(void*, const void*))RVA(g_call_desc[C_CTRL_ALLOWTELE].rva);
+        char* p = (char*)g_player;
+        void* ti = *(void**)(p + 0xf8), *ii = *(void**)(p + 0x100), *gi = *(void**)(p + 0x108), *wi = *(void**)(p + 0x118);
+        void* rc = *(void**)(p + 0x40);
+        rf_log("input: player teleAllowed=%d invAllowed=%d gogglesAllowed=%d worldGrabAllowed=%d rightAllowTele=%d",
+               ti ? allowed(ti, NULL) : -1, ii ? allowed(ii, NULL) : -1, gi ? allowed(gi, NULL) : -1,
+               wi ? allowed(wi, NULL) : -1, rf_alive(rc) ? allowtele(rc, NULL) : -1);
+    }
+}
+
 static void exec_line(char* line) {
     char* argv[8];
     int argc = 0;
@@ -87,14 +132,30 @@ static void exec_line(char* line) {
     if (!argc) return;
     if (!strcmp(argv[0], "dump")) {
         cmd_dump();
+    } else if (!strcmp(argv[0], "tele")) {
+        cmd_tele();
+    } else if (!strcmp(argv[0], "input")) {
+        cmd_input();
     } else if (!strcmp(argv[0], "look") && argc >= 3) {
         g_head.yaw = strtof(argv[1], NULL);
         g_head.pitch = strtof(argv[2], NULL);
         rf_log("look yaw=%.1f pitch=%.1f", g_head.yaw, g_head.pitch);
-    } else if (!strcmp(argv[0], "aim") && argc >= 3) {
-        rf_touch_dev_aim(true, strtof(argv[1], NULL), strtof(argv[2], NULL));
-    } else if (!strcmp(argv[0], "rest")) {
-        rf_touch_dev_aim(false, 0, 0);
+    } else if (!strcmp(argv[0], "grab") && argc >= 3) {
+        rf_log("grab -> %d", rf_act_grab_begin(strtof(argv[1], NULL), strtof(argv[2], NULL)));
+    } else if (!strcmp(argv[0], "drag") && argc >= 3) {
+        rf_act_grab_drag(strtof(argv[1], NULL), strtof(argv[2], NULL));
+    } else if (!strcmp(argv[0], "release")) {
+        rf_act_grab_end();
+    } else if (!strcmp(argv[0], "tmode") && argc >= 2) {
+        rf_act_teleport_mode(atoi(argv[1]) != 0);
+    } else if (!strcmp(argv[0], "ttap") && argc >= 3) {
+        rf_log("ttap -> %d", rf_act_teleport_tap(strtof(argv[1], NULL), strtof(argv[2], NULL)));
+    } else if (!strcmp(argv[0], "snap") && argc >= 2) {
+        rf_act_snap_turn(atoi(argv[1]) < 0 ? -1 : 1);
+    } else if (!strcmp(argv[0], "press") && argc >= 3) {
+        // press L|R primary|secondary|menu : one 6-frame pulse
+        int h = argv[1][0] == 'R', k = !strcmp(argv[2], "secondary") ? 1 : !strcmp(argv[2], "menu") ? 2 : 0;
+        rf_act_button(h, k, 6);
     } else if (!strcmp(argv[0], "tap") && argc >= 3) {
         rf_touch_post(0, 99, strtof(argv[1], NULL), strtof(argv[2], NULL), 0);
         rf_touch_post(1, 99, strtof(argv[1], NULL), strtof(argv[2], NULL), 50);
@@ -114,11 +175,7 @@ static void exec_line(char* line) {
         } else if (!strcmp(argv[0], "stick") && argc >= 4) {
             h->stick = (v2){strtof(argv[2], NULL), strtof(argv[3], NULL)};
         } else if (!strcmp(argv[0], "btn") && argc >= 4) {
-            bool v = atoi(argv[3]) != 0;
-            if (!strcmp(argv[2], "primary")) h->btn_primary = v;
-            else if (!strcmp(argv[2], "secondary")) h->btn_secondary = v;
-            else if (!strcmp(argv[2], "menu")) h->btn_menu = v;
-            else if (!strcmp(argv[2], "stick")) h->stick_click = v;
+            if (!strcmp(argv[2], "stick")) h->stick_click = atoi(argv[3]) != 0;
         }
         rf_log("%s hand: pos(%.2f %.2f %.2f) trig=%.2f grip=%.2f stick(%.2f %.2f) btn p%d s%d m%d c%d", argv[1],
                h->pos.x, h->pos.y, h->pos.z, h->trigger, h->grip, h->stick.x, h->stick.y, h->btn_primary,

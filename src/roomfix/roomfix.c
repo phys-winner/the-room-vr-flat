@@ -99,6 +99,16 @@ static int phdr_cb(struct dl_phdr_info* info, size_t size, void* data) {
 rf_il2cpp_api_t g_il2;
 void* g_vrpm;
 
+bool rf_class_is(void* obj, const char* name) {
+    if (!obj || !g_il2.object_get_class || !g_il2.class_get_name) return false;
+    for (void* k = g_il2.object_get_class(obj); k; k = g_il2.class_get_parent ? g_il2.class_get_parent(k) : NULL) {
+        const char* n = g_il2.class_get_name(k);
+        if (n && !strcmp(n, name)) return true;
+        if (!g_il2.class_get_parent) break;
+    }
+    return false;
+}
+
 const char* rf_class_name(void* obj) {
     if (!obj || !g_il2.object_get_class || !g_il2.class_get_name) return "?";
     void* k = g_il2.object_get_class(obj);
@@ -109,6 +119,7 @@ static void resolve_api(void* h) {
     g_il2.object_get_class = (void* (*)(void*))dlsym(h, "il2cpp_object_get_class");
     g_il2.class_get_name = (const char* (*)(void*))dlsym(h, "il2cpp_class_get_name");
     g_il2.class_get_namespace = (const char* (*)(void*))dlsym(h, "il2cpp_class_get_namespace");
+    g_il2.class_get_parent = (void* (*)(void*))dlsym(h, "il2cpp_class_get_parent");
 }
 
 // ---------------------------------------------------------------- core hooks
@@ -146,16 +157,75 @@ static void h_vrpm_update(void* self, const void* mi) {
     ORIG(H_VRPM_UPDATE, void (*)(void*, const void*))(self, mi);
 }
 
-void rf_frame_tick(void) {
-    rf_dev_tick();
-    rf_touch_tick();
+char g_scene[64];
+
+static void track_scene(void) {
+    if (g_frame % 30) return;
+    int32_t scene = ((int32_t (*)(const void*))RVA(g_call_desc[C_SCENE_ACTIVE].rva))(NULL);
+    Il2CppString* sn = ((Il2CppString * (*)(int32_t*, const void*)) RVA(g_call_desc[C_SCENE_NAME].rva))(&scene, NULL);
+    char name[64];
+    rf_str_utf8(sn, name, sizeof name);
+    if (strcmp(name, g_scene) != 0) {
+        snprintf(g_scene, sizeof g_scene, "%s", name);
+        rf_log("scene -> '%s' (frame %d)", g_scene, g_frame);
+    }
+    static bool had_player;
+    bool has = rf_alive(g_player) && g_frame - g_player_frame < 30;
+    if (has != had_player) {
+        had_player = has;
+        rf_log("player %s (scene '%s')", has ? "ready" : "gone", g_scene);
+    }
 }
 
-void* g_vrim;  // VrInputModule (menus' laser pointer input), captured in Process
+void rf_frame_tick(void) {
+    g_frame++;
+    track_scene();
+    rf_dev_tick();
+    g_hand_prev_pos[0] = g_hand[0].pos;
+    g_hand_prev_pos[1] = g_hand[1].pos;
+    rf_touch_tick();
+    rf_interact_tick();
+}
+
+void* g_vrim;    // VrInputModule (menus' laser pointer input), captured in Process
+void* g_player;  // gameplay Player, captured in Update
+int g_player_frame, g_vrim_frame, g_frame;
 
 static void h_vrim_process(void* self, const void* mi) {
     g_vrim = self;
+    g_vrim_frame = g_frame;
     ORIG(H_VRIM_PROCESS, void (*)(void*, const void*))(self, mi);
+}
+
+int g_pause_frame = -100;
+static void h_pause_update(void* self, const void* mi) {
+    g_pause_frame = g_frame;
+    ORIG(H_PAUSE_UPDATE, void (*)(void*, const void*))(self, mi);
+}
+
+int g_tut_action = -1;  // RwAction the current tutorial box waits for (-1 none)
+static void h_tut_msg(void* self, Il2CppString* title, Il2CppString* text, int32_t action, int32_t attach,
+                      int32_t alt, const void* mi) {
+    char a[96], b[160];
+    rf_str_utf8(title, a, sizeof a);
+    rf_str_utf8(text, b, sizeof b);
+    g_tut_action = action;
+    rf_log("tutorial: '%s' / '%s' action=%d alt=%d attach=%d", a, b, action, alt, attach);
+    ORIG(H_TUT_MSG, void (*)(void*, Il2CppString*, Il2CppString*, int32_t, int32_t, int32_t, const void*))(
+        self, title, text, action, attach, alt, mi);
+}
+
+static void h_msg_box(void* self, Il2CppString* text, int32_t attach, const void* mi) {
+    char b[200];
+    rf_str_utf8(text, b, sizeof b);
+    rf_log("message: '%s' attach=%d", b, attach);
+    ORIG(H_MSG_BOX, void (*)(void*, Il2CppString*, int32_t, const void*))(self, text, attach, mi);
+}
+
+static void h_player_update(void* self, const void* mi) {
+    g_player = self;
+    g_player_frame = g_frame;
+    ORIG(H_PLAYER_UPDATE, void (*)(void*, const void*))(self, mi);
 }
 
 static const struct rf_hook_entry g_core_hooks[] = {
@@ -164,6 +234,10 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_STORE_INIT, (void*)h_store_init, false, false},
     {H_VRPM_UPDATE, (void*)h_vrpm_update, true, false},
     {H_VRIM_PROCESS, (void*)h_vrim_process, true, false},
+    {H_PLAYER_UPDATE, (void*)h_player_update, true, false},
+    {H_PAUSE_UPDATE, (void*)h_pause_update, true, false},
+    {H_TUT_MSG, (void*)h_tut_msg, true, false},
+    {H_MSG_BOX, (void*)h_msg_box, true, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 

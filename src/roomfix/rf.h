@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "gen_symbols.h"
 
@@ -101,6 +102,7 @@ typedef struct {
     void* (*object_get_class)(void* obj);
     const char* (*class_get_name)(void* klass);
     const char* (*class_get_namespace)(void* klass);
+    void* (*class_get_parent)(void* klass);
 } rf_il2cpp_api_t;
 extern rf_il2cpp_api_t g_il2;
 const char* rf_class_name(void* obj);  // "?" when unknown
@@ -108,6 +110,56 @@ const char* rf_class_name(void* obj);  // "?" when unknown
 // ---- live game objects captured by hooks ----
 extern void* g_vrpm;  // VrPlatformManager singleton (captured in its Update)
 extern void* g_vrim;  // VrInputModule (captured in Process)
+extern void* g_player;  // gameplay Player (captured in Update)
+extern int g_frame, g_player_frame, g_vrim_frame;  // frame counter of our tick / last capture
+extern char g_scene[64];  // active scene name (updated every 30 frames)
+extern int g_pause_frame;  // last frame the pause menu controller updated
+static inline bool rf_menu_context(void) {
+    return g_scene[0] == 0 || !strcmp(g_scene, "MainMenu") || !strcmp(g_scene, "Startup") || g_frame - g_pause_frame <= 2;
+}
+
+// ---- IL2CPP containers ----
+static inline int32_t rf_list_size(void* list) { return list ? *(int32_t*)((char*)list + 0x18) : 0; }
+static inline void* rf_list_get(void* list, int32_t i) {  // List<T> of reference types
+    void* items = *(void**)((char*)list + 0x10);
+    return items ? ((void**)((char*)items + 0x20))[i] : NULL;
+}
+static inline bool rf_alive(void* obj) { return obj && *(void**)((char*)obj + 0x10) != NULL; }  // UnityEngine.Object.m_CachedPtr
+
+// ---- rf_unity.c: Unity helpers (main thread) ----
+v3 rf_tr_pos(void* t);
+quat rf_tr_rot(void* t);
+v3 rf_tr_localpos(void* t);
+void* rf_tr_parent(void* t);
+void* rf_transform(void* component);
+void* rf_gameobject(void* component);
+v3 rf_tr_dir(void* t, v3 local_dir);
+void rf_obj_name(void* obj, char* out, size_t n);
+void* rf_main_camera(void);
+bool rf_screen_ray(float nx, float ny, v3* o, v3* d);
+bool rf_world_to_screen(v3 p, float* nx, float* ny);
+quat rf_q_look(v3 f, v3 up);
+void* rf_controller(int h);  // Player.LeftHand (0) / RightHand (1)
+bool rf_place_transform(int h, void* T, v3 pos, quat rot);
+bool rf_aim_transform(int h, void* T, v3 origin, v3 dir);
+void rf_hand_rest(int h);
+bool rf_class_is(void* obj, const char* name);  // obj's class or any base class has this name
+extern const v3 RF_REST_POS[2];
+extern v3 g_hand_prev_pos[2];
+
+// ---- rf_interact.c: game actions driven by touch ----
+enum { RF_GRAB_NONE = 0, RF_GRAB_OK = 1, RF_GRAB_FAR = 2, RF_GRAB_NOPLAYER = 3 };
+void rf_act_laser_click(float nx, float ny);
+int rf_act_grab_begin(float nx, float ny);
+void rf_act_grab_drag(float nx, float ny);
+void rf_act_grab_end(void);
+bool rf_act_grabbing(void);
+void rf_act_teleport_mode(bool on);
+bool rf_act_teleport_mode_on(void);
+bool rf_act_teleport_tap(float nx, float ny);
+void rf_act_snap_turn(int dir);  // -1 left, +1 right
+void rf_act_button(int h, int which, int frames);  // pulse a controller button: 0 primary, 1 secondary, 2 menu
+void rf_interact_tick(void);
 
 // ---- module entry points ----
 void rf_xr_init(void);      // XR device emulation (head)
@@ -115,4 +167,3 @@ void rf_dev_tick(void);     // command file polling (dev builds)
 void rf_frame_tick(void);   // called once per frame on the Unity main thread
 void rf_touch_post(int action, int id, float x, float y, int64_t t);  // any thread
 void rf_touch_tick(void);   // main thread
-void rf_touch_dev_aim(bool on, float x, float y);

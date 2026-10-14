@@ -14,6 +14,12 @@ HOOK ICALL_RESOLVE    0x1106ea4|0x4c
 HOOK VRPM_UPDATE      VrPlatformManager$$Update
 # ---- menu pointer (VrInputModule.rayTransform +0x58) ----
 HOOK VRIM_PROCESS     UnityEngine.EventSystems.VrInputModule$$Process
+# ---- gameplay player (Player.LeftHand +0x38 / RightHand +0x40: Controller; Controller.Grabber +0x18, Teleporter +0x50) ----
+HOOK PLAYER_UPDATE    Player$$Update
+HOOK PAUSE_UPDATE     PauseMenuController$$Update
+# ---- tutorial / monologue messages (logged; flat wording substituted later) ----
+HOOK TUT_MSG          TutorialMessageBox$$DoTutorialMessageBoxWithAlternate
+HOOK MSG_BOX          MessageBox$$DoMessageBox|int32_t attachPosition
 # ---- diagnostics: let the shipped logger reach logcat (dev builds only) ----
 HOOK LOG_ALLOWED      UnityEngine.Logger$$IsLogTypeAllowed
 # ---- Unity API used from native code ----
@@ -34,3 +40,20 @@ CALL SCREEN_W         UnityEngine.Screen$$get_width
 CALL SCREEN_H         UnityEngine.Screen$$get_height
 CALL VRPM_STARTEDUP   VrPlatformManager$$IsStartedUp
 CALL CAM_RAY         UnityEngine.Camera$$ScreenPointToRay|UnityEngine_Vector3_o pos, const MethodInfo
+CALL COMP_GO          UnityEngine.Component$$get_gameObject
+CALL TR_FORWARD       UnityEngine.Transform$$get_forward
+CALL CAM_W2S         UnityEngine.Camera$$WorldToScreenPoint|UnityEngine_Vector3_o position, const MethodInfo
+CALL FP_GETBUTTON     FPInput$$GetButton|int32_t id, int32_t playerId
+CALL FP_GETAXIS       FPInput$$GetAxis|int32_t id, int32_t playerId
+CALL CTRL_ALLOWTELE   Controller$$AllowTeleporting
+CALL INPUTCTL_ALLOWED Player.InputControl$$IsAllowed
+# ---- interaction (rf_interact.c) ----
+CALL PHYS_RAYCASTALL  UnityEngine.Physics$$RaycastAll|UnityEngine_Vector3_o direction, float maxDistance, int32_t layerMask, int32_t queryTriggerInteraction
+CALL HIT_COLLIDER     UnityEngine.RaycastHit$$get_collider
+CALL COL_ISTRIGGER    UnityEngine.Collider$$get_isTrigger
+CALL GC_FOROBJECT     GrabbableCollider$$GetForObject
+CALL GC_GRABBABLE     GrabbableCollider$$GetGrabbable
+CALL GRAB_CANGRAB     Grabbable$$CanBeGrabbed
+CALL CTRL_GRABBED     Controller$$GetGrabbedGrabbable
+CALL TR_TRANSDIR      UnityEngine.Transform$$TransformDirection
+CALL GO_ACTIVEH       UnityEngine.GameObject$$get_activeInHierarchy
