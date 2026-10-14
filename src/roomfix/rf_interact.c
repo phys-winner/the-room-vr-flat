@@ -349,7 +349,9 @@ void rf_act_probe(float nx, float ny) {
 static void setup_constraint(void* gr, v3 p, float nx, float ny) {
     void* tr = rf_transform(gr);
     g_grab.kind = K_FREE;
-    if (rf_class_is(gr, "SliderGrabbable")) {
+    if (rf_class_is(gr, "SliderGrabbable") || rf_class_is(gr, "RopeGrabbable")) {
+        // ropes are pulled along their own LocalSlideAxis (same field offset as SliderGrabbable): each drag along
+        // the rope is one hand-over-hand pull
         g_grab.kind = K_SLIDER;
         g_grab.axis = v3_norm(rf_tr_dir(tr, *(v3*)((char*)gr + 0x94)));  // LocalSlideAxis
     } else if (rf_class_is(gr, "RotationGrabbable")) {

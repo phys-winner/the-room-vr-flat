@@ -414,6 +414,17 @@ static void exec_line(char* line) {
             strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
         }
         rf_dev_comps(nm);
+    } else if (!strcmp(argv[0], "peek") && argc >= 3) {
+        rf_dev_peek(argv[1], argv[2]);
+    } else if (!strcmp(argv[0], "tpto") && argc >= 2) {
+        char nm[128] = "";
+        for (int i = 1; i < argc; i++) {
+            if (i > 1) strncat(nm, " ", sizeof nm - strlen(nm) - 1);
+            strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
+        }
+        rf_dev_tpto(nm);
+    } else if (!strcmp(argv[0], "objs") && argc >= 2) {
+        rf_dev_objs(argv[1]);
     } else if (!strcmp(argv[0], "gfx?")) {
         rf_dev_gfx();
     } else if (!strcmp(argv[0], "depthtex") && argc >= 2) {

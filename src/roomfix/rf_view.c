@@ -15,6 +15,7 @@ typedef void (*fn_set_f)(void*, float, const void*);
 
 float g_fov_h = 90.0f;
 float g_lean;
+float g_sway_x, g_sway_y;  // head sway (two-finger pan), metres right / up
 
 #define VR_FOV 90.0f
 #define REF_ASPECT (16.0f / 9.0f)
@@ -76,6 +77,7 @@ static void tick_lean(void) {
         g_lean_ctx.location = loc;
         memcpy(g_lean_ctx.scene, g_scene, sizeof g_lean_ctx.scene);
         g_lean = 0;
+        g_sway_x = g_sway_y = 0;
     }
     if (g_lean_ctx.face_frames > 0) {
         g_lean_ctx.face_frames--;
@@ -84,7 +86,14 @@ static void tick_lean(void) {
     }
     if (g_lean < 0) g_lean = 0;
     if (g_lean > 0.35f) g_lean = 0.35f;
-    g_head.pos = v3_scale(q_rot(rf_head_rot(), (v3){0, 0, 1}), g_lean);
+    if (g_sway_x < -0.3f) g_sway_x = -0.3f;
+    if (g_sway_x > 0.3f) g_sway_x = 0.3f;
+    if (g_sway_y < -0.2f) g_sway_y = -0.2f;
+    if (g_sway_y > 0.2f) g_sway_y = 0.2f;
+    float yaw = g_head.yaw * DEG2RAD;
+    v3 right = {cosf(yaw), 0, -sinf(yaw)};  // horizontal, follows the head's yaw only
+    g_head.pos = v3_add(v3_scale(q_rot(rf_head_rot(), (v3){0, 0, 1}), g_lean),
+                        v3_add(v3_scale(right, g_sway_x), (v3){0, g_sway_y, 0}));
 }
 
 void rf_view_tick(void) {

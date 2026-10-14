@@ -234,6 +234,7 @@ void h_loc_load_initial(const void* mi);
 
 // ---- rf_view.c: flat camera (FOV, lean) ----
 extern float g_lean;      // metres the head leans along the view direction (pinch gesture)
+extern float g_sway_x, g_sway_y;  // head sway right / up in metres (two-finger pan)
 extern float g_fov_h;     // horizontal field of view on screen, degrees
 void rf_view_tick(void);
 
@@ -241,6 +242,9 @@ void rf_view_tick(void);
 void rf_dev_comps(const char* name);
 void rf_dev_orphans(void);
 void rf_dev_rlist(const char* filter);
+void rf_dev_objs(const char* cls);
+void rf_dev_tpto(const char* name);
+void rf_dev_peek(const char* cls, const char* spec);
 void rf_dev_rhide(const char* name, bool hide);
 
 // ---- rf_gfx.c: graphics state (dev) ----

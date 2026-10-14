@@ -69,10 +69,12 @@ static struct {
     int id;
     float x, y;
     float d0, lean0;
+    float mx0, my0, sx0, sy0;  // two-finger pan: midpoint and sway at the start
     bool look;  // second finger turns the view while the first one holds an object
 } g_f2;  // second finger: pinch, or look while holding
 
 #define LEAN_PER_UNIT 0.5f  // metres of lean per screen height of finger spread
+#define SWAY_PER_UNIT 0.5f  // metres of head sway per screen height of two-finger pan
 
 #define TAP_MS 350
 #define MOVE_X 0.012f
@@ -157,6 +159,10 @@ static void on_event(const touch_ev* e) {
             g_f2.y = e->y;
             g_f2.d0 = pinch_dist();
             g_f2.lean0 = g_lean;
+            g_f2.mx0 = (g_f.x + g_f2.x) * 0.5f;
+            g_f2.my0 = (g_f.y + g_f2.y) * 0.5f;
+            g_f2.sx0 = g_sway_x;
+            g_f2.sy0 = g_sway_y;
         }
         return;
     }
@@ -179,9 +185,13 @@ static void on_event(const touch_ev* e) {
             if (e->id == g_f.id) { g_f.x = e->x; g_f.y = e->y; }
             else { g_f2.x = e->x; g_f2.y = e->y; }
             g_lean = g_f2.lean0 + (pinch_dist() - g_f2.d0) * LEAN_PER_UNIT;
+            // both fingers moving together: the head sways sideways / up and down (peek around an obstacle, reach
+            // the strand behind another one) — a VR player moves the head inside the play area
+            g_sway_x = g_f2.sx0 + ((g_f.x + g_f2.x) * 0.5f - g_f2.mx0) * g_aspect * SWAY_PER_UNIT;
+            g_sway_y = g_f2.sy0 - ((g_f.y + g_f2.y) * 0.5f - g_f2.my0) * SWAY_PER_UNIT;
         } else {
             g_f.mode = F_NONE;  // the remaining finger is ignored until it lifts
-            rf_log("touch: pinch lean %.2f m", g_lean);
+            rf_log("touch: pinch lean %.2f m sway %.2f %.2f m", g_lean, g_sway_x, g_sway_y);
         }
         return;
     }

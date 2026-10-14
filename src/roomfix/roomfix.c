@@ -257,12 +257,15 @@ static void box_into_view(void* box) {
     void* cam = rf_main_camera();
     if (!cam) return;
     void* ct = rf_transform(cam);
+    // lower third of the view (17 degrees below the view axis): the centre stays free for the puzzle in front
     quat q = rf_tr_rot(ct);
     v3 f = q_rot(q, (v3){0, 0, 1});
-    v3 pos = v3_add(rf_tr_pos(ct), v3_add(v3_scale(f, 0.55f), (v3){0, -0.04f, 0}));
+    v3 down = q_rot(q, (v3){0, -1, 0});
+    v3 d = v3_norm(v3_add(f, v3_scale(down, 0.3057f)));  // tan 17
+    v3 pos = v3_add(rf_tr_pos(ct), v3_scale(d, 0.55f));
     void* t = rf_transform(box);
     CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(t, pos, NULL);
-    CALLP(C_TR_SETROT, void (*)(void*, quat, const void*))(t, rf_q_look(f, (v3){0, 1, 0}), NULL);
+    CALLP(C_TR_SETROT, void (*)(void*, quat, const void*))(t, rf_q_look(d, q_rot(q, (v3){0, 1, 0})), NULL);
 }
 
 int g_tut_action = -1;  // RwAction the current tutorial box waits for (-1 none)

@@ -3,6 +3,7 @@
 // Used for DEVICE_EFFECTS (work/device_effects.md): the main-menu disc turned out to be a FastGlow renderer whose
 // shader produced NaN on Mali, fixed in the shader assets (work/tools/patch_shaders.py), not here.
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "rf.h"
@@ -83,6 +84,70 @@ void rf_dev_orphans(void) {
                CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(r, NULL), sh, sx, sy, vis);
         shown++;
     }
+}
+
+// instances of a game class (TheRoomVR.dll) with GameObject name and screen position — route planning
+void rf_dev_objs(const char* cls) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", cls));
+    if (!type) {
+        rf_log("objs: class %s not found", cls);
+        return;
+    }
+    void* arr = CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL);
+    int n = arr_len(arr);
+    rf_log("objs %s: %d", cls, n);
+    for (int i = 0; i < n && i < 60; i++) {
+        void* c = arr_get(arr, i);
+        if (!rf_alive(c)) continue;
+        char nm[64];
+        rf_obj_name(rf_gameobject(c), nm, sizeof nm);
+        v3 p = rf_tr_pos(rf_transform(c));
+        float sx = -1, sy = -1;
+        bool vis = rf_world_to_screen(p, &sx, &sy);
+        rf_log("  obj '%s' pos(%.2f %.2f %.2f) screen(%.2f %.2f) vis=%d", nm, p.x, p.y, p.z, sx, sy, vis);
+    }
+}
+
+// dev diagnostics: raw fields of every instance of a game class (f = float, i = int32, b = byte, p = pointer)
+void rf_dev_peek(const char* cls, const char* spec) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", cls));
+    void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
+    for (int i = 0; i < arr_len(arr) && i < 12; i++) {
+        char* o = arr_get(arr, i);
+        if (!rf_alive(o)) continue;
+        char nm[48], line[400];
+        rf_obj_name(rf_gameobject(o), nm, sizeof nm);
+        int n = snprintf(line, sizeof line, "peek %s '%s':", cls, nm);
+        char buf[160];
+        snprintf(buf, sizeof buf, "%s", spec);
+        for (char* tok = strtok(buf, ","); tok && n < (int)sizeof line - 40; tok = strtok(NULL, ",")) {
+            char kind = tok[0];
+            unsigned off = (unsigned)strtoul(tok + 1, NULL, 16);
+            if (kind == 'f') n += snprintf(line + n, sizeof line - n, " %s=%.3f", tok, *(float*)(o + off));
+            else if (kind == 'i') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(int32_t*)(o + off));
+            else if (kind == 'b') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(uint8_t*)(o + off));
+            else if (kind == 'p') n += snprintf(line + n, sizeof line - n, " %s=%p", tok, *(void**)(o + off));
+        }
+        rf_log("%s", line);
+    }
+}
+
+// dev test aid: the game's own Player.TeleportTo for a named PlayerLocation, also one not yet unlocked by the
+// story — used only to reach a mechanic for a touch test; the action itself is then done by real touch
+void rf_dev_tpto(const char* name) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", "PlayerLocation"));
+    void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
+    for (int i = 0; i < arr_len(arr); i++) {
+        void* loc = arr_get(arr, i);
+        char nm[64];
+        rf_obj_name(rf_gameobject(loc), nm, sizeof nm);
+        if (rf_alive(loc) && !strcmp(nm, name) && rf_alive(g_player)) {
+            CALLP(C_PLAYER_TELEPORTTO, void (*)(void*, void*, const void*))(g_player, loc, NULL);
+            rf_log("tpto: '%s'", nm);
+            return;
+        }
+    }
+    rf_log("tpto: '%s' not found", name);
 }
 
 void rf_dev_rhide(const char* name, bool hide) {
