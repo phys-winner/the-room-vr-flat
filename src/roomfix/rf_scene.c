@@ -1,8 +1,7 @@
-// Scene inspection (dev console) and the volumetric-light leftovers of the PICO build.
-//
-// The PICO build strips the Hx volumetric lighting scripts (HxVolumetricLight / HxDummyLight / HxVolumetricCamera)
-// but keeps their GameObjects. Those objects still carry a renderer for the light volume; without the script that
-// drives it the volume is drawn as a flat translucent shape (the blue disc / orange wedge of the main menu).
+// Scene inspection (dev console): components, renderer materials/shaders, renderers on objects whose script was
+// stripped from the PICO build (Hx volumetric lights), renderer toggles for A/B screenshots.
+// Used for DEVICE_EFFECTS (work/device_effects.md): the main-menu disc turned out to be a FastGlow renderer whose
+// shader produced NaN on Mali, fixed in the shader assets (work/tools/patch_shaders.py), not here.
 #include <stdio.h>
 #include <string.h>
 

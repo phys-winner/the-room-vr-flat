@@ -1,0 +1,1350 @@
+[
+ {
+  "file": "027a58b7d0eeb194f8589d5e4d133d89",
+  "shader": "TheRoomVR/Variants/Fast_Dissolve_GogglesSheen",
+  "src_sha256": "e24a3b498ba08b368cc10db6f747ad921d010fc49a3ca67fbb0aa290257b9a94",
+  "out_sha256": "8be8de403b516f13440de17cec4f581e50dd272e764e828341b5f8a91c0955f8",
+  "blob_bytes": [
+   752448,
+   752684
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "0941c935bbe29a245ab79f64688ff56e",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_DissolveReversed_EmissionTexture",
+  "src_sha256": "6501b34234abdb3698c082d6ae82ba28876a925a49f305bf656577715a0d2e56",
+  "out_sha256": "11e26037ecced0c3c594197c8ac47e6913776614f309066ad0b9092d3b41f468",
+  "blob_bytes": [
+   840580,
+   840816
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "03ef94043bda47867b26543259bcc00b7713dede65f52fb09351d08f4316fa36",
+    "code_sha256_after": "873db4674fceb113975e3b3909af4e993e5556166f5fb116fed294511aa95353"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "7a520a87ca87764e61cb6e6194475ba68a9764f169bafeb7bc818aebbdfaa466",
+    "code_sha256_after": "2bceb83b60df058a08a98773d00d2049abf9839897b1cb9205c66417d1131338"
+   }
+  ]
+ },
+ {
+  "file": "1e3a5c27aa7944a489275349bf823de7",
+  "shader": "TheRoomVR/Variants/Fast_Dissolve_Transparent",
+  "src_sha256": "d5e96e6ed6dee3c244f620e31354ab51777b2860b75fc2463cd9f1b130a9b33e",
+  "out_sha256": "02fc3f4f0ddfb4e46f1202eb716db1b76811f1669ba8e8b020a1da541479b05e",
+  "blob_bytes": [
+   600468,
+   600704
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "2aa942ccdd2a5f64aa6a71ab3b1e3c78",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_DissolveReversed",
+  "src_sha256": "2ef2345e8dd1fe564d305663fe6d83e66a1e529a01768b3661d4ea9107ac91bd",
+  "out_sha256": "38eaaa756e41d0b3e214b7adedda9e0e74b26534e4fef5a678a7403a05c0e45c",
+  "blob_bytes": [
+   736984,
+   737220
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "03ef94043bda47867b26543259bcc00b7713dede65f52fb09351d08f4316fa36",
+    "code_sha256_after": "873db4674fceb113975e3b3909af4e993e5556166f5fb116fed294511aa95353"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "7a520a87ca87764e61cb6e6194475ba68a9764f169bafeb7bc818aebbdfaa466",
+    "code_sha256_after": "2bceb83b60df058a08a98773d00d2049abf9839897b1cb9205c66417d1131338"
+   }
+  ]
+ },
+ {
+  "file": "2e2d27a601185dd4da3d12a8efc52166",
+  "shader": "TheRoomVR/Custom/Fast_MirrorReveal_Dissolve",
+  "src_sha256": "444a740b6f0abea2f1ced50b91152b4d9e5b31b3565312fd2c2bf5ba7a9eac6f",
+  "out_sha256": "85abf726d9716f9a84c8911a3aa015962f9c110073133e41eac54d5de80d7134",
+  "blob_bytes": [
+   795548,
+   795668
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   }
+  ]
+ },
+ {
+  "file": "3c7293dbb87d4274aa4c1d6ba979ffaf",
+  "shader": "TheRoomVR/Variants/Fast_DissolveReversed_EmissionTexture",
+  "src_sha256": "2e494f55f2241516535cbb454f9857eaf6d62bd13d6b4abf57e29cd7289ef8f5",
+  "out_sha256": "c222078b40e3804d0e6f5cc3c5cc6a14ecd904b1a7975ba9fa3d05bf84f97e53",
+  "blob_bytes": [
+   621508,
+   621744
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "aa159fc102e5d4cc5cee1e8893b3afaf977e82729929e87df50d9a9520a99156",
+    "code_sha256_after": "8714b613ed7e328e20195523944540851e96d5e43e962feefc848b48f604a779"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "50e04f69659e6433fe4a63e47cacf44be506dbd4265c8879e2f35e3530a11ed4",
+    "code_sha256_after": "8cce3de3e543bb36f4a69c84c86830dc99441670547cba197c696a099505aa64"
+   }
+  ]
+ },
+ {
+  "file": "3e1f40d7626ddca489f8f3a1a9260ae6",
+  "shader": "TheRoomVR/FastGlow_HideOutsidePortal",
+  "src_sha256": "f357cd7af67ee3793fdb7caa661233aa1e83c2a73117a13fc043bf4d0e32f487",
+  "out_sha256": "ad577a77903f2be25fbcde31d352aab0abce8bea4d5503a51ac28fa69776b921",
+  "blob_bytes": [
+   63196,
+   63188
+  ],
+  "changes": [
+   {
+    "subprogram": 0,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "80c8ce61e3abe5735cf99a6826c20b3ee771241211f1f5d2499e942a65e5b5e9",
+    "code_sha256_after": "ccf6a385a018ac945f227c60a68914e449e00a0d82503a428f732c70825f5c26"
+   },
+   {
+    "subprogram": 1,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "54d2ae07e09ea694fc56d114bf8be28d3924cdc263331b7b9a1a4d036f551f28",
+    "code_sha256_after": "29cd5f76bb4d19df0a9dd0310fd5a1a760acb56467ff34fc6f0e3e638fb44e10"
+   },
+   {
+    "subprogram": 2,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "6d28bb780f2d25c7626fe9c4820990acfaaa0ff9631322d1435ac870a28be218",
+    "code_sha256_after": "b7c07cb8fb30fb8172baa148a80ccf4d315045f30355480c237a02489fd5b1f4"
+   },
+   {
+    "subprogram": 3,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "dc0ee006569226d5b1b89e00a936e3d15bb7210a88d912af5d4ed1a550d9b399",
+    "code_sha256_after": "751836ee67277654745aab7f03e089fe6249404b354ba2bc4be39144375fcca0"
+   },
+   {
+    "subprogram": 4,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "83c81d5df7fc91a94b16e492dfd9fed41d911f6ce1880f44d65b63a2dea9f080",
+    "code_sha256_after": "bd5d32e17544052936c036cd617989da1d2ff3f0ebf7f30528472385f5c10611"
+   },
+   {
+    "subprogram": 5,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "5bb0e3cf75c95de358450d5d09a1da8f328e8d531ae6c01617223ddd15b7767a",
+    "code_sha256_after": "1a656b4a39b4b87732ee9079ffe42bfcbc23b6cfb4c71f14c68816c5b375017c"
+   },
+   {
+    "subprogram": 6,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "34af61290a4e8827ad6499a4cb9b76f39c69e42fe4327c468d7bf2f220577799",
+    "code_sha256_after": "c43592dca80a6503c098329bcf3e43615eb40d9f78b82b6ef2394ebfd7f42d9e"
+   },
+   {
+    "subprogram": 7,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "3ea44984aad7db3c2419aafe6762d1b6e2cc7701ec3c0a620427f9e928047030",
+    "code_sha256_after": "03abeabf820c8826f7a7ec423e9a52d7d69f651a60ad44a0ae43b4904d4dfd80"
+   }
+  ]
+ },
+ {
+  "file": "43d49b043d476774fbb24c07964110a7",
+  "shader": "TheRoomVR/Variants/Fast_Lightmap_Dissolve_IgnorePortal",
+  "src_sha256": "93aca59bc63e81cacdcfe11f6a99ef7abaaa7896f53234f9b8f2f65f578f41c5",
+  "out_sha256": "1f2a95e80933180764b17bd6bae03dff0b5d09ec57bdadb22266c6cb3968c84d",
+  "blob_bytes": [
+   581060,
+   581300
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   }
+  ]
+ },
+ {
+  "file": "4d25a342861c9d644b2cf77ca30733f6",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_DissolveReversed",
+  "src_sha256": "0f2e66bd677cd4a8ee3964e95516a1b301576383bfba5045becd2622fbf4f809",
+  "out_sha256": "84b301e53aab527069ba560cd9abb38dfb4fc17927e8274e2ad7100f3d605305",
+  "blob_bytes": [
+   817308,
+   817544
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "03ef94043bda47867b26543259bcc00b7713dede65f52fb09351d08f4316fa36",
+    "code_sha256_after": "873db4674fceb113975e3b3909af4e993e5556166f5fb116fed294511aa95353"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "7a520a87ca87764e61cb6e6194475ba68a9764f169bafeb7bc818aebbdfaa466",
+    "code_sha256_after": "2bceb83b60df058a08a98773d00d2049abf9839897b1cb9205c66417d1131338"
+   }
+  ]
+ },
+ {
+  "file": "5097981e4874a5047b2b48073e956859",
+  "shader": "TheRoomVR/Variants/Fast_Lightmap_DissolveReversed",
+  "src_sha256": "1c6460d2594ec9d3db5923b4388a5473e40e6f01b58c9f0cda2519ebf48a2f63",
+  "out_sha256": "dd57404b4aa28078ad70ac762d3299eff560ff00d4608cff0c025e128a33b8a2",
+  "blob_bytes": [
+   618076,
+   618312
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "03ef94043bda47867b26543259bcc00b7713dede65f52fb09351d08f4316fa36",
+    "code_sha256_after": "873db4674fceb113975e3b3909af4e993e5556166f5fb116fed294511aa95353"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "7a520a87ca87764e61cb6e6194475ba68a9764f169bafeb7bc818aebbdfaa466",
+    "code_sha256_after": "2bceb83b60df058a08a98773d00d2049abf9839897b1cb9205c66417d1131338"
+   }
+  ]
+ },
+ {
+  "file": "6be81ececf830b04388a88c137d6dbc6",
+  "shader": "TheRoomVR/FastGlow",
+  "src_sha256": "54553b3e7c07933005c8a806ff6be081096143b203f81b6729639d2c762c09b9",
+  "out_sha256": "02bf3005adf9dc768ac997f326657c833329f666af1b182c9009ad4cd61d8597",
+  "blob_bytes": [
+   28092,
+   28084
+  ],
+  "changes": [
+   {
+    "subprogram": 0,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "0ba07cbafc5125d69ac7b4694656a243aa6b7522904b03f677e35b0abf1386b4",
+    "code_sha256_after": "ce7ea361d27a325b80a480e5595fb2e44d7b81a2d40ff09cff630411a27c5879"
+   },
+   {
+    "subprogram": 1,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "7d9f80e780b7866abd5fe25814d99f7b3ded9fbe22a38caab08e3984fe99bd89",
+    "code_sha256_after": "c877ff4954c9bdeabb5995d55d8cfa3312322d34fe60eacb1b205057381af0af"
+   },
+   {
+    "subprogram": 2,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "83c81d5df7fc91a94b16e492dfd9fed41d911f6ce1880f44d65b63a2dea9f080",
+    "code_sha256_after": "bd5d32e17544052936c036cd617989da1d2ff3f0ebf7f30528472385f5c10611"
+   },
+   {
+    "subprogram": 3,
+    "fixes": [
+     "glow_hash:u_xlat16_1"
+    ],
+    "code_sha256_before": "5bb0e3cf75c95de358450d5d09a1da8f328e8d531ae6c01617223ddd15b7767a",
+    "code_sha256_after": "1a656b4a39b4b87732ee9079ffe42bfcbc23b6cfb4c71f14c68816c5b375017c"
+   }
+  ]
+ },
+ {
+  "file": "6c78453676e807647ad883bb3f4ada55",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Bump_DissolveReversed",
+  "src_sha256": "1bf3f7756f0aa0fa919740c863edf76897f4cfbb449cc6e7cd213a914e3923e2",
+  "out_sha256": "e84fc1e165232df2e988dc7ea7ca0b4416ec4dc713f3dfcdd34e15e0a3528103",
+  "blob_bytes": [
+   797128,
+   797364
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "aa159fc102e5d4cc5cee1e8893b3afaf977e82729929e87df50d9a9520a99156",
+    "code_sha256_after": "8714b613ed7e328e20195523944540851e96d5e43e962feefc848b48f604a779"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "50e04f69659e6433fe4a63e47cacf44be506dbd4265c8879e2f35e3530a11ed4",
+    "code_sha256_after": "8cce3de3e543bb36f4a69c84c86830dc99441670547cba197c696a099505aa64"
+   }
+  ]
+ },
+ {
+  "file": "6e2827fee0e5386488d2b16c59237af4",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_Dissolve_HideOutsidePortal",
+  "src_sha256": "1bbc1e2dde841d31a823721047faccb05e56896a6d2c26484116d095c4140fd6",
+  "out_sha256": "04125b32ec10d775f00bb8798bf140253603055754dcad5be39e9fa25bcb53bf",
+  "blob_bytes": [
+   818980,
+   819216
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "ba80e2ae415a02d77be1718adf02782c41ff077bfcf084a6d2bdb7b5cfd72491",
+    "code_sha256_after": "afdca56188689537e3ee5504f3548e2781a0850e0a276575d90971279c72a6c5"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "8251d592ef52dc44f0e3a657bf388ba23933675d4024ec9e62bb85415985776b",
+    "code_sha256_after": "63e52a5acf754cdcb615c2655d1844036c9d389aa0109fde90eb79ef595500ac"
+   }
+  ]
+ },
+ {
+  "file": "7936a82b8b2d3c04595d8f9d9000dfa1",
+  "shader": "TheRoomVR/Variants/Fast_Dissolve_IgnorePortal_GogglesSheen",
+  "src_sha256": "011d2038e8fd0a6f60c4da8432394978dac03501773532892689c0f4065da450",
+  "out_sha256": "ce3852e9159fbb5233d899fe17313dbf226e8b2f0d0f3e97989ee1fde82e77ae",
+  "blob_bytes": [
+   716804,
+   717044
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   }
+  ]
+ },
+ {
+  "file": "7efb4cb4fb96eac41ac6ec42ff3313eb",
+  "shader": "TheRoomVR/Variants/Fast_DissolveReversed_IgnorePortal",
+  "src_sha256": "20f40d476f896baab2f6fea85cb70d8b9b464da92b282b4069753a3ead3b5e73",
+  "out_sha256": "f91b3d7eb1632b70e5092a84a2342e6e89933da10b81e79297526596757d176c",
+  "blob_bytes": [
+   560732,
+   560964
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   }
+  ]
+ },
+ {
+  "file": "841f81576e20f5b4d811c8e153a35275",
+  "shader": "TheRoomVR/Variants/Fast_Lightmap_Bump_DissolveReversed_IgnorePortal",
+  "src_sha256": "38675058c38affb1dcbfed83e81dd3ba37d6a6d888f6ba7cbcba0171b13eedb3",
+  "out_sha256": "6f820097f5049a3f09d70274cd7c704af3bc6232a842a1adebbb5d852eb46c25",
+  "blob_bytes": [
+   656148,
+   656380
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   }
+  ]
+ },
+ {
+  "file": "878b5f9603c10dc4585b61e8b5867812",
+  "shader": "TheRoomVR/Custom/FastDissolveUV",
+  "src_sha256": "0fed96691c903c158c7fb4ed0291c9659bf97ccc668389a6e022355e9a3d490f",
+  "out_sha256": "e110fd6c59f0f1dc33ff37c8586d2aa49973f5ea6ed26b72c00e29c633a60bc1",
+  "blob_bytes": [
+   105704,
+   105824
+  ],
+  "changes": [
+   {
+    "subprogram": 16,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 17,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   }
+  ]
+ },
+ {
+  "file": "8c229314b019bf9468d59dc7b168eb03",
+  "shader": "TheRoomVR/Variants/Fast_Dissolve",
+  "src_sha256": "d36c6df82972d3d0a0d9e15c2c5aaf9d6ab48d10c9c319f1867443822cc7b9cd",
+  "out_sha256": "7de2d7d221e86a2494a82a2895141a31dc4ca3fadfb46497cad4be7f286e18fc",
+  "blob_bytes": [
+   597396,
+   597632
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "a2b60053917cdac4e81ba5fd559c28fc",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Bump_Dissolve",
+  "src_sha256": "44169c75f3c88427405aff65e0fa01dec06898d65fcca290089d3b477f80ca83",
+  "out_sha256": "0a4b7f334da2808963da53edfb45b6366a54771c99a697278c69029d3bf8df12",
+  "blob_bytes": [
+   796996,
+   797232
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "a4e4b4e8d9873524cb7adec644373387",
+  "shader": "TheRoomVR/Variants/Fast_Lightmap_Bump_Dissolve",
+  "src_sha256": "0790d4199127364035238d3485ce4bbeaedce4c79f4aab961451375fbc2cdbba",
+  "out_sha256": "5e21d8e2753c428db177d69ac06cef39f3a923a939ca5e29d9689cbadf669c28",
+  "blob_bytes": [
+   692952,
+   693188
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "f7502e7c499de0e60efeda2e3aedf88b7146f14402e68e35a1b3dccb009a433c",
+    "code_sha256_after": "466a5d51a9b48f075404bbb1e050302eef6b9df8db973dc113a6ecfb1dc0937e"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "bc695af6242ea12147114056088cc1b1b93eab48568c8e008c8edf0fa1e73c9a",
+    "code_sha256_after": "478212333fa0bd651eeafdfb9e746a0590ddc48fbc9aac47fc6ee7bbe1f05f64"
+   }
+  ]
+ },
+ {
+  "file": "ac16e91a95be51a4f90a94d4bb65600e",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Bump_Dissolve_IgnorePortal",
+  "src_sha256": "9af79cb76a1c92ccfe914fa6823c0909b8ea13be4b7f3c35c6bba783f7759fad",
+  "out_sha256": "d2eece9fc9b2e468a724ce89742f45911a4a699517296ef2b2403e02b42f9637",
+  "blob_bytes": [
+   760948,
+   761188
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   }
+  ]
+ },
+ {
+  "file": "c2bdd418da0964b48adc7ff6cb5413b7",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_Dissolve",
+  "src_sha256": "560826bc3f11dd43140c29ba54a46ad5cdf1001b1bbaca726d1789b464a8db47",
+  "out_sha256": "71740c4d784fd009a2381097840758e26592303b9549b5970c4cbc6cbad6d468",
+  "blob_bytes": [
+   817168,
+   817404
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "f7502e7c499de0e60efeda2e3aedf88b7146f14402e68e35a1b3dccb009a433c",
+    "code_sha256_after": "466a5d51a9b48f075404bbb1e050302eef6b9df8db973dc113a6ecfb1dc0937e"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "bc695af6242ea12147114056088cc1b1b93eab48568c8e008c8edf0fa1e73c9a",
+    "code_sha256_after": "478212333fa0bd651eeafdfb9e746a0590ddc48fbc9aac47fc6ee7bbe1f05f64"
+   }
+  ]
+ },
+ {
+  "file": "c4a89e4725d9dfa45a3a8727aad9b107",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_Cutout_VertColor",
+  "src_sha256": "dbb1254a9930e7dd0bb6bcb715a2870e7f335a7370f30bf1a93dc963bee22ffb",
+  "out_sha256": "5a07743cb80162df3931c5a46ca877bf5ceb526ce1f9c056457e70702cacf15a",
+  "blob_bytes": [
+   706624,
+   706832
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "6b41ef90b773816eb3db21489fdca77cc49cca6e0fa1dc1b8c26156cf398eee8",
+    "code_sha256_after": "a2c967447ee9e81cbcb705d8c543545fac9d7c051816d9618fc3a067fe7c52c0"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "1529c211121b1d009eda13f2e085a5315517e9b2dc8c801a8bfdc153d2ffbf4b",
+    "code_sha256_after": "23cd291b6da9e6654a56be95392e53d4edf6479df5bf7669aec89e5a56a32cde"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "5bf521bb177300c8ff3da9acb3ce3145f047ab777817953d391699a962826dba",
+    "code_sha256_after": "ab857458d7611208bc076f7cc896a51edd90ade89406e621f909b474013d54a1"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "a8ba5a0997efc86a5d863c29c3e9fd80222da32d4fa5c9afd0752d8cd738bc26",
+    "code_sha256_after": "b209cca5f1f6c9d72ad34fbbbaaf02b4be43fd6d0812ba5c3570c99c932f9f44"
+   }
+  ]
+ },
+ {
+  "file": "c70b33ed2775d3846914a75698055cf8",
+  "shader": "TheRoomVR/Variants/Fast_Cutout_EmissionTexture_VertColor",
+  "src_sha256": "2270614746c33a928abbdb2c39c93bb4b529f105ab83858ea6307c6ea7105f0d",
+  "out_sha256": "72f1cf73d06572effa38617392ef1bfdafcdf379e1e3b55bb90a20bb742da76f",
+  "blob_bytes": [
+   514172,
+   514380
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "73a623f7955d380c125d1d0e5f968d32dcf75e06e759438b66cff863d321b4f5",
+    "code_sha256_after": "00325cce8ce0f58835eb0eecf1b26751242c121ee88c76e9dfb1cf7efd290ec5"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "025743d293639ea1db9d5878da3a10aeffaa3c26975c9e0999a9b28dc6e18dd5",
+    "code_sha256_after": "c16f1482395ac8d955fd7a028213157c5613d5b80478025a08e4822e79ea3d08"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "ab81ade75d94fd93220837d2fc0a8b5c330df073289fb5cc1d6cbe379bce729c",
+    "code_sha256_after": "eaf52c45d62c7a841cd062cb6c0cc35e5d698a524dd1938603fda6f36fe0158a"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_COLOR0"
+    ],
+    "code_sha256_before": "aba93c321c4244a2230a7a769377f12c10ecfbd4c762a77dbaa93310aba7d337",
+    "code_sha256_after": "613e3ad1737f73072d16320bcf9365525b5c5701fe47a54b2f50839dd9622845"
+   }
+  ]
+ },
+ {
+  "file": "ca768875f5870f649b2ba5cb2527fcfe",
+  "shader": "TheRoomVR/Custom/FastRefraction_DissolveReversed_IgnorePortal",
+  "src_sha256": "c241fe404baec666c9cd3e3236baf9a1faf92a49ecb2e964697e2fead0be2185",
+  "out_sha256": "12b8cc302b0c88c704fa2a79d3ba7c12043456d5b724f74e69b27a95deb7216f",
+  "blob_bytes": [
+   210648,
+   210764
+  ],
+  "changes": [
+   {
+    "subprogram": 16,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 17,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   }
+  ]
+ },
+ {
+  "file": "cc01a30538f8f7c41961d1bf6bfdf50c",
+  "shader": "TheRoomVR/Variants/Fast_DissolveReversed_GogglesSheen",
+  "src_sha256": "133f0398c79630f65f069923bfbb1cd60cb7c9436c7e0ac196d64c6523cc78ca",
+  "out_sha256": "162dd03eeb2f7c8187b8619ad4dc518e4068e6f65042fb8dc4f61faf3603b941",
+  "blob_bytes": [
+   752572,
+   752808
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "aa159fc102e5d4cc5cee1e8893b3afaf977e82729929e87df50d9a9520a99156",
+    "code_sha256_after": "8714b613ed7e328e20195523944540851e96d5e43e962feefc848b48f604a779"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "50e04f69659e6433fe4a63e47cacf44be506dbd4265c8879e2f35e3530a11ed4",
+    "code_sha256_after": "8cce3de3e543bb36f4a69c84c86830dc99441670547cba197c696a099505aa64"
+   }
+  ]
+ },
+ {
+  "file": "db0add45001d9f149b5b6cfdde20fc0b",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Bump_Dissolve_EmissionTexture",
+  "src_sha256": "94bdc95590a153d5866eb9091fcc2efab6417a1e0603c5f3872722304ae6ebc2",
+  "out_sha256": "aade645010d3b4a5d31492cda8e2f1ee489e474b59620e850d20e69df0c0af63",
+  "blob_bytes": [
+   820152,
+   820388
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "dcef0af0cbc6ec042ac81ab4915f7f18",
+  "shader": "TheRoomVR/Variants/Fast_Lightmap_Dissolve",
+  "src_sha256": "6e7301db412699ccf3da32ec8884b4a261645be7b59ced418d6a961178854d02",
+  "out_sha256": "8b8cc661cc9b9a83aa6ee5df64ee10ad62fe7823e16f55a31e4d181e5693aa9d",
+  "blob_bytes": [
+   617924,
+   618160
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "26dcc5d2dc45f58cd000a380111e1de1a625a18defabace69aaf79969390d433",
+    "code_sha256_after": "5bf8469354cf20e67142f016d447a692e3d5ee46a941b36372898d01fc7a0359"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "55a5c4a6b6303d1ae2fe1c584ae8250ebb55f6251412c68148c42549add139fa",
+    "code_sha256_after": "76dba3b567d0fec66c56778fcc7d56b7a999fe43697b196f5329b873c23e3d78"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "f7502e7c499de0e60efeda2e3aedf88b7146f14402e68e35a1b3dccb009a433c",
+    "code_sha256_after": "466a5d51a9b48f075404bbb1e050302eef6b9df8db973dc113a6ecfb1dc0937e"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "bc695af6242ea12147114056088cc1b1b93eab48568c8e008c8edf0fa1e73c9a",
+    "code_sha256_after": "478212333fa0bd651eeafdfb9e746a0590ddc48fbc9aac47fc6ee7bbe1f05f64"
+   }
+  ]
+ },
+ {
+  "file": "de98dc28774a1b94db47be752230e177",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Bump_DissolveReversed_IgnorePortal",
+  "src_sha256": "e47c7ce050d308a4463a385e28c80b3f58cf695a7ae98add37fc7b2bebefd124",
+  "out_sha256": "4ad978ce1e39d3285ce72740f430f74a81f667d6463c3722ad88a8407d376cd7",
+  "blob_bytes": [
+   761084,
+   761316
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "cf2f090660816ae1294a81d800536f260bab49c63d2aec9feb3f0a1a47783307",
+    "code_sha256_after": "89b6926b38321ba8b1e414422395fde914d2d2f44c3b4e5422c452121ada8266"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "c306426fac834ba2d0ad68eb16d7a9ef34bc36cbb4e5b737d815a223bbbbf0c3",
+    "code_sha256_after": "2b060ecaf54301514198bb026adb8d3770f33652af38194e46ca2622c287b4e9"
+   }
+  ]
+ },
+ {
+  "file": "e39268612d6dbac4786ec60e3e835f3c",
+  "shader": "TheRoomVR/Variants/Fast_Dissolve_GogglesSheen_MipBias",
+  "src_sha256": "670b3068b4469bfb4129770738487be2841c134177c4c1582cbfbc4556169e22",
+  "out_sha256": "f7b5a0f244d3e3df05753761a1b5dd4b02accdb3eba9740f2d5409301809c44b",
+  "blob_bytes": [
+   755984,
+   756220
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "74bda16ff69d33c1e2865dbbccee39cf3bb39b9adf48a6b77192e24e3d10327b",
+    "code_sha256_after": "50aaf007f367dc03dc86e76db23f6f89a7f9bfd232c7cccdbc6a9921e38a245e"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "30cffd4590c30652136a257d0632e6fdfdd426ea17cbda08578c803eafe57d7a",
+    "code_sha256_after": "cfe9a23e4f563174c57e90508ebc7cfae8506e16be56d125c4bacc051012dd1f"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "2f4a795a0b1b32eec7394341fe7d449853ffb1c2de5d095a5cf0e9e00b31850f",
+    "code_sha256_after": "35512b8ab6b1e9a6a6772e54514c4f1a8700d3892b8ca61082447b6e0d6f6a3c"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "25e199bf9173645db7fd6ea6bf660321f21d467e7ab84b9053133368a301c758",
+    "code_sha256_after": "c983d0a77f0c24c5193b95e56bac55eacdf57689edec5780b52fed59853581d7"
+   }
+  ]
+ },
+ {
+  "file": "faa78b8f0e24104499d3c0a246ddc3a8",
+  "shader": "TheRoomVR/Variants/Fast_PBR_MetalTex_Reflection_Lightmap_Bump_DissolveReversed_IgnorePortal",
+  "src_sha256": "5bc027b0324f253ec5dfebe9bab4fe6564c1e322945286a92e8f2d52e60fa6e4",
+  "out_sha256": "9116659a598772c512dd5defd509047465afa50b5673405e0bcc1d7788861ebd",
+  "blob_bytes": [
+   781196,
+   781428
+  ],
+  "changes": [
+   {
+    "subprogram": 80,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 81,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   },
+   {
+    "subprogram": 82,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "eca856be3d12bdd05c665b6d3122742b6eaefda2eea1419452a4e586b3c81642",
+    "code_sha256_after": "189b7be5a70bc03e11101a8d61940b7202f7791fde609002ccdc6dd4af43044b"
+   },
+   {
+    "subprogram": 83,
+    "fixes": [
+     "varying:vs_TEXCOORD0"
+    ],
+    "code_sha256_before": "d1ce46bdfab563aedea9d2aec208c714e644e9e64c0992b2c2ba58550af23a04",
+    "code_sha256_after": "bce639e3f38682b0dc5beca697ed39f2dfaade8ae631eb55abbd9c00cefb9cca"
+   }
+  ]
+ }
+]
