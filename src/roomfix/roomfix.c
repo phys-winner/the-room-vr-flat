@@ -211,23 +211,55 @@ static void h_pause_update(void* self, const void* mi) {
     ORIG(H_PAUSE_UPDATE, void (*)(void*, const void*))(self, mi);
 }
 
+// Message boxes: MessageBox.AttachPosition None=0 (box default), Controller=1, Head=2. Boxes on a controller
+// follow the VR player's hand, which is out of view in flat mode: they are shown in front of the eyes instead.
+// None keeps the box's own default (world-placed tutorial notes stay where the level designer put them).
+#define ATTACH_HEAD 2
+static int32_t flat_attach(int32_t a) { return a == 1 ? ATTACH_HEAD : a; }
+
+// A box left unattached (None) stays where it spawned: at the VR player's hand, i.e. behind the flat camera
+// (resting hands are out of view). Put it in front of the eyes instead, world-anchored like the original.
+static void box_into_view(void* box) {
+    if (!rf_alive(box) || *(int32_t*)((char*)box + 0xa8) != 0) return;  // MessageBox.AttachedTo == None
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* ct = rf_transform(cam);
+    quat q = rf_tr_rot(ct);
+    v3 f = q_rot(q, (v3){0, 0, 1});
+    v3 pos = v3_add(rf_tr_pos(ct), v3_add(v3_scale(f, 0.55f), (v3){0, -0.04f, 0}));
+    void* t = rf_transform(box);
+    CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(t, pos, NULL);
+    CALLP(C_TR_SETROT, void (*)(void*, quat, const void*))(t, rf_q_look(f, (v3){0, 1, 0}), NULL);
+}
+
 int g_tut_action = -1;  // RwAction the current tutorial box waits for (-1 none)
+void* g_last_box[2];      // last tutorial box / monologue box (dev diagnostics)
 static void h_tut_msg(void* self, Il2CppString* title, Il2CppString* text, int32_t action, int32_t attach,
                       int32_t alt, const void* mi) {
+    g_last_box[0] = self;
     char a[96], b[160];
     rf_str_utf8(title, a, sizeof a);
     rf_str_utf8(text, b, sizeof b);
     g_tut_action = action;
     rf_log("tutorial: '%s' / '%s' action=%d alt=%d attach=%d", a, b, action, alt, attach);
     ORIG(H_TUT_MSG, void (*)(void*, Il2CppString*, Il2CppString*, int32_t, int32_t, int32_t, const void*))(
-        self, title, text, action, attach, alt, mi);
+        self, title, text, action, flat_attach(attach), alt, mi);
+    box_into_view(self);
+    // the box illustrates the VR controller and the button to use (TutorialMessageBox.LargeImage/SmallImage);
+    // the touch wording comes from the port's strings instead
+    for (int off = 0xc8; off <= 0xd0; off += 8) {
+        void* img = *(void**)((char*)self + off);
+        if (rf_alive(img)) CALLP(C_GO_SETACTIVE, void (*)(void*, bool, const void*))(rf_gameobject(img), false, NULL);
+    }
 }
 
 static void h_msg_box(void* self, Il2CppString* text, int32_t attach, const void* mi) {
+    if (self != g_last_box[0]) g_last_box[1] = self;
     char b[200];
     rf_str_utf8(text, b, sizeof b);
     rf_log("message: '%s' attach=%d", b, attach);
-    ORIG(H_MSG_BOX, void (*)(void*, Il2CppString*, int32_t, const void*))(self, text, attach, mi);
+    ORIG(H_MSG_BOX, void (*)(void*, Il2CppString*, int32_t, const void*))(self, text, flat_attach(attach), mi);
+    box_into_view(self);
 }
 
 static void h_gc_awake(void* self, const void* mi) {

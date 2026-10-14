@@ -112,6 +112,8 @@ enum {
     C_GOGGLESHUD_RELEASE,
     C_GOGGLESHUD_ON,
     C_GOGGLESHUD_OFF,
+    C_TR_SETPOS,
+    C_TR_SETROT,
     C_COUNT
 };
 static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[8]; } g_call_desc[C_COUNT] = {
@@ -175,6 +177,8 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
     [C_GOGGLESHUD_RELEASE] = {"GogglesHudManager$$ReleaseGrab", 0x171f3a0, {0x00, 0x1c, 0x40, 0xf9, 0xa0, 0x00, 0x00, 0xb4}},
     [C_GOGGLESHUD_ON] = {"GogglesHudManager$$ActivateWithFade", 0x171f214, {0xe8, 0x0f, 0x1d, 0xfc, 0xf5, 0x07, 0x00, 0xf9}},
     [C_GOGGLESHUD_OFF] = {"GogglesHudManager$$DeactivateWithFade", 0x171f08c, {0xe8, 0x0f, 0x1d, 0xfc, 0xf5, 0x07, 0x00, 0xf9}},
+    [C_TR_SETPOS] = {"UnityEngine.Transform$$set_position", 0x228b504, {0xff, 0xc3, 0x00, 0xd1, 0xf4, 0x4f, 0x01, 0xa9}},
+    [C_TR_SETROT] = {"UnityEngine.Transform$$set_rotation", 0x228b76c, {0xff, 0xc3, 0x00, 0xd1, 0xf4, 0x4f, 0x01, 0xa9}},
 };
 
 #define OFF_STORE_RESULT 0x10

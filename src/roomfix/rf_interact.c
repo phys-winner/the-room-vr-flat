@@ -222,7 +222,7 @@ void rf_act_list_volumes(void) {
     void* ctrl = rf_controller(RIGHT);
     int shown = 0;
     rf_log("volumes: %d registered", g_ngc);
-    for (int i = 0; i < g_ngc && shown < 40; i++) {
+    for (int i = 0; i < g_ngc && shown < 80; i++) {
         void* gc = g_gcs[i];
         void* gr = NULL;
         if (!gc_usable(gc, ctrl, &gr)) continue;

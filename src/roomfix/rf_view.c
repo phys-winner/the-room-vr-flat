@@ -49,14 +49,38 @@ static void tick_fov(void) {
 static struct {
     void* location;
     char scene[64];
+    int face_frames;  // frames left to keep the camera on the new location's forward direction
 } g_lean_ctx;
+
+typedef v3 (*fn_v3_1)(void*, const void*);
+
+// After a teleport the camera looks along the arrival location's authored forward direction (a little down),
+// the way a seated VR player faces the puzzle the location was placed for. Kept for a few frames because the
+// game re-aligns the tracking space during the teleport fade.
+static void face_location(void* loc) {
+    void* cam = rf_main_camera();
+    if (!cam || !rf_alive(loc)) return;
+    v3 f = CALLP(C_TR_FORWARD, fn_v3_1)(rf_transform(loc), NULL);
+    void* rig = rf_tr_parent(rf_transform(cam));
+    quat r = rf_alive(rig) ? rf_tr_rot(rig) : (quat){0, 0, 0, 1};
+    v3 l = q_rot(q_conj(r), f);
+    if (fabsf(l.x) + fabsf(l.z) < 1e-3f) return;
+    g_head.yaw = atan2f(l.x, l.z) / DEG2RAD;
+    g_head.pitch = -20.0f;
+}
 
 static void tick_lean(void) {
     void* loc = rf_alive(g_player) ? *(void**)((char*)g_player + 0x70) : NULL;  // Player.CurrentLocation
     if (loc != g_lean_ctx.location || strcmp(g_scene, g_lean_ctx.scene) != 0) {
+        if (loc && loc != g_lean_ctx.location) g_lean_ctx.face_frames = 45;
         g_lean_ctx.location = loc;
         memcpy(g_lean_ctx.scene, g_scene, sizeof g_lean_ctx.scene);
         g_lean = 0;
+    }
+    if (g_lean_ctx.face_frames > 0) {
+        g_lean_ctx.face_frames--;
+        face_location(loc);
+        if (!g_lean_ctx.face_frames) rf_log("view: arrived, facing location forward (yaw %.1f)", g_head.yaw);
     }
     if (g_lean < 0) g_lean = 0;
     if (g_lean > 0.35f) g_lean = 0.35f;

@@ -157,6 +157,22 @@ static void cmd_face_loc(const char* name) {
     rf_log("faceloc '%s': yaw=%.1f", name, g_head.yaw);
 }
 
+// read-only: yaw/pitch that would face a teleport location (0.9 m above its base), and the current head pose
+static void cmd_loc_yaw(const char* name) {
+    void* loc = find_location(name);
+    void* cam = rf_main_camera();
+    if (!loc || !cam) { rf_log("locyaw: '%s' not found", name); return; }
+    v3 lp = v3_add(rf_tr_pos(rf_transform(loc)), (v3){0, 0.9f, 0});
+    void* ct = rf_transform(cam);
+    void* rig = rf_tr_parent(ct);
+    quat r = rig ? rf_tr_rot(rig) : (quat){0, 0, 0, 1};
+    v3 l = q_rot(q_conj(r), v3_sub(lp, rf_tr_pos(ct)));
+    float yaw = atan2f(l.x, l.z) / DEG2RAD, pitch = atan2f(l.y, sqrtf(l.x * l.x + l.z * l.z)) / DEG2RAD;
+    float sx = -1, sy = -1;
+    bool vis = rf_world_to_screen(lp, &sx, &sy);
+    rf_log("locyaw '%s' want %.1f %.1f cur %.1f %.1f screen %.4f %.4f vis=%d", name, yaw, pitch, g_head.yaw, g_head.pitch, sx, sy, vis);
+}
+
 static void cmd_ttap_loc(const char* name) {
     void* loc = find_location(name);
     float sx, sy;
@@ -241,6 +257,52 @@ static void cmd_menutree(int maxdepth) {
     tree(rf_transform(scr), 0, maxdepth, rf_tr_pos(ct), rf_tr_rot(ct));
 }
 
+// read-only: inventory receivers (keyholes, sockets) with their centre on screen
+static void cmd_receivers(void) {
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + META_INVRECV_TYPEINFO);
+    void* statics = (k && !(k & 1) && k > 0x10000) ? *(void**)(k + 0xb8) : NULL;
+    void* all = statics ? *(void**)statics : NULL;
+    rf_log("receivers: %d", rf_list_size(all));
+    for (int i = 0; i < rf_list_size(all) && i < 64; i++) {
+        void* r = rf_list_get(all, i);
+        if (!rf_alive(r)) continue;
+        v3 c = ((v3(*)(void*, const void*))RVA(g_call_desc[C_RECV_CENTRE].rva))(r, NULL);
+        float sx = -1, sy = -1;
+        bool vis = rf_world_to_screen(c, &sx, &sy);
+        char nm[64];
+        rf_obj_name(r, nm, sizeof nm);
+        rf_log("  recv '%s' state=%d screen(%.3f %.3f) vis=%d", nm, *(int32_t*)((char*)r + 0x40), sx, sy, vis);
+    }
+}
+
+extern void* g_last_box[2];
+static void cmd_boxes(void) {
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* ct = rf_transform(cam);
+    v3 cp = rf_tr_pos(ct);
+    quat cq = rf_tr_rot(ct);
+    for (int i = 0; i < 2; i++) {
+        char* b = (char*)g_last_box[i];
+        if (!rf_alive(b)) { rf_log("box[%d]: none", i); continue; }
+        void* go = rf_gameobject(b);
+        bool act = CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(go, NULL);
+        void* cg = *(void**)(b + 0x48);
+        float a = rf_alive(cg) ? CALLP(C_CG_ALPHA, float (*)(void*, const void*))(cg, NULL) : -1;
+        void* t = rf_transform(b);
+        v3 rel = q_rot(q_conj(cq), v3_sub(rf_tr_pos(t), cp));
+        char* siv = *(char**)(b + 0xb0);
+        char pn[64] = "-";
+        rf_obj_name(rf_tr_parent(t), pn, sizeof pn);
+        float sx = -1, sy = -1;
+        rf_world_to_screen(rf_tr_pos(t), &sx, &sy);
+        rf_log("box[%d] %s act=%d state=%d attached=%d default=%d alpha=%.2f cam(%.2f %.2f %.2f) screen(%.3f %.3f) parent='%s' stayInView=%p fov(%.1f %.1f) lerp=%.2f",
+               i, rf_class_name(b), act, *(int32_t*)(b + 0x88), *(int32_t*)(b + 0xa8), *(int32_t*)(b + 0x8c), a, rel.x, rel.y, rel.z,
+               sx, sy, pn, siv, rf_alive(siv) ? *(float*)(siv + 0x18) : -1, rf_alive(siv) ? *(float*)(siv + 0x1c) : -1,
+               rf_alive(siv) ? *(float*)(siv + 0x20) : -1);
+    }
+}
+
 static void cmd_tree(int up, int maxdepth) {
     void* cam = rf_main_camera();
     if (!cam) { rf_log("tree: no camera"); return; }
@@ -267,6 +329,10 @@ static void exec_line(char* line) {
         rf_log("look yaw=%.1f pitch=%.1f", g_head.yaw, g_head.pitch);
     } else if (!strcmp(argv[0], "faceloc") && argc >= 2) {
         cmd_face_loc(argv[1]);
+    } else if (!strcmp(argv[0], "locyaw") && argc >= 2) {
+        cmd_loc_yaw(argv[1]);
+    } else if (!strcmp(argv[0], "head?")) {
+        rf_log("head? yaw %.1f pitch %.1f lean %.2f", g_head.yaw, g_head.pitch, g_lean);
     } else if (!strcmp(argv[0], "ttaploc") && argc >= 2) {
         cmd_ttap_loc(argv[1]);
     } else if (!strcmp(argv[0], "aimtip") && argc >= 4) {
@@ -275,6 +341,10 @@ static void exec_line(char* line) {
         rf_act_dev_aim_tip(false, 0, 0, 0);
     } else if (!strcmp(argv[0], "setact") && argc >= 3) {
         cmd_setact(argv[1], atoi(argv[2]) != 0);
+    } else if (!strcmp(argv[0], "recv")) {
+        cmd_receivers();
+    } else if (!strcmp(argv[0], "boxes")) {
+        cmd_boxes();
     } else if (!strcmp(argv[0], "menutree") && argc >= 2) {
         cmd_menutree(atoi(argv[1]));
     } else if (!strcmp(argv[0], "tree") && argc >= 3) {
