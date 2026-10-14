@@ -87,15 +87,25 @@ void rf_settings_tick(void) {
     }
 measure:
     if (g_dev) {
+        // frame rate and simulation clock: game time advanced per wall-clock second (1.00 = authored speed,
+        // timeScale 0 while paused), Unity's maximumDeltaTime / fixedDeltaTime as the game sets them
+        typedef float (*fn_tf)(const void*);
         static struct timespec t0;
         static int f0;
+        static float gt0;
         struct timespec t;
         clock_gettime(CLOCK_MONOTONIC, &t);
         double dt = (t.tv_sec - t0.tv_sec) + (t.tv_nsec - t0.tv_nsec) / 1e9;
         if (f0 == 0 || dt > 10.0) {
-            if (f0) rf_log("fps: %.1f over %.1f s (limit %d)", (g_frame - f0) / dt, dt, rf_fps_value(g_fps_idx));
+            float gt = CALLP(C_TIME_TIME, fn_tf)(NULL);
+            if (f0)
+                rf_log("fps: %.1f over %.1f s (limit %d) game-time/s %.3f timeScale %.2f maxDT %.4f fixedDT %.4f",
+                       (g_frame - f0) / dt, dt, rf_fps_value(g_fps_idx), (gt - gt0) / dt,
+                       CALLP(C_TIME_SCALE, fn_tf)(NULL), CALLP(C_TIME_MAXDT, fn_tf)(NULL),
+                       CALLP(C_TIME_FIXEDDT, fn_tf)(NULL));
             t0 = t;
             f0 = g_frame;
+            gt0 = gt;
         }
     }
 }

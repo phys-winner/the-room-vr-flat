@@ -470,6 +470,12 @@ static void exec_line(char* line) {
         rf_hud_button(atoi(argv[1]));
     } else if (!strcmp(argv[0], "lean") && argc >= 2) {
         g_lean = strtof(argv[1], NULL);
+    } else if (!strcmp(argv[0], "fpsopt") && argc >= 2) {
+        int v = atoi(argv[1]);
+        if (v >= 0 && v < RF_FPS_COUNT) {
+            g_fps_idx = v;
+            rf_settings_changed();
+        }
     } else if (!strcmp(argv[0], "fov") && argc >= 2) {
         g_fov_h = strtof(argv[1], NULL);
     } else if (!strcmp(argv[0], "tap") && argc >= 3) {

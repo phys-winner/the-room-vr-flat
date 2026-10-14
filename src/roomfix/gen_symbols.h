@@ -148,6 +148,10 @@ enum {
     C_QSM_SETMSAA,
     C_OCULUS_ALLOWGFX,
     C_CAM_SET_DEPTHMODE,
+    C_TIME_TIME,
+    C_TIME_MAXDT,
+    C_TIME_FIXEDDT,
+    C_TIME_SCALE,
     C_COUNT
 };
 static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[8]; } g_call_desc[C_COUNT] = {
@@ -233,6 +237,10 @@ static const struct rf_call_desc { const char* name; uintptr_t rva; uint8_t pre[
     [C_QSM_SETMSAA] = {"QualitySettingsManager$$SetMSAA", 0x14a5dbc, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
     [C_OCULUS_ALLOWGFX] = {"VrPlatform_Oculus$$ShouldAllowGraphicsSettings", 0x1394a84, {0xe0, 0x03, 0x1f, 0x2a, 0xc0, 0x03, 0x5f, 0xd6}},
     [C_CAM_SET_DEPTHMODE] = {"UnityEngine.Camera$$set_depthTextureMode", 0x240ba70, {0xf5, 0x0f, 0x1d, 0xf8, 0xf4, 0x4f, 0x01, 0xa9}},
+    [C_TIME_TIME] = {"UnityEngine.Time$$get_time", 0x228a240, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_TIME_MAXDT] = {"UnityEngine.Time$$get_maximumDeltaTime", 0x228a3f0, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_TIME_FIXEDDT] = {"UnityEngine.Time$$get_fixedDeltaTime", 0x228a378, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
+    [C_TIME_SCALE] = {"UnityEngine.Time$$get_timeScale", 0x228a4d0, {0xf3, 0x0f, 0x1e, 0xf8, 0xfd, 0x7b, 0x01, 0xa9}},
 };
 
 #define OFF_STORE_RESULT 0x10

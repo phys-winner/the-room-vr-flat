@@ -138,3 +138,7 @@ CALL OCULUS_ALLOWGFX  VrPlatform_Oculus$$ShouldAllowGraphicsSettings
 HOOK GFX_SETUP        GraphicsScreen$$OnSetupScreen
 CALL CAM_SET_DEPTHMODE UnityEngine.Camera$$set_depthTextureMode
 HOOK QSM_DEPTHMODE    QualitySettingsManager$$GetDepthTextureMode
+CALL TIME_TIME        UnityEngine.Time$$get_time
+CALL TIME_MAXDT       UnityEngine.Time$$get_maximumDeltaTime
+CALL TIME_FIXEDDT     UnityEngine.Time$$get_fixedDeltaTime
+CALL TIME_SCALE       UnityEngine.Time$$get_timeScale
