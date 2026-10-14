@@ -109,6 +109,26 @@ bool rf_class_is(void* obj, const char* name) {
     return false;
 }
 
+void* rf_find_class(const char* image, const char* ns, const char* name) {
+    if (!g_il2.domain_get || !g_il2.domain_get_assemblies || !g_il2.assembly_get_image || !g_il2.image_get_name ||
+        !g_il2.class_from_name)
+        return NULL;
+    size_t n = 0;
+    void** as = g_il2.domain_get_assemblies(g_il2.domain_get(), &n);
+    for (size_t i = 0; as && i < n; i++) {
+        void* img = g_il2.assembly_get_image(as[i]);
+        const char* in = img ? g_il2.image_get_name(img) : NULL;
+        if (in && !strcmp(in, image)) return g_il2.class_from_name(img, ns, name);
+    }
+    return NULL;
+}
+
+void* rf_class_type(void* klass) {
+    if (!klass || !g_il2.class_get_type || !g_il2.type_get_object) return NULL;
+    void* t = g_il2.class_get_type(klass);
+    return t ? g_il2.type_get_object(t) : NULL;
+}
+
 const char* rf_class_name(void* obj) {
     if (!obj || !g_il2.object_get_class || !g_il2.class_get_name) return "?";
     void* k = g_il2.object_get_class(obj);
@@ -123,6 +143,11 @@ static void resolve_api(void* h) {
     g_il2.string_new = (void* (*)(const char*))dlsym(h, "il2cpp_string_new");
     g_il2.class_get_type = (void* (*)(void*))dlsym(h, "il2cpp_class_get_type");
     g_il2.type_get_object = (void* (*)(void*))dlsym(h, "il2cpp_type_get_object");
+    g_il2.domain_get = (void* (*)(void))dlsym(h, "il2cpp_domain_get");
+    g_il2.domain_get_assemblies = (void** (*)(void*, size_t*))dlsym(h, "il2cpp_domain_get_assemblies");
+    g_il2.assembly_get_image = (void* (*)(void*))dlsym(h, "il2cpp_assembly_get_image");
+    g_il2.image_get_name = (const char* (*)(void*))dlsym(h, "il2cpp_image_get_name");
+    g_il2.class_from_name = (void* (*)(void*, const char*, const char*))dlsym(h, "il2cpp_class_from_name");
 }
 
 // ---------------------------------------------------------------- core hooks

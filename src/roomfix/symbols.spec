@@ -114,3 +114,11 @@ CALL PREFS_SETSTRING  UnityEngine.PlayerPrefs$$SetString
 META LOCALISATION_TYPEINFO Localisation_TypeInfo
 # ---- PICO platform services neutralised (CODE_CLEANUP) ----
 HOOK PXR_BINDVERIFY   Unity.XR.PXR.PXR_Plugin.PlatformSetting$$UPxr_BindVerifyService
+# ---- scene inspection (dev) and DEVICE_EFFECTS fixes ----
+CALL GO_FIND          UnityEngine.GameObject$$Find
+CALL GO_GETCOMPS      UnityEngine.GameObject$$GetComponents|UnityEngine_Component_array* UnityEngine_GameObject__GetComponents
+CALL OBJ_FINDALLTYPE  UnityEngine.Object$$FindObjectsOfType|System_Type_o* type, const MethodInfo
+CALL REND_MATERIALS   UnityEngine.Renderer$$get_sharedMaterials
+CALL MAT_SHADER       UnityEngine.Material$$get_shader
+CALL REND_SETENABLED  UnityEngine.Renderer$$set_enabled
+CALL REND_GETENABLED  UnityEngine.Renderer$$get_enabled

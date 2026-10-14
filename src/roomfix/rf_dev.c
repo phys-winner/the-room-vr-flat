@@ -407,6 +407,25 @@ static void exec_line(char* line) {
         }
     } else if (!strcmp(argv[0], "allrecv")) {
         cmd_all_receivers();
+    } else if (!strcmp(argv[0], "comps") && argc >= 2) {
+        char nm[128] = "";
+        for (int i = 1; i < argc; i++) {
+            if (i > 1) strncat(nm, " ", sizeof nm - strlen(nm) - 1);
+            strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
+        }
+        rf_dev_comps(nm);
+    } else if (!strcmp(argv[0], "rlist")) {
+        rf_dev_rlist();
+    } else if (!strcmp(argv[0], "orphans")) {
+        rf_dev_orphans();
+    } else if (!strcmp(argv[0], "rhide") && argc >= 3) {
+        // rhide NAME WITH SPACES 0|1 : the last word is the flag
+        char nm[128] = "";
+        for (int i = 1; i < argc - 1; i++) {
+            if (i > 1) strncat(nm, " ", sizeof nm - strlen(nm) - 1);
+            strncat(nm, argv[i], sizeof nm - strlen(nm) - 1);
+        }
+        rf_dev_rhide(nm, atoi(argv[argc - 1]) != 0);
     } else if (!strcmp(argv[0], "recv")) {
         cmd_receivers();
     } else if (!strcmp(argv[0], "boxes")) {

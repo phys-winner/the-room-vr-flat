@@ -106,7 +106,14 @@ typedef struct {
     void* (*string_new)(const char* utf8);       // System.String from UTF-8
     void* (*class_get_type)(void* klass);        // Il2CppType*
     void* (*type_get_object)(void* type);        // System.Type object
+    void* (*domain_get)(void);
+    void** (*domain_get_assemblies)(void* domain, size_t* count);
+    void* (*assembly_get_image)(void* assembly);
+    const char* (*image_get_name)(void* image);
+    void* (*class_from_name)(void* image, const char* ns, const char* name);
 } rf_il2cpp_api_t;
+void* rf_find_class(const char* image, const char* ns, const char* name);  // e.g. "UnityEngine.CoreModule.dll"
+void* rf_class_type(void* klass);                                          // System.Type of a class
 extern rf_il2cpp_api_t g_il2;
 const char* rf_class_name(void* obj);  // "?" when unknown
 
@@ -228,6 +235,12 @@ void h_loc_load_initial(const void* mi);
 extern float g_lean;      // metres the head leans along the view direction (pinch gesture)
 extern float g_fov_h;     // horizontal field of view on screen, degrees
 void rf_view_tick(void);
+
+// ---- rf_scene.c: scene inspection (dev), volumetric leftovers ----
+void rf_dev_comps(const char* name);
+void rf_dev_orphans(void);
+void rf_dev_rlist(void);
+void rf_dev_rhide(const char* name, bool hide);
 
 // ---- module entry points ----
 void rf_xr_init(void);      // XR device emulation (head)
