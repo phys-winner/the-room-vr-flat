@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Removes payload paths from the canonical app/ tree that are ignored by Git (assets/bin/Data/*).
+"""Removes files of the decoded game from the canonical app/ tree.
 
 Each entry is moved to work/removed/ (restorable) after checking its SHA-256 against the decoded original.
 Decisions and reasons: work/code_cleanup.md.
@@ -15,6 +15,9 @@ REMOVE = {
     "assets/bin/Data/UnitySubsystems/PxrPlatform/UnitySubsystemsManifest.json":
         None,
     "assets/bin/Data/UnitySubsystems/OculusXRPlugin/UnitySubsystemsManifest.json":
+        None,
+    # a re-signing tool's certificate left in the APK, not part of the game (no consumer)
+    "unknown/META-INF/com/android/otacert":
         None,
 }
 

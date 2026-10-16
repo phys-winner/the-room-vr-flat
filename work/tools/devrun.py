@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Device helper for the flat port. Talks only to the STATE-designated test serial: RF_SERIAL, default realme-rmx3371
-(round 2, user 2026-10-16; round 1 used redmi-note8pro with root).
+"""Device helper for the flat port. Talks only to the one designated test serial: RF_SERIAL or "serial" in
+work/local.json (machine settings stay out of Git, see local_config.py); adb from ADB / "adb" there / PATH.
 
   devrun.py launch TAG [--secs N] [--shots 5,15,30] [--grant]   cold start + logcat + validated shots
   devrun.py shot TAG NAME                                      validated screenshot
@@ -21,8 +21,11 @@ import time
 import zlib
 from pathlib import Path
 
-SERIAL = os.environ.get("RF_SERIAL", "realme-rmx3371")
-ADB = "%LOCALAPPDATA%/Android/Sdk/platform-tools/adb.exe"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import local_config  # noqa: E402
+
+SERIAL = local_config.serial()
+ADB = local_config.adb()
 PKG = "com.FireproofStudios.TheRoomVRPlus"
 ACT = "com.unity3d.player.UnityPlayerActivity"
 GAME = Path(__file__).resolve().parents[2]

@@ -21,9 +21,19 @@ typedef struct Il2CppString {
 
 extern uintptr_t g_il2cpp_base;
 extern char g_ext_dir[512];
-extern bool g_dev;
 
+// Release builds (build_port.py --release, -DRF_RELEASE=1) write no log at all: rf_log compiles to nothing, there is
+// no roomfix.log and no developer console, every g_dev branch is dead code, and the process is muted in logcat.
+#ifndef RF_RELEASE
+#define RF_RELEASE 0
+#endif
+#if RF_RELEASE
+#define g_dev false
+static inline __attribute__((format(printf, 1, 2))) void rf_log(const char* fmt, ...) { (void)fmt; }
+#else
+extern bool g_dev;
 void rf_log(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+#endif
 
 #define RVA(x) ((void*)(g_il2cpp_base + (x)))
 #define CALLP(id, type) ((type)RVA(g_call_desc[id].rva))
@@ -289,8 +299,9 @@ void rf_flatui_add(void* comp, int slot);  // element = comp's transform; RF_FLA
 void rf_flatui_pin_all(bool tick);         // tick: main tick (may re-measure); false: camera pose callback
 void h_siv_update(void* self, const void* mi);
 void h_fep_setlength(void* self, float len, const void* mi);
-extern bool g_dev_beam_allow;  // dev A/B: menu pointer beam drawn as authored
 void rf_act_dev_beam(bool on, float x, float y);  // dev: hold the menu pointer from the lower right at a screen point
+void rf_dev_beam_watch(void);   // dev: count frames with an enabled menu beam renderer (every frame tick)
+void rf_dev_beam_report(void);  // dev: "beam?" answer
 // rf_gyro.c: gyroscope options (eye position / tilt and turn, each with a sensitivity)
 #define RF_GYRO_SENS_COUNT 7
 extern int g_gyro_pos, g_gyro_rot, g_gyro_pos_sens, g_gyro_rot_sens;

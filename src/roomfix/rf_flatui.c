@@ -50,7 +50,6 @@ static void* g_t_graphic;    // System.Type of UnityEngine.UI.Graphic
 static void* g_t_transform;  // System.Type of UnityEngine.Transform
 static rf_ref g_hudcam;       // camera drawing the flat texts
 static rf_ref g_hudcam_main;  // main camera it belongs to
-bool g_dev_beam_allow;       // dev A/B: the menu pointer beam drawn as authored
 
 static void* core_type(const char* name) {
     return rf_class_type(rf_find_class("UnityEngine.CoreModule.dll", "UnityEngine", name));
@@ -263,16 +262,43 @@ void h_siv_update(void* self, const void* mi) {
 }
 
 // Menu laser: FrontEndPointer.SetLength sizes the two line renderers of the pointer beam and is the only place that
-// turns them on. Touch clicks the menu directly under the finger (rf_interact.c aims the pointer ray through it), so
-// the beam is never drawn.
+// turns them on (CreateLineRenderer makes them disabled, OnDisable turns them off). Touch clicks the menu directly
+// under the finger (rf_interact.c aims the pointer ray through it), so the beam is never drawn, in any build: the
+// authored body is not kept.
+static struct { int calls, found_on, frames_on; } g_beam;  // dev check of the hidden beam (R031)
+
 void h_fep_setlength(void* self, float len, const void* mi) {
-    if (g_dev_beam_allow && g_orig[H_FEP_SETLENGTH]) {  // dev A/B only
-        ORIG(H_FEP_SETLENGTH, void (*)(void*, float, const void*))(self, len, mi);
-        return;
-    }
+    (void)len; (void)mi;
+    g_beam.calls++;
     for (int off = 0x58; off <= 0x60; off += 8) {  // LineRend_Opaque, LineRend_Transparent
         void* lr = *(void**)((char*)self + off);
-        if (rf_alive(lr) && CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(lr, NULL))
+        if (rf_alive(lr) && CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(lr, NULL)) {
+            g_beam.found_on++;
             CALLP(C_REND_SETENABLED, void (*)(void*, bool, const void*))(lr, false, NULL);
+        }
     }
+}
+
+// dev: frames in which a beam renderer of the open menu's pointers (MenuController.RightHand / LeftHand) is enabled
+// at the frame tick; with found_on it shows whether anything besides SetLength ever turns the beam on
+void rf_dev_beam_watch(void) {
+    if (!g_dev) return;
+    void* mc = rf_menu_controller();
+    if (!mc) return;
+    for (int h = 0; h < 2; h++) {
+        void* fep = *(void**)((char*)mc + (h ? 0x28 : 0x20));
+        if (!rf_alive(fep)) continue;
+        for (int off = 0x58; off <= 0x60; off += 8) {
+            void* lr = *(void**)((char*)fep + off);
+            if (rf_alive(lr) && CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(lr, NULL)) {
+                g_beam.frames_on++;
+                return;
+            }
+        }
+    }
+}
+
+void rf_dev_beam_report(void) {
+    rf_log("beam: SetLength calls %d, renderers found enabled there %d, frames with an enabled beam renderer %d",
+           g_beam.calls, g_beam.found_on, g_beam.frames_on);
 }

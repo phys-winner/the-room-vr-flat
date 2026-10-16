@@ -24,6 +24,8 @@ CMD = f"CLASSPATH={DEX_DEVICE} app_process /system/bin port.tools.MtInject"
 
 
 def ensure_dex():
+    if not DEX_LOCAL.is_file():  # built locally, not tracked
+        subprocess.run([sys.executable, "-X", "utf8", "-B", str(DEX_LOCAL.with_name("build.py"))], check=True)
     want = hashlib.sha256(DEX_LOCAL.read_bytes()).hexdigest()
     if want not in d.sh(f"sha256sum {DEX_DEVICE} 2>/dev/null"):
         d.adb("push", str(DEX_LOCAL).replace("\\", "/"), DEX_DEVICE, check=True)

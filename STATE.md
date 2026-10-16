@@ -1,55 +1,61 @@
 # Game port state — The Room VR: A Dark Matter (PICO build) → flat touch phone
 
 ## Current
-- state_revision: 9
-- updated_at: 2026-10-16T09:10+03:00
-- objective: round 2 after ADAPTATION_COMPLETE r6 (user 2026-10-16): R2-1 no camera turning in menus/options; R2-2 every menu item visible at a small FOV; R2-3 no laser on menu taps; R2-4 gyro control, two rows (eye position only / camera tilt+turn only) + sensitivity for each; R2-5 head-following lagging texts ("comments", e.g. the first tutorial boxes) and every similar UI element made flat; R2-6 test on realme-rmx3371; R2-7 on every location check that three objects can be interacted with (no full play-through); R2-4b (user 2026-10-16, later): with EYE POSITION on, moving the phone forward / back moves the camera
-- workflow_status: COMPLETE — round 2 (R2-1..R2-7) IMPLEMENTED and verified; accepted final out/room_p094.apk e1b1e398c30604fd7e813833fa0882114d208ea58e83b22d2e0cff9dbbee3729 (realme-rmx3371; previous final room_p084 kept as rollback); ADAPTATION_COMPLETE (device-limited as before: 16 KB pages, reverse landscape, late story places)
-- current_step: R025 baseline on realme-rmx3371; R026 round-2 features; R027 crash fixes (weak refs, rf_player, end-of-game screen); R028 three objects per location by touch (Epilogue has two); R029 player mode; R030 5.8 matrix (16:9, 2:1, native 20:9, 4:3), lifecycle, soak (10 min with the gyroscope on, same pid, PSS +1.8 %)
-- next_action: none. Optional operator inputs: feel of the gyroscope options with the phone in the hand (shown here with synthetic sensor input only); a 16 KB-page device for the runtime page proof
+- state_revision: 10
+- updated_at: 2026-10-16T19:05+03:00
+- objective: round 3 (user 2026-10-16): R3-1 remove the laser display when selecting menu items; R3-2 build a release APK without logs; R3-3 prepare the Git repository for publication — README.md, a viral (copyleft) license, decompiled game files and artifacts removed from the Git history, all personal data removed (device ids, paths, ...); R3-4 no GPG-signed commit for now
+- workflow_status: COMPLETE except the operator's signed commit — R3-1 PASSED (R031: the beam was already hidden in p094; the hook now keeps no authored body), R3-2 PASSED (R032: accepted final out/room_p096.apk f44a7b11b7143825615631ce372feb9a143f8e482322647f8c08c39ec04219f9, release without logs), R3-3 done (history rewritten and verified, see Publication), R3-4: round-3 and publication changes are staged, not committed
+- current_step: R031 menu laser (p094 check, p095 per-frame counters); R032 release p096 (logs, route, lifecycle, soak) and reproduction from the original APK in a clean tree; history rewrite
+- next_action: operator: review the staged changes and make the publication commit with the GPG signature (Publication section); optional: install room_p096 on pixel-10 (it still has room_p084, which draws the menu beam on taps)
 - blocker: none
 - bridge_mode: NOT_APPLICABLE — input is native arm64-v8a only (lib/arm64-v8a: libil2cpp, libunity, libmain, libpxr_api, libPxrPlatform, libpxrplatformloader); no armeabi-v7a code exists
 - bridge_input_snapshot: NOT_APPLICABLE (no bridge); ARM32_READY is interpreted as "restoration snapshot verified" for a native arm64 game (workflow.md "Native arm64 runtime")
-- content_review_status: IMPLEMENTED for R021 (C1, C3, C4, QA row; C2, C5 rejected); round-2 operator requests R2-1..R2-7 IMPLEMENTED (R026-R030)
-- earlier: stage 8 R022, final release room_p084 R023/R024 on redmi-note8pro (device-limited 16 KB pages; reverse landscape; late story places)
-- tooling (realme-rmx3371, no root): work/tools/mtinject_ap (app_process MotionEvent injector, dex 1d564df3...), touch_ap.py, loc_check.py (menu, chapter, sweep, interact, tp), loc_final.py (R2-7 recipes), menu_cycle.py (round trips), tap_shot.py; screenrecord cannot write or stream on this Realme; roomfix.dev present on the device for dev runs
+- content_review_status: IMPLEMENTED for R021 (C1, C3, C4, QA row; C2, C5 rejected); round 2 R2-1..R2-7 IMPLEMENTED (R026-R030); round 3 R3-1..R3-4 (R031, R032, Publication)
+- earlier: stage 8 R022, final release room_p084 R023/R024 on redmi-note8pro; round 2 final room_p094 R026-R030 on realme-rmx3371 (device-limited as before: 16 KB pages, reverse landscape, late story places)
+- machine data: tool paths, adb, device serials (alias -> serial), the input APK's file name live only in work/local.json (untracked; user 2026-10-16: none of it in the repository); the workspace tools/skill config stay outside the repository
+- tooling (realme-rmx3371, no root): work/tools/mtinject_ap (app_process MotionEvent injector, dex 1d564df3..., rebuilt by touch_ap.py when missing), touch_ap.py, loc_check.py (menu, chapter, sweep, interact, tp), loc_final.py (R2-7 recipes), menu_cycle.py (round trips), tap_shot.py; dev console only in developer builds (roomfix.dev); screenrecord cannot write or stream on this Realme
 
 ## Project and inputs
-- root: <game> (PROJECT_ROOT <workspace>: nearest parent with tools/android/toolchain.sh; machine_config project_root <other-machine>/... is stale on this machine — tools resolved from E:)
-- input: original/original.apk (NTFS hardlink of the user's file in the game root, unmodified), sha256 d6608b54f62f3b2166292655945e8a32e717b18e07b1de010d410a68acfbe65e, 2061253795 B; manifest work/manifests/original.json
+- root: <game> (PROJECT_ROOT <workspace>: nearest parent with tools/android/toolchain.sh; machine_config project_root <other-machine>/... is stale on this machine — tools resolved from the workspace)
+- input: the user's APK in original/ (NTFS hardlink of the file in the game root, unmodified; file name in work/local.json original_apk), sha256 d6608b54f62f3b2166292655945e8a32e717b18e07b1de010d410a68acfbe65e, 2061253795 B; manifest work/manifests/original.json
 - package com.FireproofStudios.TheRoomVRPlus, versionCode 5011, versionName 1.02_PICO_1.0, original minSdk 26 / targetSdk 29, single base APK, no OBB/splits
 - engine: Unity 2019.4.40f1, IL2CPP (metadata v24.5), arm64-v8a only, GLES3 only for game shaders; XR: Unity.XR.PICO (PXR) + PICO.Porting adapters over Oculus.VR (VrPlatform_Oculus); Rewired input; Bolt visual scripting; FMOD
 - data: assets/bin/Data 2.58 GB (3345 entries; GUID-named serialized files, level0..16 with .splitN parts, .resource), assets/Videos 19 mp4 (~190 MB); texture compression declared GL_KHR_texture_compression_astc_ldr
 - decoded_original/: one apktool 3.0.3 decode, manifest work/manifests/decoded_original.json (tree digest e9c5b914…)
-- app/: canonical sources = decoded copy + tracked edits (manifest, smali hooks, res/xml, port smali) + generated payloads: lib/arm64-v8a/libroomfix.so (build_port.py native), 31 shader files in assets/bin/Data (work/tools/patch_shaders.py, manifest work/manifests/shader_patches.json), XR subsystem manifests moved to work/removed (prune_app.py)
+- app/: canonical sources = decoded copy + the edits in patches/app.patch (manifest, themes, boot.config, 4 smali hooks; app_patch.py make/apply/check) + generated payloads: lib/arm64-v8a/libroomfix.so and smali/port (build_port.py), 31 shader files, sharedassets5 ASTC, globalgamemanagers flag (patch_shaders/textures/buildsettings.py with manifests in work/manifests), removals moved to work/removed (prune_app.py: XR subsystem manifests, otacert); recreated from the APK by work/tools/prepare_app.py (R032 reproduction)
 - IL2CPP dump: work/il2cppdumper/ (not tracked); helper tools work/tools/{il2dis,xrefs,dumpcls}.py
-- Git: <game>/.git; large payloads ignored and hashed in work/manifests
+- Git: <game>/.git, history rewritten for publication 2026-10-16 (Publication); not tracked: original APK, decoded_original/, app/, out/, work/evidence/, work/logs/, work/removed/, analysis output, binaries, work/local.json
 
 ## Decisions and scope
 | Decision | Scope | Source/date | Current value | Supersedes |
 |---|---|---|---|---|
-| Device | All hardware work | User 2026-10-16 | Round 2: test device realme-rmx3371 (all test roles); pixel-10 install only (room_p084, 2026-10-16); redmi-note8pro not used in round 2; never touch pixel-10a (Pixel 10a) or other serials | Only redmi-note8pro (user /goal 2026-10-14) |
-| Round-2 scope | Port additions | User 2026-10-16 | R2-1..R2-7 (Current/objective); R2-7 = three interactable objects per location, no full play-through | — |
+| Device | All hardware work | User 2026-10-16 | Rounds 2-3: test device realme-rmx3371 (all test roles); pixel-10 install only (room_p084, 2026-10-16); redmi-note8pro not used since round 2; never touch pixel-10a (Pixel 10a) or any other serial (aliases -> serials: work/local.json) | Only redmi-note8pro (user /goal 2026-10-14) |
+| Round-2 scope | Port additions | User 2026-10-16 | R2-1..R2-7; R2-7 = three interactable objects per location, no full play-through | — |
+| Round-3 scope | Port + repository | User 2026-10-16 | R3-1..R3-4 (Current/objective) | — |
+| Git publication policy | Repo and its history | User 2026-10-16 | tracked: the port's code, tools, docs, reference manifests, patches/app.patch; never tracked: game files (APK, decode, app/, extracted dictionaries, removed game files), artifacts (evidence, logs, builds, binaries, scans, cleanup records), personal data (device serials -> model aliases, machine paths -> placeholders, input APK file name -> original.apk) | Git payload policy (agent 2026-10-14: decoded baseline and app/ tracked) |
+| License | Repo | User 2026-10-16 ("viral") | GPL-3.0-or-later: LICENSE = canonical GPLv3 text (sha256 3972dc97...6986); game and its assets excluded (README) | — |
+| Commits | Repo | User 2026-10-16 | no GPG-signed commit by the agent for now: publication changes stay staged for the operator's signed commit; local identity Local Porting User, commit.gpgsign/tag.gpgsign false kept | — |
+| Release logging | Builds | User 2026-10-16 | release = build_port.py --release: no logs (R032); developer/player builds keep the bounded roomfix.log and the console | bounded player log as release (R020) |
 | Test devices | realme-rmx3371 (round 2), redmi-note8pro (rounds 1); package com.FireproofStudios.TheRoomVRPlus | Skill policy | Root probe/use where present (realme-rmx3371: no su); uninstall/reinstall/clear without backup or repeated approval | — |
 | Scope | Full adaptation | User 2026-10-14 | VR→flat with touch controls, all nine research rows, phase 8 choice later | — |
 | ARM64 transition | — | Input is native arm64 | bridge NOT_APPLICABLE; final 16 KB runtime check cannot run on the only allowed device (4 KB pages) → device-limited gate | — |
 | obb_unpack_policy | Cache | Skill default | KEEP_CONTAINER (no OBB exists; data already inside the base APK) | — |
-| Git payload policy | Repo | Agent 2026-10-14 | Binary payloads ignored, hashed in work/manifests; modified binaries produced by tracked scripts with preimage checks | — |
+| Git payload policy | Repo | Agent 2026-10-14, narrowed by the publication policy | binary payloads ignored, hashed in work/manifests; modified binaries produced by tracked scripts with preimage checks | — |
 | FPS limit | Options screen | Skill contract | rows 30 / 45 / 60 / display rate, default 60, Application.targetFrameRate; stored in port_settings.cfg | — |
 | FOV | Options screen | Agent 2026-10-14 | option row 70–110 = horizontal FOV of a 16:9 reference, vertical kept (hor+), default 90 | hor at actual aspect, default 100 |
 
 ## Toolchain
 - machine_config.json: skill copy; java <jdk-24.0.1>/bin/java.exe
-- APK tools: <workspace>/tools/android (apktool 3.0.3, smali/baksmali 3.0.9-dev, build-tools 37.0.0 aapt2/zipalign); build: work/tools/build_port.py [native] [java] [apk] [--dev] → out/base.apk, renamed out/room_pNNN.apk
+- APK tools: <workspace>/tools/android (apktool 3.0.3, smali/baksmali 3.0.9-dev, build-tools 37.0.0 aapt2/zipalign); build: work/tools/build_port.py [native] [java] [apk] [--release] [--standalone] → out/base.apk, renamed out/room_pNNN.apk; tools from work/local.json / environment (local_config.py) or, without them, the workspace config (machine_config + skill apk_build.py: used here); bootstrap of a clean checkout: work/tools/prepare_app.py <apk> [--release]
 - NDK 27.2.12479018 (%LOCALAPPDATA%/Android/Sdk/ndk), clang 18, target aarch64-linux-android24, -z max-page-size=16384
 - signer: <signer-dir>/{apksigner.jar,testkey.pk8,testkey.x509.pem}, cert sha256 a40da80a…f5dc
-- adb pinned: %LOCALAPPDATA%/Android/Sdk/platform-tools/adb.exe; device helpers work/tools/{devrun,route,touchroute}.py, mtinject (evdev multi-touch injector, root)
+- adb pinned: %LOCALAPPDATA%/Android/Sdk/platform-tools/adb.exe (work/local.json adb); test serial: work/local.json serial / RF_SERIAL; device helpers work/tools/{devrun,route,touchroute}.py, mtinject (evdev multi-touch injector, root; binary built locally, not tracked)
 - local Python 3.13.3: UnityPy 1.25.3, lz4 4.4.5, capstone, pyelftools, texture2ddecoder, astc-encoder-py, etcpak, Pillow, numpy
 
 ## Devices
-| Role | Serial | ABI evidence | Runtime page size/source | Status |
+| Role | Alias (serial: work/local.json) | ABI evidence | Runtime page size/source | Status |
 |---|---|---|---|---|
-| round-2 test device | realme-rmx3371 | Realme RMX3371 (RE54E4L1, kona/Snapdragon, Adreno), Android 15 / SDK 35 (build UKQ1.230924.001), abilist arm64-v8a,armeabi-v7a,armeabi; 1080x2400 @480 dpi; touchpanel /dev/input/event2 (8639x19199); no su | 4096 (getconf PAGESIZE) | online |
+| round-2 test device | realme-rmx3371 | Realme RMX3371 (RE54E4L1, kona/Snapdragon, Adreno), Android 15 / SDK 35 (build UKQ1.230924.001), abilist arm64-v8a,armeabi-v7a,armeabi; 1080x2400 @480 dpi; touchpanel /dev/input/event2 (8639x19199); no su | 4096 (getconf PAGESIZE) | online; room_p096 installed (R032) |
 | install-only (user 2026-10-16) | pixel-10 | Pixel 10 (frankel), Android 17 DP11 / SDK 37, arm64-v8a only, PowerVR DXT-48-1536 | 4096 (getconf PAGESIZE) | room_p084 installed, not launched |
 | round-1 test device | redmi-note8pro | Redmi Note 8 Pro (begonia, MT6785, Mali-G76 MC4), Android 11/SDK 30, MIUI 12.5, abilist arm64-v8a,armeabi-v7a,armeabi | 4096 (getconf PAGESIZE) | online; root via Magisk `su -c` |
 
@@ -59,16 +65,18 @@
 ## Artifacts
 | Role | Source revision/patch | Build inputs | APK/set hash manifest | Evidence |
 |---|---|---|---|---|
-| accepted final round 2 (device-limited) | git commit of STATE r9 | app/ (libroomfix 4a16e345f16dfefb2a4de9d2b7ceb834268f8dc51c831adc8626bca6231e60fe: menu framing, flat texts + text camera, no menu beam, gyroscope, Options gyroscope page, weak refs, rf_player, end-screen menu context; Java RoomFix sensors, HelpCard gyroscope line) | out/room_p094.apk e1b1e398c30604fd7e813833fa0882114d208ea58e83b22d2e0cff9dbbee3729 (cert a40da80a...f5dc, arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R026-R030 |
+| accepted final round 3 (release, no logs; device-limited as before) | staged publication commit on top of the rewritten history (operator signs it) | app/ via patches/app.patch + scripts (libroomfix 571e1a3546e183db8c6df2e92adb9620ee8866d50b1dee38843dd39b599f3d4b release: -DRF_RELEASE=1, menu beam hook without the authored body; smali/port with BuildFlags.RELEASE) | out/room_p096.apk f44a7b11b7143825615631ce372feb9a143f8e482322647f8c08c39ec04219f9 (2 061 408 416 B, cert a40da80a...f5dc, arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R032 |
+| round-3 developer build (deleted after R032) | same sources | build_port.py native java apk (libroomfix af957130e7e01305ed7d369ede7dc8ed564780586249818dfb0889e6394a91b5) | room_p095 bd0e4ff35c09b1d073c701544692219289bded51c74abbb437b8e1480b0d62b0 | R031 |
+| accepted final round 2 (rollback) | rewritten commit 3b22cd6 (was 88b489f) | app/ (libroomfix 4a16e345f16dfefb2a4de9d2b7ceb834268f8dc51c831adc8626bca6231e60fe: menu framing, flat texts + text camera, no menu beam, gyroscope, Options gyroscope page, weak refs, rf_player, end-screen menu context; Java RoomFix sensors, HelpCard gyroscope line) | out/room_p094.apk e1b1e398c30604fd7e813833fa0882114d208ea58e83b22d2e0cff9dbbee3729 (cert a40da80a...f5dc, arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R026-R030 |
 | accepted final round 1 (rollback) | 73a7234 + docs commit of STATE r6 | app/ (libroomfix 2d3354b6c4eb82044a17eaf9202e1b938c2083a9b276cf3faf6de8aa6ef6acd3: stage-8 hooks, gesture-card requests; Java HelpCard; globalgamemanagers hasPublishingRights (C4); 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p084.apk 590eb40e4245b2ac6ad08c4e3f206ce7f63188c2a8ba5fbca733e1502798f94e (cert a40da80a...f5dc, ABIs arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R022, R023, R024 |
 | accepted before stage 8 (rollback) | fbb436d | app/ at fbb436d (libroomfix 79b06a7f...) | out/room_p080.apk 1179459217fb8a74e8fcd3802ac3a4da7e48b14ec4fc4eec38e7cb44a4cc7719 | R020 |
 | previous candidates (deleted 2026-10-14) | b404304 / d0e54fb / 44a61aa / 73a7234 | app/ | room_p061 6225b002..., room_p055 e34a7231..., room_p081 (C4 only), room_p083 30d7ddc6... (dev build of the p084 sources) — superseded by p084 | R011-R022 |
-| installed per serial | redmi-note8pro: room_p084.apk (clean install R023; profile 2 new game in the tutorial from R024); pixel-10: room_p084.apk (2026-10-16 streamed install, on-device base.apk sha256 590eb40e..., not launched); realme-rmx3371: room_p094.apk (on-device hash e1b1e398..., settings back to defaults FOV 90 / gyroscope off, QA level select on, roomfix.dev removed after R030) | 73a7234 | 590eb40e... | R023, R024 |
+| installed per serial | redmi-note8pro: room_p084.apk (clean install R023; profile 2 new game in the tutorial from R024); pixel-10: room_p084.apk (2026-10-16 streamed install, on-device base.apk sha256 590eb40e..., not launched); realme-rmx3371: room_p096.apk (on-device hash f44a7b11..., settings FOV 90 / gyroscope off / QA level select; roomfix.dev was present and ignored during R032, removed afterwards) | — | f44a7b11... | R023, R024, R032 |
 | ARM32_LASTGOOD and snapshot | room_p080 (native arm64 restoration snapshot) | fbb436d | 1179459... | R020 |
 | ARM64_ACCEPTED before additions | room_p080 (rollback point for stage 8) | fbb436d | 1179459... | R020 |
 | round-2 storage cleanup | candidates p085-p093 deleted after R028 (18.55 GB logical) | — | work/manifests/cleanup_round2.json (paths, sha256, sizes, reasons) | R026-R028 |
 
-- storage_cleanup: 2026-10-14 removed out/room_p007.apk, room_p057.apk, room_p060.apk; at ADAPTATION_COMPLETE removed room_p055, room_p061, room_p081, room_p083 and old build-attempt logs; kept room_p080 (rollback) and room_p084 (final)
+- storage_cleanup: 2026-10-14 removed out/room_p007.apk, room_p057.apk, room_p060.apk; at ADAPTATION_COMPLETE removed room_p055, room_p061, room_p081, room_p083 and old build-attempt logs; round 3 removed room_p095 (developer build, rebuildable) and the 8 GB reproduction tree; kept room_p080, room_p084, room_p094 (rollbacks) and room_p096 (final)
 
 ## Gates
 | Phase/subgate | Status | Evidence | Dependency |
@@ -97,6 +105,11 @@
 | ROUND2_FLAT_TEXTS (R2-5) | PASSED | R026/R029/R030: remarks bottom, tutorial boxes top, fixed through swipes, drawn over near geometry (text camera, layer 30), crisp TMP at 0.55 m | - |
 | ROUND2_LOCATIONS (R2-7) | PASSED | R028 on p094: three objects held by touch in Tutorial, Egypt, Chapel, Witch, Desert; Epilogue has two grabbable objects, both held | - |
 | FINAL_RELEASE_VERIFIED (round 2) | PASSED | room_p094: R029 player mode, R030 matrix + lifecycle + soak on realme-rmx3371; crash buffer empty | - |
+| ROUND3_NO_MENU_LASER (R3-1) | PASSED | R031: p094 already drew no beam (held pointer, all pointer renderers en=0); p095 per-frame counters over 13 real taps (front end, Options pages, profile, chapter list, pause, pause Options): 0 frames with an enabled beam renderer, 0 enabled inside SetLength, ~12 000 pointer updates; the hook keeps no authored body | - |
+| RELEASE_NO_LOGS (R3-2) | PASSED | R032: libroomfix without log strings/imports; 50-s cold start: 34 game-pid logcat lines (p094: 641), 0 Unity/RoomFix/PICO/port lines (remaining: framework start before the library loads, libc property notes, ROM-forced AudioTrack tag); no roomfix.log, roomfix.dev ignored | Android 7-10: liblog mute unavailable, port and managed logs still off |
+| FINAL_RELEASE_VERIFIED (round 3) | PASSED | room_p096: R032 route by touch, Home/screen lifecycle, 9-min soak (+1.1 % PSS), crash buffer empty | - |
+| PUBLICATION_REPRODUCIBLE | PASSED | R032: clean tree (published files only, local tool mode) + original APK -> decode = reference (3884 files), app/ identical, APK entries identical to p096 (3410, CRC/size/compression); the refactored build_port.py in workspace mode (skill apk_build) gives the same entries | - |
+| PUBLICATION_HISTORY_CLEAN | PASSED | Publication: 39 commits rewritten; every commit's kept files = scrubbed originals, no dropped path in any tree; 458 objects scanned, 0 personal-data hits | operator's signed commit |
 | ADAPTATION_COMPLETE | PASSED_DEVICE_LIMITED | stage 8 IMPLEMENTED, final set room_p084 accepted on the only allowed device, PORT_FEATURES_READY; open only what the device restriction prevents (runtime 16 KB pages, reverse landscape) | a 16 KB-page device if allowed |
 
 ## Required research
@@ -113,7 +126,8 @@
 | TOUCH_CONTROLS | PASSED | work/touch_controls.md (action map with VR/native columns, multi-touch rules, story-placed debts) | applied: grab/slider/rotation/twist/crank, combination parts (cylinder + roll-over), poke probe, turn-in-hand ball, hold+look, pinch lean, head sway, teleport tap (+ forced TeleportTo), superzoom tap, HUD; TOUCH_GAMEPLAY_VERIFIED R009-R020 |
 
 ## Current blocker and experiments
-- blocker_id: none; consecutive_no_progress 0/3; candidate_id 94 (p094, accepted final round 2); diagnostic_runs R001-R030
+- blocker_id: none; consecutive_no_progress 0/3; candidate_id 96 (p096, accepted final round 3); diagnostic_runs R001-R032
+- round-3 candidates: p095 bd0e4ff3 (developer build, R031 counters; deleted), p096 f44a7b11 (release, accepted)
 - round-2 candidates: p085 c4abb11f (REJECTED: gyroscope button crash), p086 b2a968bb (REJECTED: TMP blocks at 5 cm), p087 74b70601, p088 666a71b3 (never installed), p089 b988944f, p090 af4d5632 (crash after a replay, R027), p091 6dc3bacf (never installed), p092 9b76de5e (crash during Loading, R027), p093 ec902d62 (end screen stuck, R027), p094 e1b1e398 (final candidate)
 
 ## Content and cache
@@ -128,9 +142,12 @@
 - R017 Egypt mechanics by touch; R018 hub -> Chapel, turn-in-hand; R019 superzoom; R020 release candidate checks; R021 stage-8 catalog
 - R022 stage-8 additions; R023 final release room_p084 install/update/cold starts; R024 final matrix, lifecycle, soak
 - round 2 (realme-rmx3371): R025 baseline p084 on Adreno; R026 R2-1..R2-5; R027 crash fixes; R028 three objects per location; R029 player mode; R030 matrix/lifecycle/soak
+- round 3 (realme-rmx3371): R031 menu laser; R032 release without logs, reproduction from the original APK
+- evidence (work/evidence/R*/RESULT.md, frames, logs) is local only since the publication: not in Git
 
 ## Port documentation
-- PORT_FEATURES.md: final for room_p094 (Russian): round 2 — menus without camera turning and framed at any FOV, no menu beam, flat texts, gyroscope page, end screen by touch, checks on Adreno
+- PORT_FEATURES.md: final for room_p096 (Russian): round 3 — no menu beam in any build, release without logs; round 2 — menus without camera turning and framed at any FOV, flat texts, gyroscope page, end screen by touch, checks on Adreno
+- README.md (English + Russian): what the repository holds (no game files), features, build from the user's own APK, how it works, layout, GPL-3.0-or-later, game rights
 
 ## 5.8 matrix and fields (R020, release candidate p080, redmi-note8pro)
 - reference_aspect 16:9; target_aspect 19.5:9 (2340x1080); render_rect_px [0,0,2340,1080] (androidRenderOutsideSafeArea=1)
@@ -146,6 +163,13 @@
 - locale_config_path app/res/xml/locales_config.xml; locale_config_locales en fr de es it ru ja ko zh-CN zh-TW; locale_config_manifest_attribute android:localeConfig="@xml/locales_config"; locale_picker_result DEVICE_LIMITED (Android 11 has no per-app picker); locale_runtime_result PASS (in-game LANGUAGE selector, R008); locale_fallback_result: system language without a dictionary -> English (game Localisation); locale_hot_swap_result: none while running (the game reads its language at start; a per-app locale change clears the saved language for the next start, rf_loc.c)
 - fps_limit_ui_path Pause/Main -> OPTIONS -> FPS LIMIT; fps_limit_storage <getExternalFilesDir>/port_settings.cfg; fps_limit_default=60; fps_limit_selected 60; fps_limit_effective_target Application.targetFrameRate; fps_limit_mode_results 30.0/45.2/60.0/60.0 (R016); fps_limit_lifecycle_result PASS; fps_limit_simulation_result PASS (game time = wall time)
 
+## Publication (R3-3, R3-4)
+- history rewritten 2026-10-16 (fast-export -> filter -> fast-import into a fresh repository, swapped in): 39 commits kept (none became empty), 1246 paths dropped (decoded_original/, app/, work/evidence/, work/removed/, work/loc/, work/tools/mtinject, mtinject.dex, cleanup_round2.json, scene_mechanics.txt), 206 replacements in kept files and 3 in commit messages (serials -> realme-rmx3371 / redmi-note8pro / pixel-10 / pixel-10a, machine paths -> <game> / <workspace> / %LOCALAPPDATA% / <signer-dir> / ..., input APK name -> original.apk with original.json's digest recomputed); pack 0.5 MiB after gc (was 104 MiB of loose objects); HEAD 3b22cd6
+- verification: every rewritten commit = scrubbed original commit (kept files, author/committer/dates, message); 458 objects scanned for serials, user name, machine paths, addresses, IPs, the APK name: 0 hits; author of all commits: Local Porting User <local-porting@localhost>; only remaining e-mail: the Co-Authored-By attribution lines
+- backup of the original history (game files and personal data inside, keep private or delete): <workspace>/the_room_5_vr-history-before-publication-2026-10-16.bundle (sha256 50d04634...64a9, git bundle verify ok)
+- staged, not committed (R3-4): round-3 code (menu beam hook, release mode, BuildFlags), publication files (README.md, LICENSE, patches/app.patch, work/local.example.json, local_config.py, app_patch.py, prepare_app.py), tool changes (configurable paths and serial), .gitignore, PORT_FEATURES.md, STATE.md r10
+- operator commit: remove the local identity first if the commit should carry the operator's own name and key (git config --local --unset user.name; --unset user.email; --unset commit.gpgsign), then git commit -S
+
 ## History pointers
-- work/evidence/R001_original_baseline … R012_device_effects (RESULT.md each)
+- work/evidence/R001_original_baseline … R032_release_no_logs (RESULT.md each; local only)
 - libroomfix: src/roomfix/*.c (hooks from symbols.spec → gen_symbols.h, preimage + build-id checked); dev console rf_dev.c (roomfix.cmd, only with roomfix.dev present); Java HUD/routing src/java/port/roomfix

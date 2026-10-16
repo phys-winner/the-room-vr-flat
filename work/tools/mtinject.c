@@ -2,6 +2,8 @@
 // Writes Linux multi-touch protocol B events, so the whole Android input pipeline (InputReader, dispatcher,
 // window, app) sees genuine simultaneous fingers - which `adb shell input` cannot produce.
 //
+// build: <ndk>/toolchains/llvm/prebuilt/<host>/bin/clang --target=aarch64-linux-android24 -O2 mtinject.c -o mtinject
+//        (then adb push mtinject /data/local/tmp/; the binary is not tracked)
 // usage: mtinject /dev/input/eventN W H ROT  < script
 //   W H : panel size in its natural (portrait) orientation, e.g. 1080 2340
 //   ROT : display rotation of the screen coordinates used in the script (0, 90, 270)

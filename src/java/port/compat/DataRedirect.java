@@ -17,6 +17,7 @@ import java.io.File;
  */
 public final class DataRedirect {
     private static final String TAG = "PortDataRedirect";
+    private static final boolean LOG = !BuildFlags.RELEASE;  // release builds write no log
     private static final String[] DIRECTORIES = {"files", "shared_prefs", "databases"};
 
     private DataRedirect() {
@@ -25,7 +26,7 @@ public final class DataRedirect {
     public static void install(Context base) {
         File external = base.getExternalFilesDir(null);
         if (external == null) {
-            Log.e(TAG, "getExternalFilesDir(null) unavailable; data stays internal");
+            if (LOG) Log.e(TAG, "getExternalFilesDir(null) unavailable; data stays internal");
             return;
         }
         File internal = base.getDataDir();
@@ -36,7 +37,7 @@ public final class DataRedirect {
 
     private static void redirect(File link, File target) {
         if (!target.isDirectory() && !target.mkdirs()) {
-            Log.e(TAG, "Cannot create " + target);
+            if (LOG) Log.e(TAG, "Cannot create " + target);
             return;
         }
         String path = link.getPath();
@@ -49,17 +50,17 @@ public final class DataRedirect {
                 Os.remove(path);
             } else if (link.isDirectory()) {
                 if (!moveContents(link, target)) {
-                    Log.w(TAG, path + " could not be moved; left untouched");
+                    if (LOG) Log.w(TAG, path + " could not be moved; left untouched");
                     return;
                 }
             } else if (link.exists()) {
-                Log.w(TAG, path + " is not a directory; left untouched");
+                if (LOG) Log.w(TAG, path + " is not a directory; left untouched");
                 return;
             }
             Os.symlink(target.getPath(), path);
-            Log.i(TAG, path + " -> " + target.getPath());
+            if (LOG) Log.i(TAG, path + " -> " + target.getPath());
         } catch (ErrnoException error) {
-            Log.e(TAG, "Redirect failed for " + path, error);
+            if (LOG) Log.e(TAG, "Redirect failed for " + path, error);
         }
     }
 
@@ -97,7 +98,7 @@ public final class DataRedirect {
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
             return true;
         } catch (java.io.IOException e) {
-            Log.e(TAG, "copy " + src + " failed", e);
+            if (LOG) Log.e(TAG, "copy " + src + " failed", e);
             return false;
         }
     }

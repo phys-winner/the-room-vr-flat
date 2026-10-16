@@ -1,24 +1,29 @@
-# Large immutable payloads: tracked by SHA-256 manifests in work/manifests/, not by Git
-/original.apk
-/original/*.apk
-/decoded_original/assets/bin/
-/decoded_original/assets/Videos/
-/decoded_original/lib/
-/app/assets/bin/Data/*
-!/app/assets/bin/Data/boot.config
-/app/assets/Videos/
-/app/lib/
-# Generated outputs and caches
+# No game files in Git: the original APK, its decode and the canonical app/ tree are recreated locally from the
+# player's own APK (work/tools/prepare_app.py + patches/app.patch)
+/*.apk
+/original/
+/decoded_original/
+/app/
+# Build outputs, test evidence and logs, analysis output, caches
 /out/
-/app/build/
-/app/dist/
-/work/tmp/
+/work/evidence/
 /work/logs/
+/work/removed/
+/work/tmp/
+/work/tmp*/
 /work/ida/
 /work/il2cppdumper/
+/work/loc/
 /work/tool-cache/
 /work/native/build/
+/work/saves_backup/
+/work/manifests/cleanup_*.json
+/work/manifests/scene_mechanics.txt
+/work/tools/mtinject
+/work/tools/mtinject_ap/*.dex
 **/__pycache__/
+# Machine-specific settings: tool paths, device serials
+/work/local.json
 # Secrets
 /work/keys/
 /signing/
@@ -31,5 +36,3 @@
 *.p12
 *.pfx
 .env
-/work/loc/
-/work/saves_backup/

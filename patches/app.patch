@@ -1,0 +1,231 @@
+# The port's edits of the decoded game (decoded_original -> app), written by work/tools/app_patch.py.
+# Apply with work/tools/prepare_app.py; per file: sha256 of the decoded file -> sha256 of the result.
+# sha256 d596abba461059ac8c0167bffb1761c4e73a570b405d52a8ad61e2be76bdddd8 -> 29a607cc7b062e7a61ca7476d6cfb6f5b875c4e570b7bc8e1ac148cf0125beb5
+--- a/AndroidManifest.xml
++++ b/AndroidManifest.xml
+@@ -2,42 +2,26 @@
+ <manifest ns0:versionCode="5011" ns0:versionName="1.02_PICO_1.0" ns0:installLocation="auto" ns0:compileSdkVersion="30" ns0:compileSdkVersionCodename="11" package="com.FireproofStudios.TheRoomVRPlus" platformBuildVersionCode="30" platformBuildVersionName="11"
+   xmlns:ns0="http://schemas.android.com/apk/res/android">
+     <supports-screens ns0:anyDensity="true" ns0:smallScreens="true" ns0:normalScreens="true" ns0:largeScreens="true" ns0:xlargeScreens="true" />
+-    <uses-feature ns0:name="android.hardware.vr.headtracking" ns0:required="true" ns0:version="1" />
+     <uses-feature ns0:glEsVersion="0x30000" />
+     <supports-gl-texture ns0:name="GL_KHR_texture_compression_astc_ldr" />
+-    <uses-permission ns0:name="android.permission.INTERNET" />
+-    <uses-permission ns0:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+-    <uses-permission ns0:name="android.permission.ACCESS_NETWORK_STATE" />
+-    <uses-permission ns0:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+     <uses-feature ns0:name="android.hardware.sensor.accelerometer" ns0:required="false" />
+-    <uses-feature ns0:name="android.hardware.touchscreen" ns0:required="false" />
+-    <uses-feature ns0:name="android.hardware.touchscreen.multitouch" ns0:required="false" />
++    <uses-feature ns0:name="android.hardware.touchscreen" ns0:required="true" />
++    <uses-feature ns0:name="android.hardware.touchscreen.multitouch" ns0:required="true" />
+     <uses-feature ns0:name="android.hardware.touchscreen.multitouch.distinct" ns0:required="false" />
+-    <uses-permission ns0:name="android.permission.WRITE_SETTINGS" />
+-    <application ns0:label="@string/app_name" ns0:icon="@mipmap/app_icon" ns0:allowBackup="true" ns0:requestLegacyExternalStorage="true">
+-        <activity ns0:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" ns0:name="com.unity3d.player.UnityPlayerActivity" ns0:excludeFromRecents="true" ns0:launchMode="singleTask" ns0:screenOrientation="landscape" ns0:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density|layoutDirection|fontScale" ns0:hardwareAccelerated="false" ns0:resizeableActivity="false">
++    <application ns0:label="@string/app_name" ns0:icon="@mipmap/app_icon" ns0:allowBackup="true" ns0:name="port.compat.PortApplication" ns0:localeConfig="@xml/locales_config">
++        <activity ns0:theme="@style/RoomFlatTheme" ns0:name="com.unity3d.player.UnityPlayerActivity" ns0:exported="true" ns0:launchMode="singleTask" ns0:screenOrientation="sensorLandscape" ns0:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density|layoutDirection|fontScale" ns0:hardwareAccelerated="false" ns0:resizeableActivity="false">
+             <intent-filter>
+                 <action ns0:name="android.intent.action.MAIN" />
+                 <category ns0:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+-            <meta-data ns0:name="com.oculus.vr.focusaware" ns0:value="false" />
+             <layout ns0:minWidth="400.0px" ns0:minHeight="300.0px" ns0:defaultWidth="1920.0px" ns0:defaultHeight="1080.0px" />
+         </activity>
+-        <meta-data ns0:name="com.oculus.supportedDevices" ns0:value="quest|delmar" />
+-        <meta-data ns0:name="unityplayer.SkipPermissionsDialog" ns0:value="false" />
+-        <meta-data ns0:name="com.samsung.android.vr.application.mode" ns0:value="vr_only" />
++        <meta-data ns0:name="unityplayer.SkipPermissionsDialog" ns0:value="true" />
++        <meta-data ns0:name="notch.config" ns0:value="portrait|landscape" />
+         <meta-data ns0:name="unity.splash-mode" ns0:value="0" />
+         <meta-data ns0:name="unity.splash-enable" ns0:value="true" />
+         <meta-data ns0:name="unity.launch-fullscreen" ns0:value="true" />
+         <meta-data ns0:name="unity.allow-resizable-window" ns0:value="false" />
+         <meta-data ns0:name="unity.build-id" ns0:value="17c999f2-d3bd-4cf0-b44e-da845f3c5df5" />
+-        <meta-data ns0:name="pvr.app.type" ns0:value="vr" />
+-        <meta-data ns0:name="enable_cpt" ns0:value="0" />
+-        <meta-data ns0:name="enable_entitlementcheck" ns0:value="1" />
+-        <meta-data ns0:name="handtracking" ns0:value="0" />
+-        <meta-data ns0:name="rendering_mode" ns0:value="0" />
+-        <meta-data ns0:name="display_rate" ns0:value="0" />
+-        <meta-data ns0:name="color_Space" ns0:value="0" />
+-        <meta-data ns0:name="MRCsupport" ns0:value="1" />
+     </application>
+ </manifest>
+# sha256 33095ddcf48599ea1c36b1872f3ca1eab580598fabea811548c209e25cbe1f40 -> 3e121192da4a6847d33dad4621b20b089b6ad3ceeb3eeafb8680878ea82128ca
+--- a/apktool.yml
++++ b/apktool.yml
+@@ -4,8 +4,8 @@
+   ids:
+   - 1
+ sdkInfo:
+-  minSdkVersion: 26
+-  targetSdkVersion: 29
++  minSdkVersion: 24
++  targetSdkVersion: 37
+ versionInfo:
+   versionCode: 5011
+   versionName: 1.02_PICO_1.0
+# sha256 f344ccedbdc875439ad29488322facd0f4e228b91e723a0feafca8554f99e7fd -> 7c6ef92b4a3e61a2ac640d25a4221ca7f29d64ddab4ac409da98a886ec8272cb
+--- a/assets/bin/Data/boot.config
++++ b/assets/bin/Data/boot.config
+@@ -1,8 +1,7 @@
+ wait-for-native-debugger=0
+ vr-enabled=0
+ hdr-display-enabled=0
+-xrsdk-pre-init-library=PxrPlatform
+-android-force-sdcard-permission=1
++android-force-sdcard-permission=0
+ androidStartInFullscreen=1
+-androidRenderOutsideSafeArea=0
++androidRenderOutsideSafeArea=1
+ buildDate=638090067179669404
+# sha256 2bcae2a3715b3e06c5a8062ef6a40668c4e108f74b702129726cc42ee88409ee -> e16df4ba80196448e54c2996738e60e0a5735c08659846d0ba4329da79f5e05a
+--- a/res/values-v28/styles.xml
++++ b/res/values-v28/styles.xml
+@@ -3,4 +3,7 @@
+     <style name="BaseUnityTheme" parent="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
+         <item name="android:windowLayoutInDisplayCutoutMode">default</item>
+     </style>
++    <style name="RoomFlatTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
++        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
++    </style>
+ </resources>
+# sha256 - -> 3663912d141e048d5eec451462080d14c6d3586908501b66de088efbe053e1a0
+--- /dev/null
++++ b/res/values-v29/styles.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <style name="RoomFlatTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
++        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
++        <item name="android:forceDarkAllowed">false</item>
++    </style>
++</resources>
+# sha256 9d4356f1833403545299792937da389311b4d595017660b841f6b3d3250bc2b2 -> 4719d32ff0f851ac17ab4d9ee1536111b90e11deffcb46eec8695cc74bb4896f
+--- a/res/values/styles.xml
++++ b/res/values/styles.xml
+@@ -8,4 +8,5 @@
+         <item name="android:windowBackground">@android:color/transparent</item>
+         <item name="android:windowIsTranslucent">true</item>
+     </style>
++    <style name="RoomFlatTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+ </resources>
+# sha256 - -> a4ab890f96a8c59ddc9fabc8dc16d907c34d2b5fc8544c21636f6a3291251c7a
+--- /dev/null
++++ b/res/xml/locales_config.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
++    <locale android:name="en" />
++    <locale android:name="fr" />
++    <locale android:name="de" />
++    <locale android:name="es" />
++    <locale android:name="it" />
++    <locale android:name="ru" />
++    <locale android:name="ja" />
++    <locale android:name="ko" />
++    <locale android:name="zh-CN" />
++    <locale android:name="zh-TW" />
++</locale-config>
+# sha256 1a263910e02ce3279259d9ded70c6d22ed8cdd6ace716aa2235dc318d0c091f2 -> f08a3f3664c508bde98747e8c1c8f33115b6fb6bffc58b18274ebb041df799f8
+--- a/smali/com/psmart/aosoperation/AudioReceiver.smali
++++ b/smali/com/psmart/aosoperation/AudioReceiver.smali
+@@ -90,7 +90,7 @@
+     .line 33
+     sget-object v0, Lcom/psmart/aosoperation/AudioReceiver;->receiver:Lcom/psmart/aosoperation/AudioReceiver;
+ 
+-    invoke-virtual {p0, v0, p1}, Landroid/app/Activity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
++    invoke-static {p0, v0, p1}, Lport/compat/Compat;->registerReceiver(Landroid/content/Context;Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
+ 
+     const/4 p0, 0x1
+ 
+# sha256 9fbf37b9ec62a74340d4afbfc7fcb4e9e819a6bfa076801d04d28713ef11b79d -> 2d4030b9ef8473994e3816ffd0040bc648e34fa590d7afd0b8a2389c7de03cc3
+--- a/smali/com/psmart/aosoperation/BatteryReceiver.smali
++++ b/smali/com/psmart/aosoperation/BatteryReceiver.smali
+@@ -95,7 +95,7 @@
+     .line 36
+     sget-object v0, Lcom/psmart/aosoperation/BatteryReceiver;->receiver:Lcom/psmart/aosoperation/BatteryReceiver;
+ 
+-    invoke-virtual {p0, v0, p1}, Landroid/app/Activity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
++    invoke-static {p0, v0, p1}, Lport/compat/Compat;->registerReceiver(Landroid/content/Context;Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
+ 
+     const/4 p0, 0x1
+ 
+# sha256 53089ef11ee1ba872d73304983bed479710bcb833b06ab27a27c35ff6e7f9fb6 -> 524f5861d33cf1ae39101cd3047523c2409bd516f70b27f90979c2ff66ca0063
+--- a/smali/com/unity3d/player/HFPStatus.smali
++++ b/smali/com/unity3d/player/HFPStatus.smali
+@@ -213,7 +213,7 @@
+ 
+     invoke-direct {v2, v3}, Landroid/content/IntentFilter;-><init>(Ljava/lang/String;)V
+ 
+-    invoke-virtual {v0, v1, v2}, Landroid/content/Context;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
++    invoke-static {v0, v1, v2}, Lport/compat/Compat;->registerReceiver(Landroid/content/Context;Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;
+ 
+     move-result-object v0
+ 
+# sha256 248ee289a4fec8b03120322eaf4ea90443a0c5439457bc81c7230169bd818035 -> 72930a980c08fc906ed052deda23fceb60b97b591a1744b792e63a8334097b27
+--- a/smali/com/unity3d/player/UnityPlayerActivity.smali
++++ b/smali/com/unity3d/player/UnityPlayerActivity.smali
+@@ -22,9 +22,42 @@
+ 
+ 
+ # virtual methods
++# port: every touch goes to the flat-screen controls first (the VR game has no touch input of its own)
++.method public dispatchTouchEvent(Landroid/view/MotionEvent;)Z
++    .locals 1
++
++    invoke-static {p1}, Lport/roomfix/RoomFix;->onTouch(Landroid/view/MotionEvent;)Z
++
++    move-result v0
++
++    if-eqz v0, :pass
++
++    const/4 v0, 0x1
++
++    return v0
++
++    :pass
++    invoke-super {p0, p1}, Landroid/app/Activity;->dispatchTouchEvent(Landroid/view/MotionEvent;)Z
++
++    move-result v0
++
++    return v0
++.end method
++
+ .method public dispatchKeyEvent(Landroid/view/KeyEvent;)Z
+     .locals 2
+ 
++    invoke-static {p1}, Lport/roomfix/RoomFix;->onKey(Landroid/view/KeyEvent;)Z
++
++    move-result v0
++
++    if-eqz v0, :port_pass
++
++    const/4 v0, 0x1
++
++    return v0
++
++    :port_pass
+     .line 156
+     invoke-virtual {p1}, Landroid/view/KeyEvent;->getAction()I
+ 
+@@ -76,6 +109,9 @@
+ 
+     .line 36
+     invoke-super {p0, p1}, Landroid/app/Activity;->onCreate(Landroid/os/Bundle;)V
++
++    # port: flat-screen helper must hook libil2cpp before UnityPlayer starts managed code
++    invoke-static {p0}, Lport/roomfix/RoomFix;->init(Landroid/app/Activity;)V
+ 
+     .line 38
+     invoke-virtual {p0}, Lcom/unity3d/player/UnityPlayerActivity;->getIntent()Landroid/content/Intent;
+@@ -372,6 +408,8 @@
+ 
+     invoke-virtual {v0, p1}, Lcom/unity3d/player/UnityPlayer;->windowFocusChanged(Z)V
+ 
++    invoke-static {p1}, Lport/roomfix/RoomFix;->onFocus(Z)V
++
+     return-void
+ .end method
+ 

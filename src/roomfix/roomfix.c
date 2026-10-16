@@ -20,9 +20,10 @@
 #define TAG "RoomFix"
 
 // ---------------------------------------------------------------- logging
+char g_ext_dir[512];
+#if !RF_RELEASE
 static pthread_mutex_t g_log_mu = PTHREAD_MUTEX_INITIALIZER;
 static FILE* g_log_file;
-char g_ext_dir[512];
 bool g_dev;  // diagnostics enabled by <extDir>/roomfix.dev
 #define LOG_MAX_LINES 3000
 
@@ -46,6 +47,7 @@ void rf_log(const char* fmt, ...) {
     }
     pthread_mutex_unlock(&g_log_mu);
 }
+#endif
 
 // ---------------------------------------------------------------- strings
 bool rf_str_eq(const Il2CppString* s, const char* a) {
@@ -204,9 +206,11 @@ static void h_pxr_bind_verify(void* object_name, const void* mi) {
     rf_log("pxr: verify service binding skipped");
 }
 
+// Logger.IsLogTypeAllowed: developer runs let the shipped logger reach logcat; release builds let nothing through
+// (no managed log output and no stack trace work for it)
 static bool h_log_allowed(void* self, int32_t type, const void* mi) {
     (void)self; (void)type; (void)mi;
-    return true;
+    return !RF_RELEASE;
 }
 
 // VrPlatformManager.Update runs every frame on the main thread before the game reads tracked nodes.
@@ -256,6 +260,7 @@ void rf_frame_tick(void) {
     g_frame++;
     track_scene();
     rf_dev_tick();
+    rf_dev_beam_watch();
     dev_check_camera_pose();  // before this frame's input changes the head
     g_hand_prev_pos[0] = g_hand[0].pos;
     g_hand_prev_pos[1] = g_hand[1].pos;
@@ -391,9 +396,9 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_QSM_DEPTHMODE, (void*)h_qsm_depthmode, false, false},
     {H_LOC_LOADINITIAL, (void*)h_loc_load_initial, true, false},
     {H_PXR_BINDVERIFY, (void*)h_pxr_bind_verify, false, false},
-    {H_FEP_SETLENGTH, (void*)h_fep_setlength, true, false},  // original only for the dev A/B (beamallow)
+    {H_FEP_SETLENGTH, (void*)h_fep_setlength, false, false},  // menu beam: full replacement
     {H_SIV_UPDATE, (void*)h_siv_update, false, false},
-    {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
+    {H_LOG_ALLOWED, (void*)h_log_allowed, false, !RF_RELEASE},  // release: always installed (silent logger)
 };
 
 static int install_table(const struct rf_hook_entry* t, size_t n, int* fail) {
@@ -442,10 +447,15 @@ static void native_init(JNIEnv* env, jclass cls, jstring jext, jstring jlibdir, 
         snprintf(g_ext_dir, sizeof g_ext_dir, "%s", ext);
         mkdir(g_ext_dir, 0771);
         char p[600];
+#if RF_RELEASE
+        snprintf(p, sizeof p, "%s/roomfix.log", g_ext_dir);
+        unlink(p);  // a log left by an earlier developer / player build
+#else
         snprintf(p, sizeof p, "%s/roomfix.dev", g_ext_dir);
         g_dev = access(p, F_OK) == 0;
         snprintf(p, sizeof p, "%s/roomfix.log", g_ext_dir);
         g_log_file = fopen(p, "w");
+#endif
     }
     rf_log("libroomfix init: sdk=%d ext=%s libdir=%s", (int)sdk, ext ? ext : "(null)", libdir ? libdir : "(null)");
 
@@ -523,6 +533,12 @@ static jint native_gyro_wanted(JNIEnv* env, jclass cls) {
 
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
+#if RF_RELEASE
+    // release: the whole process stays out of logcat - the game's engine, its SDKs, Java and the port (liblog drops
+    // every message below SILENT; Android 11+). PortApplication loads this library first thing for that.
+    int32_t (*set_min_prio)(int32_t) = (int32_t (*)(int32_t))dlsym(RTLD_DEFAULT, "__android_log_set_minimum_priority");
+    if (set_min_prio) set_min_prio(ANDROID_LOG_SILENT);
+#endif
     JNIEnv* env = NULL;
     if ((*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
     jclass cls = (*env)->FindClass(env, "port/roomfix/RoomFix");

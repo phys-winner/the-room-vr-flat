@@ -34,6 +34,11 @@ def build_id(elf):
 
 
 def main():
+    if not SCRIPT.is_file() or not LIB.is_file():
+        # a checkout without the Il2CppDumper output builds from the committed header (the library checks the
+        # build-id and every preimage at run time anyway)
+        print(f"gen_hooks: {SCRIPT.relative_to(ROOT)} or the decoded libil2cpp.so missing - keeping {OUT.name}")
+        return
     data = LIB.read_bytes()
     elf = ELFFile(open(LIB, "rb"))
     segs = [(s["p_vaddr"], s["p_offset"], s["p_filesz"]) for s in elf.iter_segments() if s["p_type"] == "PT_LOAD"]

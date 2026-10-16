@@ -7,6 +7,10 @@
 
 #include "rf.h"
 
+#if RF_RELEASE
+void rf_dev_tick(void) {}  // release builds have no developer console
+#else
+
 typedef void* (*fn_obj0)(const void*);
 typedef void* (*fn_obj1)(void*, const void*);
 typedef v3 (*fn_v3_1)(void*, const void*);
@@ -498,9 +502,8 @@ static void exec_line(char* line) {
         rf_act_dev_beam(true, strtof(argv[1], NULL), strtof(argv[2], NULL));
     } else if (!strcmp(argv[0], "beamoff")) {
         rf_act_dev_beam(false, 0, 0);
-    } else if (!strcmp(argv[0], "beamallow") && argc >= 2) {
-        g_dev_beam_allow = atoi(argv[1]) != 0;
-        rf_log("dev: menu pointer beam %s", g_dev_beam_allow ? "drawn as authored (A/B)" : "hidden (port)");
+    } else if (!strcmp(argv[0], "beam?")) {
+        rf_dev_beam_report();
     } else if (!strcmp(argv[0], "gyro") && argc >= 4) {
         // synthetic phone turn in degrees about screen x / y / z (dev check of rf_gyro.c)
         // ("up" stays what the gravity sensor reports: a zero vector is ignored)
@@ -603,3 +606,5 @@ void rf_dev_tick(void) {
     fclose(f);
     unlink(tmp);
 }
+
+#endif  // !RF_RELEASE

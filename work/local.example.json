@@ -1,0 +1,14 @@
+{
+  "_note": "Copy to work/local.json (not tracked by Git) and fill in. Environment variables of the same meaning win, see work/tools/local_config.py.",
+  "java": "/path/to/jdk/bin/java",
+  "android_sdk": "/path/to/Android/Sdk",
+  "ndk": "/path/to/Android/Sdk/ndk/27.2.12479018",
+  "build_tools": "/path/to/Android/Sdk/build-tools/37.0.0",
+  "apktool": "/path/to/apktool_3.0.3.jar",
+  "baksmali": "/path/to/baksmali-3.0.9.jar",
+  "apksigner": "/path/to/Android/Sdk/build-tools/37.0.0/lib/apksigner.jar",
+  "sign_key": "/path/to/your-key.pk8",
+  "sign_cert": "/path/to/your-cert.x509.pem",
+  "adb": "/path/to/Android/Sdk/platform-tools/adb",
+  "serial": "the adb serial of your test device (device tools only)"
+}

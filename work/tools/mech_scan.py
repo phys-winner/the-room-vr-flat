@@ -5,10 +5,11 @@ import collections
 import os
 import re
 import sys
+from pathlib import Path
 
 import UnityPy
 
-data = r"<game>\decoded_original\assets\bin\Data"
+data = str(Path(__file__).resolve().parents[2] / "decoded_original" / "assets" / "bin" / "Data")
 WANT = re.compile(r".")
 names = sorted(os.listdir(data))
 

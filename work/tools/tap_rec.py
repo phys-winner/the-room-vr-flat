@@ -5,6 +5,7 @@ while a real touch taps (touch_ap), then ffmpeg cuts the frames around the tap s
 
   tap_rec.py TAG NAME X Y      screen px; writes NAME.h264 and NAME_fNN.png (20 fps around the tap)
 """
+import shutil
 import subprocess
 import sys
 import time
@@ -12,9 +13,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import devrun as d  # noqa: E402
+import local_config  # noqa: E402
 import touch_ap as ta  # noqa: E402
 
-FFMPEG = "<ffmpeg>/bin/ffmpeg.exe"
+FFMPEG = local_config.get("ffmpeg") or shutil.which("ffmpeg") or "ffmpeg"
 
 
 def main(a):
