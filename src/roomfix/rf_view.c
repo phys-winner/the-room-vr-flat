@@ -8,6 +8,10 @@
 //
 // Lean: VR players lean in to look closely; the pinch gesture moves the synthetic head along the view
 // direction (g_lean metres). Teleports and scene changes reset it.
+//
+// Menus (round 2): the vertical FOV is at least what the open menu screen needs to show all of its items
+// (g_menu_vfov, rf_menu.c), so a narrow FOV option never hides a menu row. The gyroscope's eye offset (rf_gyro.c)
+// adds to the touch sway.
 #include "rf.h"
 
 typedef float (*fn_f_1)(void*, const void*);
@@ -39,6 +43,7 @@ static void tick_fov(void) {
         g_fov.game = cur;
     }
     float v = 2.0f * atanf(tanf(g_fov_h * 0.5f * DEG2RAD) / REF_ASPECT);  // radians, kept vertical FOV
+    if (rf_menu_context() && g_menu_vfov * DEG2RAD > v) v = g_menu_vfov * DEG2RAD;  // every menu item in view
     float k = tanf(v * 0.5f) / tanf(VR_FOV * 0.5f * DEG2RAD);
     float want = 2.0f * atanf(tanf(g_fov.game * 0.5f * DEG2RAD) * k) / DEG2RAD;
     if (fabsf(want - cur) > 0.01f) {
@@ -71,13 +76,15 @@ static void face_location(void* loc) {
 }
 
 static void tick_lean(void) {
-    void* loc = rf_alive(g_player) ? *(void**)((char*)g_player + 0x70) : NULL;  // Player.CurrentLocation
+    void* pl = rf_player();
+    void* loc = pl ? *(void**)((char*)pl + 0x70) : NULL;  // Player.CurrentLocation
     if (loc != g_lean_ctx.location || strcmp(g_scene, g_lean_ctx.scene) != 0) {
         if (loc && loc != g_lean_ctx.location) g_lean_ctx.face_frames = 45;
         g_lean_ctx.location = loc;
         memcpy(g_lean_ctx.scene, g_scene, sizeof g_lean_ctx.scene);
         g_lean = 0;
         g_sway_x = g_sway_y = 0;
+        rf_gyro_reset_pos();
     }
     if (g_lean_ctx.face_frames > 0) {
         g_lean_ctx.face_frames--;
@@ -92,8 +99,8 @@ static void tick_lean(void) {
     if (g_sway_y > 0.2f) g_sway_y = 0.2f;
     float yaw = g_head.yaw * DEG2RAD;
     v3 right = {cosf(yaw), 0, -sinf(yaw)};  // horizontal, follows the head's yaw only
-    g_head.pos = v3_add(v3_scale(q_rot(rf_head_rot(), (v3){0, 0, 1}), g_lean),
-                        v3_add(v3_scale(right, g_sway_x), (v3){0, g_sway_y, 0}));
+    g_head.pos = v3_add(v3_scale(q_rot(rf_head_rot(), (v3){0, 0, 1}), g_lean + g_gyro_pz),
+                        v3_add(v3_scale(right, g_sway_x + g_gyro_px), (v3){0, g_sway_y + g_gyro_py, 0}));
 }
 
 void rf_view_tick(void) {

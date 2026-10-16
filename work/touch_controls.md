@@ -25,7 +25,9 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 
 | Action | VR (original) | Flat touch | Native point used | Context | Evidence |
 |---|---|---|---|---|---|
-| Look around | head rotation | one-finger drag on empty space (100° per screen width) | head pose node (PoseDataSource / XR head device) | gameplay, menus | R003, R009 |
+| Look around | head rotation | one-finger drag on empty space (100° per screen width); in menus a drag never turns the camera (round 2, R2-1) | head pose node (PoseDataSource / XR head device) | gameplay | R003, R009, R026 |
+| Turn / tilt by moving the phone (option) | head rotation | Options → Gyroscope → TILT AND TURN on (sensitivity 25–300 %): the camera turns with the phone, yaw around the real vertical, slow drift faded out | head yaw / pitch (rf_gyro.c; gyroscope + gravity sensors only while on) | gameplay (not menus) | R026 (synthetic sensor input; device on a desk) |
+| Move the eyes by moving the phone (option) | move the head | Options → Gyroscope → EYE POSITION on (sensitivity): turning / tilting the phone shifts the eyes sideways / up (±0.3 / ±0.2 m), moving it away / closer leans in / out (linear acceleration, zero-velocity updates; the shift glides back in ~4 s) | head position | gameplay (not menus) | R026 (`push 0.1` → 0.118 m) |
 | Lean in to inspect | lean body | two-finger spread/pinch (0–0.35 m along the view) | head position | gameplay | R010 (lean 0.32 m) |
 | Move the head sideways / up (peek around, reach a rope strand behind another) | move the head | two fingers moving together (±0.3 m sideways, ±0.2 m up/down; reset on arrival) | head position | gameplay | p063 log `touch: pinch lean … sway` |
 | Snap turn | stick left/right | HUD ↶ ↷ (shown while the tutorial asks) | stick X pulse → RwAction 6/7 | tutorial | R004, R009 |
@@ -56,7 +58,9 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Eyepiece on/off | pull the inventory tab (or PS button) | HUD eyepiece, or drag the tab | GogglesHudManager.Activate/DeactivateWithFade (same as Player.UpdateGogglesInput) / tab RotationGrabbable | gameplay | R010 |
 | Hold object + look around | hand holds, head turns | finger 1 holds, finger 2 swipes | grab + head yaw | gameplay | R010 |
 | HUD while holding | — | other finger on a HUD button | per-pointer ownership | gameplay | R010 |
-| Menu buttons | laser + trigger | tap | right ray on the camera ray through the finger + trigger; pointer hand-over press | main/pause menus | R003, R007 |
+| Menu buttons | laser + trigger | tap; the pointer beam is never drawn (round 2, R2-3) | right ray on the camera ray through the finger + trigger; pointer hand-over press; FrontEndPointer.SetLength keeps its line renderers off | main/pause menus | R003, R007, R026 (A/B) |
+| Menu in view | turn to the panel | automatic: the camera turns to the current screen's content (UI, meshes, its own scene geometry such as the 3D logo) and widens the vertical FOV a menu needs when the chosen one is narrower (round 2, R2-2); the pause menu gives the view back on close | head yaw / pitch, Camera.fieldOfView in menu context | main/pause menus | R026, R027 |
+| Read tutorial boxes / remarks | boxes in front of the head, lazily following it (StayInView) | none: they stay fixed on the screen — instructions at the top, remarks at the bottom — drawn over the scene (round 2, R2-5) | StayInView.Update replaced; boxes pinned to the camera pose, own camera on layer 30 | gameplay, loading | R026 |
 | Option selectors | laser + trigger on arrows | tap the arrows | UiOptionSelector buttons | options | R008 |
 | Back | — | Android Back: previous menu screen / resume / pause | MenuController.TransitionToScreen, left menu (RwAction 22/27) | all | R007, R008 |
 | Pause | left menu button | HUD pause, Back | GameStateManager.Pause | gameplay | R007 |

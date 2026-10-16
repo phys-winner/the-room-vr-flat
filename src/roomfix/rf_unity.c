@@ -79,7 +79,7 @@ quat rf_q_look(v3 f, v3 up) {
 }
 
 void* rf_controller(int h) {
-    if (!rf_alive(g_player) || g_frame - g_player_frame > 2) return NULL;
+    if (!rf_player()) return NULL;
     void* c = *(void**)((char*)g_player + (h ? 0x40 : 0x38));  // Player.RightHand / LeftHand (Controller)
     return rf_alive(c) ? c : NULL;
 }

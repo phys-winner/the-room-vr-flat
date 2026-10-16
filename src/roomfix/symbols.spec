@@ -158,3 +158,33 @@ CALL TIME_FIXEDDT     UnityEngine.Time$$get_fixedDeltaTime
 CALL TIME_SCALE       UnityEngine.Time$$get_timeScale
 CALL PLAYER_TELEPORTTO Player$$TeleportTo
 CALL SZ_SETSTATE      Superzoom$$SetState
+# ---- round 2 (operator 2026-10-16): menu framing, no menu laser, flat texts, gyroscope ----
+# menu laser (FrontEndPointer: two LineRenderers +0x58 opaque / +0x60 transparent; SetLength is their only enabler)
+HOOK FEP_SETLENGTH    FrontEndPointer$$SetLength
+# head-following texts: StayInView.Update is the lazy follow (StayInViewFOV +0x18, StayInViewLerp +0x20)
+HOOK SIV_UPDATE       StayInView$$Update
+# menu framing (rf_menu.c) and flat texts (rf_flatui.c)
+CALL GO_GETCOMPSCHILD UnityEngine.GameObject$$GetComponentsInChildren
+CALL RT_GETRECT       UnityEngine.RectTransform$$get_rect
+CALL GRAPHIC_COLOR    UnityEngine.UI.Graphic$$get_color
+CALL REND_BOUNDS      UnityEngine.Renderer$$get_bounds
+CALL BEH_ACTIVEENABLED UnityEngine.Behaviour$$get_isActiveAndEnabled
+CALL CAM_NEAR         UnityEngine.Camera$$get_nearClipPlane
+CALL TR_LOCALSCALE    UnityEngine.Transform$$get_localScale
+CALL TR_SETLOCALSCALE UnityEngine.Transform$$set_localScale
+# flat texts drawn by their own camera over the scene (rf_flatui.c): child of the main camera, layer 30 (unnamed)
+CALL GO_CTOR_NAME     UnityEngine.GameObject$$.ctor|System_String_o* name, const MethodInfo
+CALL GO_ADDCOMP       UnityEngine.GameObject$$AddComponent
+CALL GO_SETLAYER      UnityEngine.GameObject$$set_layer
+CALL GO_GETLAYER      UnityEngine.GameObject$$get_layer
+CALL CAM_SET_CLEARFLAGS UnityEngine.Camera$$set_clearFlags
+CALL CAM_SET_CULLING  UnityEngine.Camera$$set_cullingMask
+CALL CAM_GET_CULLING  UnityEngine.Camera$$get_cullingMask
+CALL CAM_SET_DEPTH    UnityEngine.Camera$$set_depth
+CALL CAM_GET_DEPTH    UnityEngine.Camera$$get_depth
+CALL CAM_SET_NEAR     UnityEngine.Camera$$set_nearClipPlane
+CALL CAM_SET_FAR      UnityEngine.Camera$$set_farClipPlane
+CALL BEH_SETENABLED   UnityEngine.Behaviour$$set_enabled
+CALL TR_SETPARENT2    UnityEngine.Transform$$SetParent|bool worldPositionStays
+CALL TR_SETLOCALPOS   UnityEngine.Transform$$set_localPosition
+CALL TR_SETLOCALROT   UnityEngine.Transform$$set_localRotation

@@ -1,8 +1,14 @@
 package port.roomfix;
 
 import android.app.Activity;
+import android.content.Context;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.SparseIntArray;
@@ -19,7 +25,10 @@ import java.io.File;
  * Flat-screen port bootstrap: loads libroomfix.so before Unity creates its player, adds the touch HUD and
  * routes touches: a finger that lands on a HUD button belongs to that button, every other finger goes to
  * libroomfix (look, grab, pinch, menu taps) with coordinates normalised to the Unity view. While the gesture
- * card (HelpCard) is shown it takes every touch and Back; a tap closes it.
+ * card (HelpCard) is shown it takes every touch and Back; a tap closes it. The gyroscope options (Options ->
+ * Gyroscope) are fed from here: the gyroscope and gravity sensors (and linear acceleration for "eye position") run
+ * only while an option is on and the window has focus; rotation increments and the push along the screen normal go to
+ * libroomfix in screen axes (x right, y up, z out of the screen).
  */
 public final class RoomFix {
     private RoomFix() {}
@@ -47,6 +56,15 @@ public final class RoomFix {
     /** Pending gesture-card request: game language index + 1, or 0. Taking it clears it. */
     static native int nativeHelpRequest();
 
+    /** Gyroscope: rotation since the last sample (radians about screen x / y / z) and the "up" direction (m/s^2). */
+    static native void nativeGyro(float dx, float dy, float dz, float ux, float uy, float uz);
+
+    /** Eye position option: linear acceleration (gravity removed) along the screen normal, m/s^2, and its interval. */
+    static native void nativeAccel(float az, float dt);
+
+    /** Sensors the gyroscope options need: bit 0 gyroscope + gravity, bit 1 linear acceleration; 0 when both off. */
+    static native int nativeGyroWanted();
+
     private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
     private static final int OWNER_GAME = 0;
 
@@ -59,6 +77,87 @@ public final class RoomFix {
     private static Handler sMain;
     private static final SparseIntArray sOwner = new SparseIntArray();  // pointer id -> HUD button or OWNER_GAME
     private static final int[] sLoc = new int[2];
+
+    // ---- gyroscope ----
+    private static boolean sFocused = true;
+    private static int sGyroOn;  // sensor set registered (nativeGyroWanted bits)
+    private static SensorManager sSensors;
+    private static Handler sSensorHandler;
+    private static volatile int sRotation;  // Display.getRotation(): screen axes from the device's natural axes
+    private static long sGyroTs, sLinTs;
+    private static final float[] sUp = new float[3];  // gravity reaction ("up") in screen axes, m/s^2
+    private static boolean sUpFromAccel;
+
+    /** Device axes -> screen axes for the display rotation (the drawing turns opposite to the device). */
+    private static void toScreen(float[] v, float[] out) {
+        switch (sRotation) {
+            case 1: out[0] = -v[1]; out[1] = v[0]; break;   // ROTATION_90
+            case 2: out[0] = -v[0]; out[1] = -v[1]; break;  // ROTATION_180
+            case 3: out[0] = v[1]; out[1] = -v[0]; break;   // ROTATION_270
+            default: out[0] = v[0]; out[1] = v[1]; break;
+        }
+        out[2] = v[2];
+    }
+
+    private static final SensorEventListener sGyroListener = new SensorEventListener() {
+        private final float[] s = new float[3];
+
+        @Override
+        public void onSensorChanged(SensorEvent e) {
+            int type = e.sensor.getType();
+            toScreen(e.values, s);
+            if (type == Sensor.TYPE_GYROSCOPE) {
+                long ts = e.timestamp;
+                float dt = sGyroTs != 0 ? (ts - sGyroTs) * 1e-9f : 0f;
+                sGyroTs = ts;
+                if (dt > 0f && dt < 0.1f) nativeGyro(s[0] * dt, s[1] * dt, s[2] * dt, sUp[0], sUp[1], sUp[2]);
+            } else if (type == Sensor.TYPE_LINEAR_ACCELERATION) {
+                long ts = e.timestamp;
+                float dt = sLinTs != 0 ? (ts - sLinTs) * 1e-9f : 0f;
+                sLinTs = ts;
+                if (dt > 0f && dt < 0.1f) nativeAccel(s[2], dt);
+            } else if (type == Sensor.TYPE_GRAVITY) {
+                sUp[0] = s[0];
+                sUp[1] = s[1];
+                sUp[2] = s[2];
+            } else if (sUpFromAccel) {  // no gravity sensor: low-passed accelerometer
+                for (int i = 0; i < 3; i++) sUp[i] += (s[i] - sUp[i]) * 0.1f;
+            }
+        }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    };
+
+    private static void setGyro(int want) {
+        if (want == sGyroOn) return;
+        if (sSensors == null) {
+            sSensors = (SensorManager) sActivity.getSystemService(Context.SENSOR_SERVICE);
+            HandlerThread t = new HandlerThread("RoomFixSensors");
+            t.start();
+            sSensorHandler = new Handler(t.getLooper());
+        }
+        if (sSensors == null) return;
+        sSensors.unregisterListener(sGyroListener);
+        if (want != 0) {
+            Sensor gyro = sSensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+            if (gyro == null) return;  // no gyroscope: the options stay without effect
+            Sensor grav = sSensors.getDefaultSensor(Sensor.TYPE_GRAVITY);
+            sUpFromAccel = grav == null;
+            if (grav == null) grav = sSensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            sRotation = sActivity.getWindowManager().getDefaultDisplay().getRotation();
+            sGyroTs = 0;
+            sUp[0] = 0f;
+            sUp[1] = 9.81f;
+            sUp[2] = 0f;
+            sSensors.registerListener(sGyroListener, gyro, 5000, sSensorHandler);  // 200 Hz: smooth at any frame rate
+            if (grav != null) sSensors.registerListener(sGyroListener, grav, SensorManager.SENSOR_DELAY_GAME, sSensorHandler);
+            Sensor lin = (want & 2) != 0 ? sSensors.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION) : null;
+            sLinTs = 0;
+            if (lin != null) sSensors.registerListener(sGyroListener, lin, 5000, sSensorHandler);  // eye position: push
+        }
+        sGyroOn = want;
+    }
 
     public static void init(Activity activity) {
         sActivity = activity;
@@ -113,6 +212,7 @@ public final class RoomFix {
             }
             int help = nativeHelpRequest();
             if (help > 0 && sHelp != null) showHelp(help - 1);
+            setGyro(sFocused ? nativeGyroWanted() : 0);
             if (sPollCount++ % 20 == 0) updateDisplay();
             sMain.postDelayed(this, 100);
         }
@@ -134,6 +234,7 @@ public final class RoomFix {
             }
         }
         sMaxModeId = maxId;
+        sRotation = d.getRotation();
         nativeDisplay(hz, max);
         boolean want = nativeWantMaxRefresh() != 0;
         if (want != sWantMax && Build.VERSION.SDK_INT >= 23) {
@@ -277,7 +378,10 @@ public final class RoomFix {
 
     /** Called from UnityPlayerActivity.onWindowFocusChanged. */
     public static void onFocus(boolean hasFocus) {
-        if (!sReady || hasFocus) return;
+        sFocused = hasFocus;
+        if (!sReady) return;
+        if (!hasFocus) setGyro(0);  // no sensors in the background; the poll turns them on again
+        if (hasFocus) return;
         sOwner.clear();
         if (sHud != null) sHud.clearPressed();
         nativeTouch(A_CANCEL_ALL, 0, 0, 0, 0);

@@ -1,16 +1,18 @@
 # Game port state — The Room VR: A Dark Matter (PICO build) → flat touch phone
 
 ## Current
-- state_revision: 6
-- updated_at: 2026-10-14T20:10+03:00
-- objective: ADAPTATION_COMPLETE for a VR→flat conversion (user /goal 2026-10-14: «/adapt-arm32-game адаптируй vr игру под плоские сенсорные экраны. работай только с adb устройством redmi-note8pro»)
-- workflow_status: COMPLETE — ADAPTATION_COMPLETE (device-limited: runtime 16 KB pages cannot be shown on the only allowed device; reverse landscape device-limited; late-chapter story places listed as touch debts)
-- current_step: stage 8 implemented and verified (R022: C1 chapter select, C3 gesture card, C4 trial mark removed, QA row); final release out/room_p084.apk verified on redmi-note8pro (R023 update/clean install/restart and cold-start times without su load; R024 final 5.8 matrix, lifecycle, 10-minute soak); PORT_FEATURES.md final
-- next_action: none. Optional operator inputs: a 16 KB-page arm64 device for the runtime page proof; play-through of the late-chapter story places listed under VR_ACTIONS_COVERED
+- state_revision: 9
+- updated_at: 2026-10-16T09:10+03:00
+- objective: round 2 after ADAPTATION_COMPLETE r6 (user 2026-10-16): R2-1 no camera turning in menus/options; R2-2 every menu item visible at a small FOV; R2-3 no laser on menu taps; R2-4 gyro control, two rows (eye position only / camera tilt+turn only) + sensitivity for each; R2-5 head-following lagging texts ("comments", e.g. the first tutorial boxes) and every similar UI element made flat; R2-6 test on realme-rmx3371; R2-7 on every location check that three objects can be interacted with (no full play-through); R2-4b (user 2026-10-16, later): with EYE POSITION on, moving the phone forward / back moves the camera
+- workflow_status: COMPLETE — round 2 (R2-1..R2-7) IMPLEMENTED and verified; accepted final out/room_p094.apk e1b1e398c30604fd7e813833fa0882114d208ea58e83b22d2e0cff9dbbee3729 (realme-rmx3371; previous final room_p084 kept as rollback); ADAPTATION_COMPLETE (device-limited as before: 16 KB pages, reverse landscape, late story places)
+- current_step: R025 baseline on realme-rmx3371; R026 round-2 features; R027 crash fixes (weak refs, rf_player, end-of-game screen); R028 three objects per location by touch (Epilogue has two); R029 player mode; R030 5.8 matrix (16:9, 2:1, native 20:9, 4:3), lifecycle, soak (10 min with the gyroscope on, same pid, PSS +1.8 %)
+- next_action: none. Optional operator inputs: feel of the gyroscope options with the phone in the hand (shown here with synthetic sensor input only); a 16 KB-page device for the runtime page proof
 - blocker: none
 - bridge_mode: NOT_APPLICABLE — input is native arm64-v8a only (lib/arm64-v8a: libil2cpp, libunity, libmain, libpxr_api, libPxrPlatform, libpxrplatformloader); no armeabi-v7a code exists
 - bridge_input_snapshot: NOT_APPLICABLE (no bridge); ARM32_READY is interpreted as "restoration snapshot verified" for a native arm64 game (workflow.md "Native arm64 runtime")
-- content_review_status: IMPLEMENTED (operator 2026-10-14 on catalog R021 / room_p080: C1 chapter select, C3 gesture help card, C4 hide the Unity trial mark, plus a QA unlock for chapters/other content with an activation control — front-end Options row QA off/level select/skip level/all; rejected: C2 gamepad, C5 local achievements); verified R022, final APK room_p084 (R023, R024)
+- content_review_status: IMPLEMENTED for R021 (C1, C3, C4, QA row; C2, C5 rejected); round-2 operator requests R2-1..R2-7 IMPLEMENTED (R026-R030)
+- earlier: stage 8 R022, final release room_p084 R023/R024 on redmi-note8pro (device-limited 16 KB pages; reverse landscape; late story places)
+- tooling (realme-rmx3371, no root): work/tools/mtinject_ap (app_process MotionEvent injector, dex 1d564df3...), touch_ap.py, loc_check.py (menu, chapter, sweep, interact, tp), loc_final.py (R2-7 recipes), menu_cycle.py (round trips), tap_shot.py; screenrecord cannot write or stream on this Realme; roomfix.dev present on the device for dev runs
 
 ## Project and inputs
 - root: <game> (PROJECT_ROOT <workspace>: nearest parent with tools/android/toolchain.sh; machine_config project_root <other-machine>/... is stale on this machine — tools resolved from E:)
@@ -26,8 +28,9 @@
 ## Decisions and scope
 | Decision | Scope | Source/date | Current value | Supersedes |
 |---|---|---|---|---|
-| Device | All hardware work | User /goal 2026-10-14 | Only adb serial redmi-note8pro; never touch pixel-10a (Pixel 10a) or any other serial | — |
-| Test devices | redmi-note8pro, package com.FireproofStudios.TheRoomVRPlus | Skill policy | Root probe/use; uninstall/reinstall/clear without backup or repeated approval | — |
+| Device | All hardware work | User 2026-10-16 | Round 2: test device realme-rmx3371 (all test roles); pixel-10 install only (room_p084, 2026-10-16); redmi-note8pro not used in round 2; never touch pixel-10a (Pixel 10a) or other serials | Only redmi-note8pro (user /goal 2026-10-14) |
+| Round-2 scope | Port additions | User 2026-10-16 | R2-1..R2-7 (Current/objective); R2-7 = three interactable objects per location, no full play-through | — |
+| Test devices | realme-rmx3371 (round 2), redmi-note8pro (rounds 1); package com.FireproofStudios.TheRoomVRPlus | Skill policy | Root probe/use where present (realme-rmx3371: no su); uninstall/reinstall/clear without backup or repeated approval | — |
 | Scope | Full adaptation | User 2026-10-14 | VR→flat with touch controls, all nine research rows, phase 8 choice later | — |
 | ARM64 transition | — | Input is native arm64 | bridge NOT_APPLICABLE; final 16 KB runtime check cannot run on the only allowed device (4 KB pages) → device-limited gate | — |
 | obb_unpack_policy | Cache | Skill default | KEEP_CONTAINER (no OBB exists; data already inside the base APK) | — |
@@ -46,7 +49,9 @@
 ## Devices
 | Role | Serial | ABI evidence | Runtime page size/source | Status |
 |---|---|---|---|---|
-| test device (all roles allowed by the user) | redmi-note8pro | Redmi Note 8 Pro (begonia, MT6785, Mali-G76 MC4), Android 11/SDK 30, MIUI 12.5, abilist arm64-v8a,armeabi-v7a,armeabi | 4096 (getconf PAGESIZE) | online; root via Magisk `su -c` |
+| round-2 test device | realme-rmx3371 | Realme RMX3371 (RE54E4L1, kona/Snapdragon, Adreno), Android 15 / SDK 35 (build UKQ1.230924.001), abilist arm64-v8a,armeabi-v7a,armeabi; 1080x2400 @480 dpi; touchpanel /dev/input/event2 (8639x19199); no su | 4096 (getconf PAGESIZE) | online |
+| install-only (user 2026-10-16) | pixel-10 | Pixel 10 (frankel), Android 17 DP11 / SDK 37, arm64-v8a only, PowerVR DXT-48-1536 | 4096 (getconf PAGESIZE) | room_p084 installed, not launched |
+| round-1 test device | redmi-note8pro | Redmi Note 8 Pro (begonia, MT6785, Mali-G76 MC4), Android 11/SDK 30, MIUI 12.5, abilist arm64-v8a,armeabi-v7a,armeabi | 4096 (getconf PAGESIZE) | online; root via Magisk `su -c` |
 
 - display 1080x2340 (landscape 2340x1080), 440 dpi, single mode 60 Hz, cutout top 76 px; the left bar was Unity's own safe-area letterbox (boot.config androidRenderOutsideSafeArea=0) — set to 1 in p060: full 2340x1080 render, HUD inside the safe insets
 - final_acceptance (arm64-only + 16 KB runtime): no allowed device has 16 KB pages → open, device-limited (not faked)
@@ -54,12 +59,14 @@
 ## Artifacts
 | Role | Source revision/patch | Build inputs | APK/set hash manifest | Evidence |
 |---|---|---|---|---|
-| accepted final (device-limited) | 73a7234 + docs commit of STATE r6 | app/ (libroomfix 2d3354b6c4eb82044a17eaf9202e1b938c2083a9b276cf3faf6de8aa6ef6acd3: stage-8 hooks, gesture-card requests; Java HelpCard; globalgamemanagers hasPublishingRights (C4); 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p084.apk 590eb40e4245b2ac6ad08c4e3f206ce7f63188c2a8ba5fbca733e1502798f94e (cert a40da80a...f5dc, ABIs arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R022, R023, R024 |
+| accepted final round 2 (device-limited) | git commit of STATE r9 | app/ (libroomfix 4a16e345f16dfefb2a4de9d2b7ceb834268f8dc51c831adc8626bca6231e60fe: menu framing, flat texts + text camera, no menu beam, gyroscope, Options gyroscope page, weak refs, rf_player, end-screen menu context; Java RoomFix sensors, HelpCard gyroscope line) | out/room_p094.apk e1b1e398c30604fd7e813833fa0882114d208ea58e83b22d2e0cff9dbbee3729 (cert a40da80a...f5dc, arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R026-R030 |
+| accepted final round 1 (rollback) | 73a7234 + docs commit of STATE r6 | app/ (libroomfix 2d3354b6c4eb82044a17eaf9202e1b938c2083a9b276cf3faf6de8aa6ef6acd3: stage-8 hooks, gesture-card requests; Java HelpCard; globalgamemanagers hasPublishingRights (C4); 31 patched shaders; sharedassets5 ASTC; boot.config full screen) | out/room_p084.apk 590eb40e4245b2ac6ad08c4e3f206ce7f63188c2a8ba5fbca733e1502798f94e (cert a40da80a...f5dc, ABIs arm64-v8a only, zipalign -P 16, versionCode 5011, min 24 / target 37) | R022, R023, R024 |
 | accepted before stage 8 (rollback) | fbb436d | app/ at fbb436d (libroomfix 79b06a7f...) | out/room_p080.apk 1179459217fb8a74e8fcd3802ac3a4da7e48b14ec4fc4eec38e7cb44a4cc7719 | R020 |
 | previous candidates (deleted 2026-10-14) | b404304 / d0e54fb / 44a61aa / 73a7234 | app/ | room_p061 6225b002..., room_p055 e34a7231..., room_p081 (C4 only), room_p083 30d7ddc6... (dev build of the p084 sources) — superseded by p084 | R011-R022 |
-| installed per serial | redmi-note8pro: room_p084.apk (clean install R023; profile 2 new game in the tutorial from R024) | 73a7234 | 590eb40e... | R023, R024 |
+| installed per serial | redmi-note8pro: room_p084.apk (clean install R023; profile 2 new game in the tutorial from R024); pixel-10: room_p084.apk (2026-10-16 streamed install, on-device base.apk sha256 590eb40e..., not launched); realme-rmx3371: room_p094.apk (on-device hash e1b1e398..., settings back to defaults FOV 90 / gyroscope off, QA level select on, roomfix.dev removed after R030) | 73a7234 | 590eb40e... | R023, R024 |
 | ARM32_LASTGOOD and snapshot | room_p080 (native arm64 restoration snapshot) | fbb436d | 1179459... | R020 |
 | ARM64_ACCEPTED before additions | room_p080 (rollback point for stage 8) | fbb436d | 1179459... | R020 |
+| round-2 storage cleanup | candidates p085-p093 deleted after R028 (18.55 GB logical) | — | work/manifests/cleanup_round2.json (paths, sha256, sizes, reasons) | R026-R028 |
 
 - storage_cleanup: 2026-10-14 removed out/room_p007.apk, room_p057.apk, room_p060.apk; at ADAPTATION_COMPLETE removed room_p055, room_p061, room_p081, room_p083 and old build-attempt logs; kept room_p080 (rollback) and room_p084 (final)
 
@@ -83,6 +90,13 @@
 | STAGE8_ADDITIONS | IMPLEMENTED | R022: C4 (no trial mark), C1 (chapter list, replay with saving off, profile unchanged, return to menu), QA row (all chapters, SKIP LEVEL without the secret, off by default, persisted), C3 (card on the first main menu and from Options view controls, 10 languages, tap/Back close) | operator choice R021 |
 | FINAL_RELEASE_VERIFIED | PASSED | room_p084: R023 update over p083 (settings and save kept), clean install (first start 80.5 s, later 25.3 s, measured without su load), restart; R024 matrix 16:9/2:1/19.5:9/4:3 + 3-button navigation + density/font, lifecycle, 10.3-min soak; crash buffer empty | - |
 | PORT_FEATURES_READY | PASSED | PORT_FEATURES.md for room_p084 checked against R022-R024 and work/touch_controls.md (SDK/ABI from the final APK; no OBB; honest limits: 16 KB pages untested, late story places) | - |
+| ROUND2_MENU_CAMERA (R2-1) | PASSED | R026: a drag in menus never turns the camera (yaw/pitch unchanged), gyroscope inactive in menus; R030 look swipes in gameplay at every aspect | - |
+| ROUND2_MENU_FRAMING (R2-2) | PASSED | R026/R027/R030: every screen's items (and the 3D logo) framed; Options at FOV 70 needs 54.4 deg vertical and gets it; pause view restored; 16:9 / 2:1 / 20:9 / 4:3 | - |
+| ROUND2_NO_MENU_LASER (R2-3) | PASSED | R026 A/B: authored beam vs none (FrontEndPointer.SetLength) | - |
+| ROUND2_GYROSCOPE (R2-4) | PASSED_DEVICE_LIMITED | R026: page/rows/save, sensors registered only while on and focused (R030 Home: 2 -> 0 -> 2), synthetic turn/tilt/push through the native path; physical motion of a held phone not recorded (device on a desk) | operator feel test |
+| ROUND2_FLAT_TEXTS (R2-5) | PASSED | R026/R029/R030: remarks bottom, tutorial boxes top, fixed through swipes, drawn over near geometry (text camera, layer 30), crisp TMP at 0.55 m | - |
+| ROUND2_LOCATIONS (R2-7) | PASSED | R028 on p094: three objects held by touch in Tutorial, Egypt, Chapel, Witch, Desert; Epilogue has two grabbable objects, both held | - |
+| FINAL_RELEASE_VERIFIED (round 2) | PASSED | room_p094: R029 player mode, R030 matrix + lifecycle + soak on realme-rmx3371; crash buffer empty | - |
 | ADAPTATION_COMPLETE | PASSED_DEVICE_LIMITED | stage 8 IMPLEMENTED, final set room_p084 accepted on the only allowed device, PORT_FEATURES_READY; open only what the device restriction prevents (runtime 16 KB pages, reverse landscape) | a 16 KB-page device if allowed |
 
 ## Required research
@@ -99,7 +113,8 @@
 | TOUCH_CONTROLS | PASSED | work/touch_controls.md (action map with VR/native columns, multi-touch rules, story-placed debts) | applied: grab/slider/rotation/twist/crank, combination parts (cylinder + roll-over), poke probe, turn-in-hand ball, hold+look, pinch lean, head sway, teleport tap (+ forced TeleportTo), superzoom tap, HUD; TOUCH_GAMEPLAY_VERIFIED R009-R020 |
 
 ## Current blocker and experiments
-- blocker_id: none; consecutive_no_progress 0/3; candidate_id 84 (p084, final, accepted device-limited); diagnostic_runs R001-R024
+- blocker_id: none; consecutive_no_progress 0/3; candidate_id 94 (p094, accepted final round 2); diagnostic_runs R001-R030
+- round-2 candidates: p085 c4abb11f (REJECTED: gyroscope button crash), p086 b2a968bb (REJECTED: TMP blocks at 5 cm), p087 74b70601, p088 666a71b3 (never installed), p089 b988944f, p090 af4d5632 (crash after a replay, R027), p091 6dc3bacf (never installed), p092 9b76de5e (crash during Loading, R027), p093 ec902d62 (end screen stuck, R027), p094 e1b1e398 (final candidate)
 
 ## Content and cache
 - hidden_content_status: AUTO_PROCESSED (automatic_unlocks H1; deferred H4 H5 H6 H11 H17; H15 done as stage-8 C4; no purchase-gated content; QA unlocks added at the operator's request as an Options row)
@@ -112,9 +127,10 @@
 - R007 HUD + real touch; R008 options rows (FPS limit, FOV) + localisation + Back; R009 tutorial to the open safe by real multi-touch; R010 later mechanics by touch; R011 modern manifest (min 24 / target 37, no permissions, data redirect); R012 device effects on Mali; R013 graphics upgrade; R014 hidden content; R015 texture portability; R016 FPS limit
 - R017 Egypt mechanics by touch; R018 hub -> Chapel, turn-in-hand; R019 superzoom; R020 release candidate checks; R021 stage-8 catalog
 - R022 stage-8 additions; R023 final release room_p084 install/update/cold starts; R024 final matrix, lifecycle, soak
+- round 2 (realme-rmx3371): R025 baseline p084 on Adreno; R026 R2-1..R2-5; R027 crash fixes; R028 three objects per location; R029 player mode; R030 matrix/lifecycle/soak
 
 ## Port documentation
-- PORT_FEATURES.md: final for room_p084 (Russian): chapter select, QA row, gesture card, trial mark removed, start times 80 s / 25 s
+- PORT_FEATURES.md: final for room_p094 (Russian): round 2 — menus without camera turning and framed at any FOV, no menu beam, flat texts, gyroscope page, end screen by touch, checks on Adreno
 
 ## 5.8 matrix and fields (R020, release candidate p080, redmi-note8pro)
 - reference_aspect 16:9; target_aspect 19.5:9 (2340x1080); render_rect_px [0,0,2340,1080] (androidRenderOutsideSafeArea=1)

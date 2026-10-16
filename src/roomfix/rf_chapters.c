@@ -22,14 +22,27 @@ static bool g_replay;
 
 #define NLEVEL 8
 static struct {
-    void* screen;        // MainMenuScreen the clones belong to
-    void* chapters;      // MenuButton "level select"
-    void* level[NLEVEL];  // MenuButton per chapter
-    void* level_info[NLEVEL];
-    void* back;          // MenuButton back (leaves the chapter list)
+    rf_ref screen;        // MainMenuScreen the clones belong to (weak: the menu scene is rebuilt after every level)
+    rf_ref chapters;      // MenuButton "level select"
+    rf_ref level[NLEVEL];  // MenuButton per chapter
+    rf_ref level_info[NLEVEL];
+    rf_ref back;          // MenuButton back (leaves the chapter list)
     int nlevel;
     bool listing;
 } g_mm;
+#define R(x) rf_ref_get(&(x))
+
+static void mm_clear(void) {
+    rf_ref_clear(&g_mm.screen);
+    rf_ref_clear(&g_mm.chapters);
+    rf_ref_clear(&g_mm.back);
+    for (int i = 0; i < NLEVEL; i++) {
+        rf_ref_clear(&g_mm.level[i]);
+        rf_ref_clear(&g_mm.level_info[i]);
+    }
+    g_mm.nlevel = 0;
+    g_mm.listing = false;
+}
 
 static void* str(const char* s) { return g_il2.string_new ? g_il2.string_new(s) : NULL; }
 
@@ -90,33 +103,35 @@ static const char* level_key(void* li) {
 }
 
 static void show_list(bool on) {
-    void* parent = rf_alive(g_mm.chapters) ? rf_tr_parent(rf_transform(g_mm.chapters)) : NULL;
+    void* ch = R(g_mm.chapters);
+    void* parent = rf_alive(ch) ? rf_tr_parent(rf_transform(ch)) : NULL;
     if (!parent) return;
     static const char* const MAIN[] = {"MenuButton Continue", "MenuButton Profile Settings", "MenuButton Options"};
     for (size_t i = 0; i < sizeof MAIN / sizeof MAIN[0]; i++) set_active(child(parent, MAIN[i]), !on);
-    set_active(g_mm.chapters, !on);
+    set_active(ch, !on);
     char* gsm = rf_live_instance("GameStateManager");
     void* levels = gsm ? *(void**)(gsm + 0x40) : NULL;  // GameStateManager.Levels
-    for (int i = 0; i < g_mm.nlevel; i++) set_active(g_mm.level[i], on && reachable(levels, i));
-    set_active(g_mm.back, on);
+    for (int i = 0; i < g_mm.nlevel; i++) set_active(R(g_mm.level[i]), on && reachable(levels, i));
+    set_active(R(g_mm.back), on);
     g_mm.listing = on;
 }
 
 static void open_list(void) {
     char* gsm = rf_live_instance("GameStateManager");
     void* levels = gsm ? *(void**)(gsm + 0x40) : NULL;
-    if (!rf_alive(g_mm.back) && levels) {
-        int base = CALLP(C_TR_GETSIBLING, int32_t (*)(void*, const void*))(rf_transform(g_mm.chapters), NULL);
+    void* ch = R(g_mm.chapters);
+    if (!rf_alive(R(g_mm.back)) && levels && rf_alive(ch)) {
+        int base = CALLP(C_TR_GETSIBLING, int32_t (*)(void*, const void*))(rf_transform(ch), NULL);
         g_mm.nlevel = 0;
         for (int i = 0; i < rf_list_size(levels) && i < NLEVEL; i++) {
             void* li = rf_list_get(levels, i);
             char nm[32];
             snprintf(nm, sizeof nm, "MenuButton Chapter %d", i);
-            g_mm.level[i] = clone_button(g_mm.chapters, base + 1 + i, nm, level_key(li));
-            g_mm.level_info[i] = li;
+            rf_ref_set(&g_mm.level[i], clone_button(ch, base + 1 + i, nm, level_key(li)));
+            rf_ref_set(&g_mm.level_info[i], li);
             g_mm.nlevel = i + 1;
         }
-        g_mm.back = clone_button(g_mm.chapters, base + 1 + g_mm.nlevel, "MenuButton Chapters Back", "FE_BUTTON_BACK");
+        rf_ref_set(&g_mm.back, clone_button(ch, base + 1 + g_mm.nlevel, "MenuButton Chapters Back", "FE_BUTTON_BACK"));
     }
     show_list(true);
     int n = 0;
@@ -161,19 +176,19 @@ void* h_mainmenu_setup(void* self, const void* mi) {
                                   rf_gameobject(options), rf_type_of(*(void**)((char*)self + 0x40)), true, NULL)
                             : NULL;  // same class as ContinueGameButton (MenuButton)
     if (!rf_alive(opt_btn)) return r;
-    if (g_mm.screen != self || !rf_alive(g_mm.chapters)) {
-        memset(&g_mm, 0, sizeof g_mm);
-        g_mm.screen = self;
+    if (R(g_mm.screen) != self || !rf_alive(R(g_mm.chapters))) {
+        mm_clear();
+        rf_ref_set(&g_mm.screen, self);
         int idx = CALLP(C_TR_GETSIBLING, int32_t (*)(void*, const void*))(options, NULL);
-        g_mm.chapters = clone_button(opt_btn, idx + 1, "MenuButton Level Select", "FE_BUTTON_LEVEL_SELECT");
-        rf_log("chapters: main menu entry %s", g_mm.chapters ? "added" : "FAILED");
+        rf_ref_set(&g_mm.chapters, clone_button(opt_btn, idx + 1, "MenuButton Level Select", "FE_BUTTON_LEVEL_SELECT"));
+        rf_log("chapters: main menu entry %s", R(g_mm.chapters) ? "added" : "FAILED");
     }
     show_list(false);
     // offered once the profile has a game in progress (or with the QA unlock)
     char* s = slot();
     char cur[64] = "";
     if (s) rf_str_utf8(*(const Il2CppString**)(s + 0x18), cur, sizeof cur);
-    set_active(g_mm.chapters, (g_qa & QA_CHAPTERS) || (s && (s[0x2d] || cur[0])));
+    set_active(R(g_mm.chapters), (g_qa & QA_CHAPTERS) || (s && (s[0x2d] || cur[0])));
     rf_help_first_menu();
     return r;
 }
@@ -181,16 +196,17 @@ void* h_mainmenu_setup(void* self, const void* mi) {
 // presses on the port's menu buttons (clones keep the authored button's click listener, so it is not called) and
 // on Options "view controls" (rf_help.c)
 void h_button_press(void* self, const void* mi) {
-    if (self && (self == g_mm.chapters || self == g_mm.back)) {
-        if (self == g_mm.chapters) open_list();
+    if (self && (self == R(g_mm.chapters) || self == R(g_mm.back))) {
+        if (self == R(g_mm.chapters)) open_list();
         else show_list(false);
         return;
     }
     for (int i = 0; i < g_mm.nlevel; i++)
-        if (self && self == g_mm.level[i]) {
-            start_replay(g_mm.level_info[i]);
+        if (self && self == R(g_mm.level[i]) && R(g_mm.level_info[i])) {
+            start_replay(R(g_mm.level_info[i]));
             return;
         }
+    if (rf_options_press(self)) return;  // Options: gyroscope page and its BACK (round 2)
     if (rf_help_press(self)) return;
     ORIG(H_BUTTON_PRESS, void (*)(void*, const void*))(self, mi);
 }

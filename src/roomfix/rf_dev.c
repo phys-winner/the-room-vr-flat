@@ -273,6 +273,38 @@ static void cmd_setact(const char* name, bool on) {
     rf_log("setact: '%s' -> %d", name, on);
 }
 
+// read-only: every enabled button of the current menu screen with its screen position and text key (routes tap them
+// wherever the menu framing put them)
+static void cmd_menubtns(void) {
+    void* mc = rf_menu_controller();
+    void* scr = mc ? *(void**)((char*)mc + 0xd8) : NULL;
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", "MenuButton"));
+    if (!rf_alive(scr) || !type) {
+        rf_log("menubtns: no menu screen");
+        return;
+    }
+    char* arr = CALLP(C_GO_GETCOMPSCHILD, char* (*)(void*, void*, bool, const void*))(rf_gameobject(scr), type, false, NULL);
+    int n = arr ? (int)*(uint64_t*)(arr + 0x18) : 0;
+    rf_log("menubtns: %d on '%s'", n, rf_class_name(scr));
+    for (int i = 0; i < n; i++) {
+        void* b = ((void**)(arr + 0x20))[i];
+        if (!rf_alive(b) || !CALLP(C_BEH_ACTIVEENABLED, bool (*)(void*, const void*))(b, NULL)) continue;
+        // the centre of the button's rect (its pivot may sit on an edge)
+        typedef struct { float x, y, w, h; } rect_t;
+        void* bt = rf_transform(b);
+        rect_t r = CALLP(C_RT_GETRECT, rect_t (*)(void*, const void*))(bt, NULL);
+        v3 c = CALLP(C_TR_POINT, v3 (*)(void*, v3, const void*))(bt, (v3){r.x + r.w * 0.5f, r.y + r.h * 0.5f, 0}, NULL);
+        float sx = -1, sy = -1;
+        rf_world_to_screen(c, &sx, &sy);
+        char nm[64], key[64] = "-";
+        rf_obj_name(b, nm, sizeof nm);
+        void* texts = *(void**)((char*)b + 0x100);  // MenuButton.Text (List<LocaliseText>)
+        void* lt = rf_list_size(texts) ? rf_list_get(texts, 0) : NULL;
+        if (rf_alive(lt)) rf_str_utf8(*(Il2CppString**)((char*)lt + 0x20), key, sizeof key);
+        rf_log("  btn '%s' key=%s screen(%.4f %.4f)", nm, key, sx, sy);
+    }
+}
+
 static void cmd_menutree(int maxdepth) {
     void* mc = rf_menu_controller();
     void* scr = mc ? *(void**)((char*)mc + 0xd8) : NULL;
@@ -462,6 +494,26 @@ static void exec_line(char* line) {
         cmd_receivers();
     } else if (!strcmp(argv[0], "boxes")) {
         cmd_boxes();
+    } else if (!strcmp(argv[0], "beam") && argc >= 3) {
+        rf_act_dev_beam(true, strtof(argv[1], NULL), strtof(argv[2], NULL));
+    } else if (!strcmp(argv[0], "beamoff")) {
+        rf_act_dev_beam(false, 0, 0);
+    } else if (!strcmp(argv[0], "beamallow") && argc >= 2) {
+        g_dev_beam_allow = atoi(argv[1]) != 0;
+        rf_log("dev: menu pointer beam %s", g_dev_beam_allow ? "drawn as authored (A/B)" : "hidden (port)");
+    } else if (!strcmp(argv[0], "gyro") && argc >= 4) {
+        // synthetic phone turn in degrees about screen x / y / z (dev check of rf_gyro.c)
+        // ("up" stays what the gravity sensor reports: a zero vector is ignored)
+        rf_gyro_post(strtof(argv[1], NULL) * DEG2RAD, strtof(argv[2], NULL) * DEG2RAD, strtof(argv[3], NULL) * DEG2RAD,
+                     0, 0, 0);
+    } else if (!strcmp(argv[0], "push") && argc >= 2) {
+        // synthetic phone push of D metres away from the player (negative: towards), 0.5 s accelerate / brake, 200 Hz
+        float dist = strtof(argv[1], NULL), a = 4.0f * dist / 0.25f;  // bang-bang over T = 0.5 s: a = 4 D / T^2
+        for (int i = 0; i < 100; i++) rf_accel_post(i < 50 ? -a : a, 0.005f);
+        for (int i = 0; i < 40; i++) rf_accel_post(0, 0.005f);
+        rf_log("dev: push %.2f m posted", dist);
+    } else if (!strcmp(argv[0], "menubtns")) {
+        cmd_menubtns();
     } else if (!strcmp(argv[0], "menutree") && argc >= 2) {
         cmd_menutree(atoi(argv[1]));
     } else if (!strcmp(argv[0], "tree") && argc >= 3) {
@@ -470,6 +522,8 @@ static void exec_line(char* line) {
         cmd_inv();
     } else if (!strcmp(argv[0], "vols")) {
         rf_act_list_volumes();
+    } else if (!strcmp(argv[0], "volsall")) {
+        rf_act_list_volumes_all();
     } else if (!strcmp(argv[0], "probe") && argc >= 3) {
         rf_act_probe(strtof(argv[1], NULL), strtof(argv[2], NULL));
     } else if (!strcmp(argv[0], "grab") && argc >= 3) {

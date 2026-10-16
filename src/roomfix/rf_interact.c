@@ -30,7 +30,9 @@ void rf_act_laser_click(float nx, float ny) {
 }
 
 static void* menu_ray_transform(void) {
-    void* rt = rf_alive(g_vrim) ? *(void**)((char*)g_vrim + 0x58) : NULL;  // VrInputModule.rayTransform
+    // the module captured in the last frames only (an older pointer may belong to an unloaded scene)
+    void* m = g_frame - g_vrim_frame <= 2 ? g_vrim : NULL;
+    void* rt = rf_alive(m) ? *(void**)((char*)m + 0x58) : NULL;  // VrInputModule.rayTransform
     return rf_alive(rt) ? rt : NULL;
 }
 
@@ -165,6 +167,26 @@ static bool gc_usable(void* gc, void* ctrl, void** grabbable_out) {
         return false;
     if (grabbable_out) *grabbable_out = rf_alive(gr) ? gr : NULL;
     return true;
+}
+
+// dev (R027 location checks): every registered volume, usable or not, with its distance from the camera
+void rf_act_list_volumes_all(void) {
+    void* ctrl = rf_controller(RIGHT);
+    void* cam = rf_main_camera();
+    v3 cp = cam ? rf_tr_pos(rf_transform(cam)) : (v3){0, 0, 0};
+    rf_log("volumes (all): %d registered", g_ngc);
+    for (int i = 0; i < g_ngc && i < 120; i++) {
+        void* gc = g_gcs[i];
+        if (!rf_alive(gc)) continue;
+        void* gr = NULL;
+        bool usable = gc_usable(gc, ctrl, &gr);
+        void* go = rf_gameobject(gc);
+        bool active = rf_alive(go) && CALLP(C_GO_ACTIVEH, fn_b1)(go, NULL);
+        char nm[64];
+        rf_obj_name(gc, nm, sizeof nm);
+        rf_log("  all '%s' usable=%d active=%d grab=%d grabbable=%s dist=%.2f", nm, usable, active, ((char*)gc)[0x20],
+               gr ? rf_class_name(gr) : "-", v3_len(v3_sub(gc_center(gc), cp)));
+    }
 }
 
 // Finger ray against the grab volumes: exact hit by marching along the ray, otherwise the volume whose
@@ -1035,7 +1057,7 @@ static void tick_teleport(void) {
         if (g_tp.aim_frames == 16) {
             void* pointed = *(void**)((char*)tp + 0xb0), *pointed_z = *(void**)((char*)tp + 0xc8);
             bool on_target = pointed == g_tp.target_loc || pointed_z == g_tp.target_loc;
-            if (on_target || !rf_class_is(g_tp.target_loc, "PlayerLocation") || !rf_alive(g_player)) {
+            if (on_target || !rf_class_is(g_tp.target_loc, "PlayerLocation") || !rf_player()) {
                 rf_log("teleport: pointer on %s", on_target ? "target" : "something else");
                 g_hand[RIGHT].stick = (v2){0, 0};  // release -> TeleportIfPossible
             } else {
@@ -1091,6 +1113,32 @@ static void tick_buttons(void) {
 
 // dev: keep the pointing finger aimed through a screen point at a given depth
 static struct { bool on; float x, y, depth; } g_dev_tip;
+// dev (laser A/B): the right controller held to the lower right of the eye, its menu ray on a screen point, so an
+// authored pointer beam would cross the screen
+static struct {
+    bool on;
+    float x, y;
+} g_dev_beam;
+
+void rf_act_dev_beam(bool on, float x, float y) {
+    g_dev_beam.on = on;
+    g_dev_beam.x = x;
+    g_dev_beam.y = y;
+    if (!on) rf_hand_rest(RIGHT);
+}
+
+static void tick_dev_beam(void) {
+    if (!g_dev_beam.on || g_click.frames) return;
+    void* rt = menu_ray_transform();
+    void* cam = rf_main_camera();
+    v3 o, d;
+    if (!rt || !cam || !rf_screen_ray(g_dev_beam.x, g_dev_beam.y, &o, &d)) return;
+    quat q = rf_tr_rot(rf_transform(cam));
+    v3 hand = v3_add(o, q_rot(q, (v3){0.25f, -0.2f, 0.15f}));
+    v3 target = v3_add(o, v3_scale(d, 2.0f));
+    rf_aim_transform(RIGHT, rt, hand, v3_norm(v3_sub(target, hand)));
+}
+
 void rf_act_dev_aim_tip(bool on, float x, float y, float depth) {
     g_dev_tip.on = on;
     g_dev_tip.x = x;
@@ -1107,6 +1155,7 @@ static void tick_dev_tip(void) {
 
 void rf_interact_tick(void) {
     tick_dev_tip();
+    tick_dev_beam();
     tick_buttons();
     tick_click();
     tick_teleport();

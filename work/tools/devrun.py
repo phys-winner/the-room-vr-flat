@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Device helper for the flat port. Only ever talks to the user-selected serial redmi-note8pro.
+"""Device helper for the flat port. Talks only to the STATE-designated test serial: RF_SERIAL, default realme-rmx3371
+(round 2, user 2026-10-16; round 1 used redmi-note8pro with root).
 
   devrun.py launch TAG [--secs N] [--shots 5,15,30] [--grant]   cold start + logcat + validated shots
   devrun.py shot TAG NAME                                      validated screenshot
@@ -20,7 +21,7 @@ import time
 import zlib
 from pathlib import Path
 
-SERIAL = "redmi-note8pro"
+SERIAL = os.environ.get("RF_SERIAL", "realme-rmx3371")
 ADB = "%LOCALAPPDATA%/Android/Sdk/platform-tools/adb.exe"
 PKG = "com.FireproofStudios.TheRoomVRPlus"
 ACT = "com.unity3d.player.UnityPlayerActivity"
@@ -108,10 +109,22 @@ def launch(tag, secs=40, shots=(5, 15, 30), grant=False):
     pull(tag)
 
 
+def has_su():
+    return "uid=0" in sh("su -c id 2>/dev/null")
+
+
+def read_ext(name):
+    # the shell user reads Android/data on the no-root test device; su only where the plain read is refused
+    out = sh(f"cat {EXT}/{name} 2>/dev/null")
+    if not out and has_su():
+        out = sh(f"su -c 'cat {EXT}/{name}'")
+    return out
+
+
 def pull(tag):
     d = LOGS / tag
     d.mkdir(parents=True, exist_ok=True)
-    log = sh(f"su -c 'cat {EXT}/roomfix.log'")
+    log = read_ext("roomfix.log")
     (d / "roomfix.log").write_text(log, encoding="utf-8")
     (d / "crash_after.txt").write_text(sh("logcat -b crash -d"), encoding="utf-8")
     print(f"pulled roomfix.log ({len(log)} chars), crash_after {len((d / 'crash_after.txt').read_text(encoding='utf-8'))} chars")
@@ -119,6 +132,8 @@ def pull(tag):
 
 def push_lib():
     # never overwrite the mapped file under a running process (that crashes the old instance)
+    if not has_su():
+        raise SystemExit("push-lib needs root; reinstall the APK on this device")
     sh(f"am force-stop {PKG}")
     lib = GAME / "app" / "lib" / "arm64-v8a" / "libroomfix.so"
     adb("push", str(lib).replace("\\", "/"), "/data/local/tmp/libroomfix.so", check=True)

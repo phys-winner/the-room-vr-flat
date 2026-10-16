@@ -112,6 +112,10 @@ typedef struct {
     const char* (*image_get_name)(void* image);
     void* (*class_from_name)(void* image, const char* ns, const char* name);
     void* (*resolve_icall)(const char* name);  // engine internal call by "Namespace.Class::method"
+    void* (*object_new)(void* klass);          // managed object of a class (constructor not run)
+    uint32_t (*gchandle_new_weakref)(void* obj, bool track_resurrection);
+    void* (*gchandle_get_target)(uint32_t handle);
+    void (*gchandle_free)(uint32_t handle);
 } rf_il2cpp_api_t;
 void* rf_find_class(const char* image, const char* ns, const char* name);  // e.g. "UnityEngine.CoreModule.dll"
 void* rf_class_type(void* klass);                                          // System.Type of a class
@@ -125,9 +129,25 @@ extern void* g_player;  // gameplay Player (captured in Update)
 extern int g_frame, g_player_frame, g_vrim_frame;  // frame counter of our tick / last capture
 extern char g_scene[64];  // active scene name (updated every 30 frames)
 extern int g_pause_frame;  // last frame the pause menu controller updated
-static inline bool rf_menu_context(void) {
-    return g_scene[0] == 0 || !strcmp(g_scene, "MainMenu") || !strcmp(g_scene, "Startup") || g_frame - g_pause_frame <= 2;
+// The Player updated in the last frames, else NULL. The frame check comes first: after a scene unload the pointer is
+// stale and its memory may already hold another object (R027 crash on realme-rmx3371: Component.get_transform on garbage).
+static inline void* rf_player(void) {
+    return g_player && g_frame - g_player_frame <= 2 && *(void**)((char*)g_player + 0x10) ? g_player : NULL;
 }
+extern int g_menu_frame;  // last frame a MenuController updated (front end, pause, end-of-game screen)
+static inline bool rf_menu_context(void) {
+    return g_scene[0] == 0 || !strcmp(g_scene, "MainMenu") || !strcmp(g_scene, "Startup") || g_frame - g_pause_frame <= 2 ||
+           g_frame - g_menu_frame <= 2;
+}
+
+// ---- weak references to managed objects kept across frames ----
+// A scene change destroys objects; the GC may then free their wrappers and give the same address to new objects (seen
+// on realme-rmx3371: a new MainMenuScreen at the old screen's address), so a raw pointer kept from an earlier frame can be
+// neither dereferenced nor compared. A weak GC handle yields the object while it lives and NULL once it is collected.
+typedef struct { uint32_t h; } rf_ref;
+void rf_ref_set(rf_ref* r, void* obj);  // obj may be NULL
+void* rf_ref_get(const rf_ref* r);      // NULL when unset or collected (a destroyed Unity object: check rf_alive)
+void rf_ref_clear(rf_ref* r);
 
 // ---- IL2CPP containers ----
 static inline int32_t rf_list_size(void* list) { return list ? *(int32_t*)((char*)list + 0x18) : 0; }
@@ -166,6 +186,7 @@ void rf_act_laser_click(float nx, float ny);
 int rf_act_grab_begin(float nx, float ny);
 void rf_act_probe(float nx, float ny);  // dev diagnostics
 void rf_act_list_volumes(void);         // dev diagnostics
+void rf_act_list_volumes_all(void);     // dev: every registered volume with usability and distance
 void rf_gc_add(void* gc);
 void rf_gc_remove(void* gc);
 void rf_act_grab_drag(float nx, float ny);
@@ -258,6 +279,31 @@ extern float g_lean;      // metres the head leans along the view direction (pin
 extern float g_sway_x, g_sway_y;  // head sway right / up in metres (two-finger pan)
 extern float g_fov_h;     // horizontal field of view on screen, degrees
 void rf_view_tick(void);
+
+// ---- round 2 (operator 2026-10-16) ----
+// rf_menu.c: every item of the open menu screen in view
+extern float g_menu_vfov;  // vertical FOV (degrees) the open menu needs; 0 outside menus
+// rf_flatui.c: head-following texts pinned flat to the screen; menu laser hidden
+enum { RF_FLAT_BOTTOM = 0, RF_FLAT_TOP = 1, RF_FLAT_CENTRE = 2, RF_FLAT_KEEP = -1 };
+void rf_flatui_add(void* comp, int slot);  // element = comp's transform; RF_FLAT_KEEP keeps a known slot
+void rf_flatui_pin_all(bool tick);         // tick: main tick (may re-measure); false: camera pose callback
+void h_siv_update(void* self, const void* mi);
+void h_fep_setlength(void* self, float len, const void* mi);
+extern bool g_dev_beam_allow;  // dev A/B: menu pointer beam drawn as authored
+void rf_act_dev_beam(bool on, float x, float y);  // dev: hold the menu pointer from the lower right at a screen point
+// rf_gyro.c: gyroscope options (eye position / tilt and turn, each with a sensitivity)
+#define RF_GYRO_SENS_COUNT 7
+extern int g_gyro_pos, g_gyro_rot, g_gyro_pos_sens, g_gyro_rot_sens;
+extern float g_gyro_px, g_gyro_py, g_gyro_pz;  // eye offset from the phone's motion, metres right / up / forward
+int rf_gyro_sens_pct(int idx);
+void rf_gyro_post(float dx, float dy, float dz, float ux, float uy, float uz);  // any thread (Java sensor thread)
+void rf_accel_post(float az, float dt);  // linear acceleration along the screen normal (towards the player), any thread
+int rf_gyro_wanted(void);                // bit 0: gyroscope + gravity, bit 1: linear acceleration
+void rf_gyro_reset_pos(void);
+void rf_gyro_tick(void);
+// rf_options.c: the Options page with the gyroscope rows
+bool rf_options_press(void* btn);  // a port button of Options was pressed (handled)
+bool rf_options_back(void);        // Back on the gyroscope page: back to the options (handled)
 
 // ---- rf_scene.c: scene inspection (dev), volumetric leftovers ----
 void rf_dev_comps(const char* name);

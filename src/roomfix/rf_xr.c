@@ -75,6 +75,19 @@ static int32_t h_node_pose(int32_t node, v3* pose /* Pose: position, rotation */
     if (node_pose(node, &p, &q)) {
         pose[0] = p;
         *(quat*)((char*)pose + 12) = q;
+        // the camera takes this pose now (TrackedPoseDriver in Update and before rendering): flat texts move with it
+        if (node == XRN_CENTER_EYE) {
+            rf_flatui_pin_all(false);
+            if (g_dev) {
+                static int last, calls;
+                calls++;
+                if (g_frame - last >= 600) {
+                    rf_log("xr: centre-eye pose read %.2f times per frame", last ? calls / (float)(g_frame - last) : 0.0f);
+                    last = g_frame;
+                    calls = 0;
+                }
+            }
+        }
         return 3;  // PoseDataFlags.Position | Rotation
     }
     return ORIG(H_XR_NODEPOSE, int32_t (*)(int32_t, v3*, const void*))(node, pose, mi);

@@ -24,7 +24,7 @@ static bool input_allowed(int off) {
     return ic && CALLP(C_INPUTCTL_ALLOWED, fn_b1)(ic, NULL);
 }
 
-static bool gameplay(void) { return !rf_menu_context() && rf_alive(g_player) && g_frame - g_player_frame <= 2; }
+static bool gameplay(void) { return !rf_menu_context() && rf_player(); }
 
 bool rf_inventory_open(void) {
     void* hm = static_field0(META_HUDMGR_TYPEINFO);  // HudManager.Instance

@@ -1,7 +1,8 @@
 // Touch input for the flat port.
 // Java (UnityPlayerActivity.dispatchTouchEvent -> RoomFix.onTouch) posts normalised touches from the
 // UI thread; the Unity main thread consumes them once per frame and maps them to game actions:
-//   menus (main menu, pause menu)  tap -> the game's laser pointer clicks under the finger
+//   menus (main menu, pause menu)  tap -> the game's laser pointer clicks under the finger (beam hidden);
+//                                  a drag never turns the camera there (rf_menu.c frames every screen)
 //   gameplay                       press on a grabbable -> grab it with the right hand, drag moves it
 //                                  along its constraint, lift releases;
 //                                  press elsewhere + drag -> look around (head yaw/pitch);
@@ -56,7 +57,7 @@ static void update_look_scale(void) {
 }
 
 // ---------------------------------------------------------------- primary finger gestures
-enum { F_NONE = 0, F_PENDING, F_LOOK, F_GRAB, F_PINCH };
+enum { F_NONE = 0, F_PENDING, F_LOOK, F_GRAB, F_PINCH, F_MENUDRAG };
 
 static struct {
     int mode;
@@ -104,8 +105,9 @@ static void finger_move(const touch_ev* e) {
         rf_act_grab_drag(e->x, e->y);
         return;
     }
-    if (g_f.mode == F_PENDING && (fabsf(e->x - g_f.x0) > MOVE_X || fabsf(e->y - g_f.y0) > MOVE_Y)) g_f.mode = F_LOOK;
-    if (g_f.mode == F_LOOK) {
+    if (g_f.mode == F_PENDING && (fabsf(e->x - g_f.x0) > MOVE_X || fabsf(e->y - g_f.y0) > MOVE_Y))
+        g_f.mode = rf_menu_context() ? F_MENUDRAG : F_LOOK;  // no camera turning in menus (round 2)
+    if (g_f.mode == F_LOOK && !rf_menu_context()) {
         g_head.yaw += dx * g_deg_per_x;
         g_head.pitch -= dy * g_deg_per_y;
         if (g_head.pitch > 80) g_head.pitch = 80;
@@ -195,7 +197,7 @@ static void on_event(const touch_ev* e) {
         return;
     }
     if (g_f2.look && e->id == g_f2.id) {
-        if (e->action == 2) {
+        if (e->action == 2 && !rf_menu_context()) {
             g_head.yaw += (e->x - g_f2.x) * g_deg_per_x;
             g_head.pitch -= (e->y - g_f2.y) * g_deg_per_y;
             if (g_head.pitch > 80) g_head.pitch = 80;

@@ -204,6 +204,54 @@
       "Korean": "에필로그",
       "Simplified Chinese": "结局",
       "Traditional Chinese": "結局"
+    },
+    "PORT_GYRO": {
+      "English": "gyroscope",
+      "French": "gyroscope",
+      "German": "gyroskop",
+      "Spanish": "giroscopio",
+      "Italian": "giroscopio",
+      "Russian": "гироскоп",
+      "Japanese": "ジャイロ",
+      "Korean": "자이로",
+      "Simplified Chinese": "体感",
+      "Traditional Chinese": "體感"
+    },
+    "PORT_GYRO_POS": {
+      "English": "eye position",
+      "French": "position des yeux",
+      "German": "augenposition",
+      "Spanish": "posición de los ojos",
+      "Italian": "posizione occhi",
+      "Russian": "положение глаз",
+      "Japanese": "目の位置",
+      "Korean": "눈 위치",
+      "Simplified Chinese": "眼睛位置",
+      "Traditional Chinese": "眼睛位置"
+    },
+    "PORT_GYRO_ROT": {
+      "English": "tilt and turn",
+      "French": "inclinaison et rotation",
+      "German": "neigen und drehen",
+      "Spanish": "inclinar y girar",
+      "Italian": "inclina e ruota",
+      "Russian": "наклон и поворот",
+      "Japanese": "傾きと回転",
+      "Korean": "기울기와 회전",
+      "Simplified Chinese": "倾斜与转动",
+      "Traditional Chinese": "視角轉動"
+    },
+    "PORT_SENSITIVITY": {
+      "English": "sensitivity",
+      "French": "sensibilité",
+      "German": "empfindlichkeit",
+      "Spanish": "sensibilidad",
+      "Italian": "sensibilita'",
+      "Russian": "чувствительность",
+      "Japanese": "感度",
+      "Korean": "감도",
+      "Simplified Chinese": "感度",
+      "Traditional Chinese": "感度"
     }
   }
 }

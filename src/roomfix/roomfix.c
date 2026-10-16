@@ -104,6 +104,20 @@ static int phdr_cb(struct dl_phdr_info* info, size_t size, void* data) {
 rf_il2cpp_api_t g_il2;
 void* g_vrpm;
 
+void rf_ref_clear(rf_ref* r) {
+    if (r->h && g_il2.gchandle_free) g_il2.gchandle_free(r->h);
+    r->h = 0;
+}
+
+void rf_ref_set(rf_ref* r, void* obj) {
+    rf_ref_clear(r);
+    if (obj && g_il2.gchandle_new_weakref) r->h = g_il2.gchandle_new_weakref(obj, false);
+}
+
+void* rf_ref_get(const rf_ref* r) {
+    return r->h && g_il2.gchandle_get_target ? g_il2.gchandle_get_target(r->h) : NULL;
+}
+
 bool rf_class_is(void* obj, const char* name) {
     if (!obj || !g_il2.object_get_class || !g_il2.class_get_name) return false;
     for (void* k = g_il2.object_get_class(obj); k; k = g_il2.class_get_parent ? g_il2.class_get_parent(k) : NULL) {
@@ -154,6 +168,10 @@ static void resolve_api(void* h) {
     g_il2.image_get_name = (const char* (*)(void*))dlsym(h, "il2cpp_image_get_name");
     g_il2.class_from_name = (void* (*)(void*, const char*, const char*))dlsym(h, "il2cpp_class_from_name");
     g_il2.resolve_icall = (void* (*)(const char*))dlsym(h, "il2cpp_resolve_icall");
+    g_il2.object_new = (void* (*)(void*))dlsym(h, "il2cpp_object_new");
+    g_il2.gchandle_new_weakref = (uint32_t (*)(void*, bool))dlsym(h, "il2cpp_gchandle_new_weakref");
+    g_il2.gchandle_get_target = (void* (*)(uint32_t))dlsym(h, "il2cpp_gchandle_get_target");
+    g_il2.gchandle_free = (void (*)(uint32_t))dlsym(h, "il2cpp_gchandle_free");
 }
 
 // ---------------------------------------------------------------- core hooks
@@ -212,26 +230,44 @@ static void track_scene(void) {
         rf_chapters_scene(g_scene);
     }
     static bool had_player;
-    bool has = rf_alive(g_player) && g_frame - g_player_frame < 30;
+    bool has = g_player && g_frame - g_player_frame < 30 && rf_alive(g_player);
     if (has != had_player) {
         had_player = has;
         rf_log("player %s (scene '%s')", has ? "ready" : "gone", g_scene);
     }
 }
 
+// dev: the camera really renders with the pose the port computes for the flat texts (rig * synthetic head)
+static void dev_check_camera_pose(void) {
+    if (!g_dev || g_frame % 300) return;
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    void* ct = rf_transform(cam);
+    void* rig = rf_tr_parent(ct);
+    if (!rf_alive(rig)) return;
+    v3 want = CALLP(C_TR_POINT, v3 (*)(void*, v3, const void*))(rig, g_head.pos, NULL);
+    quat wq = q_mul(rf_tr_rot(rig), rf_head_rot()), cq = rf_tr_rot(ct);
+    float dot = fabsf(wq.x * cq.x + wq.y * cq.y + wq.z * cq.z + wq.w * cq.w);
+    rf_log("dev: camera vs head pose: %.4f m, %.3f deg; near clip %.3f", v3_len(v3_sub(want, rf_tr_pos(ct))),
+           2.0f * acosf(dot > 1.0f ? 1.0f : dot) / DEG2RAD, CALLP(C_CAM_NEAR, float (*)(void*, const void*))(cam, NULL));
+}
+
 void rf_frame_tick(void) {
     g_frame++;
     track_scene();
     rf_dev_tick();
+    dev_check_camera_pose();  // before this frame's input changes the head
     g_hand_prev_pos[0] = g_hand[0].pos;
     g_hand_prev_pos[1] = g_hand[1].pos;
     rf_touch_tick();
+    rf_gyro_tick();
     rf_view_tick();
     rf_hand_rest_apply();
     rf_interact_tick();
     rf_menu_tick();
     rf_hud_tick();
     rf_settings_tick();
+    rf_flatui_pin_all(true);  // after every change of the head this frame
 }
 
 void* g_vrim;    // VrInputModule (menus' laser pointer input), captured in Process
@@ -287,6 +323,7 @@ static void h_tut_msg(void* self, Il2CppString* title, Il2CppString* text, int32
     ORIG(H_TUT_MSG, void (*)(void*, Il2CppString*, Il2CppString*, int32_t, int32_t, int32_t, const void*))(
         self, title, text, action, flat_attach(attach), alt, mi);
     box_into_view(self);
+    rf_flatui_add(self, RF_FLAT_TOP);  // round 2: flat on the screen, instructions at the top
     // the box illustrates the VR controller and the button to use (TutorialMessageBox.LargeImage/SmallImage);
     // the touch wording comes from the port's strings instead
     for (int off = 0xc8; off <= 0xd0; off += 8) {
@@ -302,6 +339,7 @@ static void h_msg_box(void* self, Il2CppString* text, int32_t attach, const void
     rf_log("message: '%s' attach=%d", b, attach);
     ORIG(H_MSG_BOX, void (*)(void*, Il2CppString*, int32_t, const void*))(self, text, flat_attach(attach), mi);
     box_into_view(self);
+    rf_flatui_add(self, rf_class_is(self, "TutorialMessageBox") ? RF_FLAT_TOP : RF_FLAT_BOTTOM);  // remarks below
 }
 
 static void h_gc_awake(void* self, const void* mi) {
@@ -353,6 +391,8 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_QSM_DEPTHMODE, (void*)h_qsm_depthmode, false, false},
     {H_LOC_LOADINITIAL, (void*)h_loc_load_initial, true, false},
     {H_PXR_BINDVERIFY, (void*)h_pxr_bind_verify, false, false},
+    {H_FEP_SETLENGTH, (void*)h_fep_setlength, true, false},  // original only for the dev A/B (beamallow)
+    {H_SIV_UPDATE, (void*)h_siv_update, false, false},
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, true},
 };
 
@@ -466,6 +506,21 @@ static jint native_help_request(JNIEnv* env, jclass cls) {
     return rf_help_take();
 }
 
+static void native_gyro(JNIEnv* env, jclass cls, jfloat dx, jfloat dy, jfloat dz, jfloat ux, jfloat uy, jfloat uz) {
+    (void)env; (void)cls;
+    rf_gyro_post(dx, dy, dz, ux, uy, uz);
+}
+
+static void native_accel(JNIEnv* env, jclass cls, jfloat az, jfloat dt) {
+    (void)env; (void)cls;
+    rf_accel_post(az, dt);
+}
+
+static jint native_gyro_wanted(JNIEnv* env, jclass cls) {
+    (void)env; (void)cls;
+    return rf_gyro_wanted();
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
     JNIEnv* env = NULL;
@@ -480,6 +535,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeWantMaxRefresh", "()I", (void*)native_want_max_refresh},
         {"nativeAppLocale", "(Ljava/lang/String;)V", (void*)native_app_locale},
         {"nativeHelpRequest", "()I", (void*)native_help_request},
+        {"nativeGyro", "(FFFFFF)V", (void*)native_gyro},
+        {"nativeGyroWanted", "()I", (void*)native_gyro_wanted},
+        {"nativeAccel", "(FF)V", (void*)native_accel},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;
