@@ -559,6 +559,17 @@ static jint native_gauge(JNIEnv* env, jclass cls, jfloatArray out) {
     return (jint)g[0];
 }
 
+// round 6: the hold-distance slider (rf_interact.c) - copies g_hold into out, returns 1 while the slider is shown
+static jint native_hold(JNIEnv* env, jclass cls, jfloatArray out) {
+    (void)cls;
+    float h[RF_HOLD_N];
+    h[0] = g_hold[0];
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
+    for (int i = 1; i < RF_HOLD_N; i++) h[i] = g_hold[i];
+    if (out && (*env)->GetArrayLength(env, out) >= RF_HOLD_N) (*env)->SetFloatArrayRegion(env, out, 0, RF_HOLD_N, h);
+    return h[0] > 0.5f;
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
 #if RF_RELEASE
@@ -584,6 +595,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeAccel", "(FF)V", (void*)native_accel},
         {"nativeMetrics", "(FI)V", (void*)native_metrics},
         {"nativeGauge", "([F)I", (void*)native_gauge},
+        {"nativeHold", "([F)I", (void*)native_hold},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

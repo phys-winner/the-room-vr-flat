@@ -11,7 +11,8 @@
 //                                  rf_view.c; turning the view never moves them);
 //                                  teleport mode (HUD) + tap on a location marker -> teleport.
 // HUD buttons are hit-tested in Java; their presses arrive here as action 10 (id = button) so every game
-// action still runs on the Unity main thread. Action 11 cancels all fingers (window focus lost).
+// action still runs on the Unity main thread. Action 11 cancels all fingers (window focus lost). Action 12 is the
+// hold-distance slider (round 6): x = metres from the eyes for the carried item; its finger never reaches the game.
 #include <pthread.h>
 #include <string.h>
 
@@ -19,7 +20,7 @@
 
 // ---------------------------------------------------------------- event queue (UI thread -> main thread)
 typedef struct {
-    int action;  // 0 down, 1 up, 2 move, 3 cancel, 10 HUD button (id), 11 cancel all
+    int action;  // 0 down, 1 up, 2 move, 3 cancel, 10 HUD button (id), 11 cancel all, 12 hold distance (x metres)
     int id;
     float x, y;  // 0..1 of the game view, y down
     int64_t t;   // ms (MotionEvent time base)
@@ -155,6 +156,10 @@ static void on_event(const touch_ev* e) {
     }
     if (e->action == 11) {
         cancel_all();
+        return;
+    }
+    if (e->action == 12) {
+        rf_act_hold_depth(e->x);
         return;
     }
     if (e->action == 0) {

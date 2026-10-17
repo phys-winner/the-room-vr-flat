@@ -23,7 +23,8 @@ import java.io.File;
 
 /**
  * Flat-screen port bootstrap: loads libroomfix.so before Unity creates its player, adds the touch HUD and
- * routes touches: a finger that lands on a HUD button belongs to that button, every other finger goes to
+ * routes touches: a finger that lands on a HUD button belongs to that button, a finger on the hold-distance slider
+ * (round 6, shown while an item is carried) moves the item nearer or farther, every other finger goes to
  * libroomfix (look, grab, pinch, menu taps) with coordinates normalised to the Unity view. While the gesture
  * card (HelpCard) is shown it takes every touch and Back; a tap closes it. The gyroscope options (Options ->
  * Gyroscope) are fed from here: the gyroscope and gravity sensors (and linear acceleration for "eye position") run
@@ -71,8 +72,12 @@ public final class RoomFix {
     /** Position gauge (HudView.GAUGE_N floats) into out; returns the bits of the axes to draw, 0 when none. */
     static native int nativeGauge(float[] out);
 
-    private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
+    /** Hold-distance slider (HudView.HOLD_N floats) into out; returns 1 while an item is carried (slider shown). */
+    static native int nativeHold(float[] out);
+
+    private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11, A_HOLD = 12;
     private static final int OWNER_GAME = 0;
+    private static final int OWNER_HOLD = 100;  // a finger on the hold-distance slider (never reaches the game)
 
     private static Activity sActivity;
     private static boolean sReady;
@@ -227,6 +232,35 @@ public final class RoomFix {
         }
     };
 
+    private static final float[] sHold = new float[HudView.HOLD_N];
+    private static boolean sHoldFrames;  // sHoldFrame runs every display frame
+
+    /**
+     * Round 6: the hold-distance slider follows the carried item every display frame while it shows or fades, and while
+     * a game finger is down (a grab starts a few frames after the finger lands, so the slider appears with it).
+     */
+    private static final Runnable sHoldFrame = new Runnable() {
+        @Override
+        public void run() {
+            boolean on = sFocused && nativeHold(sHold) != 0;
+            sHoldFrames = sHud != null && (sHud.setHold(sHold, on) || (sFocused && gameFingers()));
+            if (sHoldFrames) sHud.postOnAnimation(this);
+        }
+    };
+
+    private static void startHoldFrames() {
+        if (sHoldFrames || sHud == null) return;
+        sHoldFrames = true;
+        sHud.postOnAnimation(sHoldFrame);
+    }
+
+    private static boolean gameFingers() {
+        for (int i = 0; i < sOwner.size(); i++) {
+            if (sOwner.valueAt(i) == OWNER_GAME) return true;
+        }
+        return false;
+    }
+
     private static final Runnable sPoll = new Runnable() {
         @Override
         public void run() {
@@ -238,6 +272,7 @@ public final class RoomFix {
                     sGaugeFrames = true;
                     sHud.postOnAnimation(sGaugeFrame);
                 }
+                if (!sHoldFrames && sFocused && nativeHold(sHold) != 0) startHoldFrames();
             }
             int help = nativeHelpRequest();
             if (help > 0 && sHelp != null) showHelp(help - 1);
@@ -353,9 +388,13 @@ public final class RoomFix {
                     sOwner.put(id, b);
                     sHud.setPressed(b, true);
                     nativeTouch(A_HUD, b, 0, 0, t);
+                } else if (sHud != null && sHud.holdHit(x - hx, y - hy)) {
+                    sOwner.put(id, OWNER_HOLD);
+                    nativeTouch(A_HOLD, id, sHud.holdDown(y - hy), 0, t);
                 } else {
                     sOwner.put(id, OWNER_GAME);
                     nativeTouch(A_DOWN, id, (x - gx) / w, (y - gy) / h, t);
+                    startHoldFrames();
                 }
                 break;
             }
@@ -365,7 +404,9 @@ public final class RoomFix {
                 int id = ev.getPointerId(i);
                 int owner = sOwner.get(id, -1);
                 sOwner.delete(id);
-                if (owner > 0) {
+                if (owner == OWNER_HOLD) {
+                    if (sHud != null) sHud.holdUp();
+                } else if (owner > 0) {
                     if (sHud != null) sHud.setPressed(owner, false);
                 } else if (owner == OWNER_GAME) {
                     nativeTouch(A_UP, id, (ev.getX(i) - gx) / w, (ev.getY(i) - gy) / h, t);
@@ -375,8 +416,11 @@ public final class RoomFix {
             case MotionEvent.ACTION_MOVE:
                 for (int i = 0; i < ev.getPointerCount(); i++) {
                     int id = ev.getPointerId(i);
-                    if (sOwner.get(id, -1) == OWNER_GAME) {
+                    int owner = sOwner.get(id, -1);
+                    if (owner == OWNER_GAME) {
                         nativeTouch(A_MOVE, id, (ev.getX(i) - gx) / w, (ev.getY(i) - gy) / h, t);
+                    } else if (owner == OWNER_HOLD && sHud != null) {
+                        nativeTouch(A_HOLD, id, sHud.holdMove(ev.getY(i) - hy), 0, t);
                     }
                 }
                 break;

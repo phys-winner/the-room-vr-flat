@@ -3,7 +3,8 @@
 Inputs: original/original.apk sha256 d6608b54…e65e (libil2cpp build-id
 689e6add5baa2220aab9a52be8eaf486284038ff), port sources src/roomfix (libroomfix), src/java/port/roomfix (HUD,
 routing). Device evidence: redmi-note8pro (Redmi Note 8 Pro, Android 11, Mali-G76), runs R003–R010; round 4:
-poco-x3-nfc (POCO X3 NFC, Android 16, Adreno 618), R033–R035.
+poco-x3-nfc (POCO X3 NFC, Android 16, Adreno 618), R033–R035; round 6: pixel-10 (Pixel 10, Android 17, PowerVR),
+R058–R060.
 
 ## Baseline (original)
 The PICO build has no touch or gamepad path at all: every action is a 6-DoF controller pose plus buttons read
@@ -15,7 +16,8 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 ## Architecture of the port
 - Synthetic XR devices (rf_xr.c): head pose from look input; two hand controllers whose poses/buttons are set by
   touch actions; all reads go through the game's own XR → PVRInput → Rewired → Player/Controller code.
-- Java (RoomFix.onTouch): per-pointer ownership — a finger that lands on a HUD button belongs to it; every other
+- Java (RoomFix.onTouch): per-pointer ownership — a finger that lands on a HUD button belongs to it, a finger on the
+  hold-distance slider (round 6) moves the carried item nearer or farther; every other
   finger goes to libroomfix with coordinates normalised to the Unity view (window letterbox/cutout aware).
 - HUD (HudView): pause, teleport, inventory, eyepiece, snap-turn arrows; visibility from the game's input gates
   (Player.TeleportInput/InventoryInput/GogglesInput/SnapTurnInput + GogglesHudManager enabled); opted out of
@@ -54,7 +56,9 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
 | Look-through mirror / glass at crystals | hold the glass up, align | same as the note hole (hold + turn + align) | grab + head pose | Witch chapter | debt: "RevealTreeWithMirror" |
 | Pick up item (proxy) | grip, release | long press, lift | InventoryItemProxy grab/release → inventory | gameplay | R009 |
 | Read a picked-up item (note, clipboard, tool) | hold in front of the eyes, turn the wrist | long press: the item comes up to be read, its face (the side the inventory shows) towards the eyes, upright, wholly in view; moving the finger carries it (round 4, R4-4) | grabber pose and rotation (InventoryItemGrabbable.InventorySlotTransform axes) | gameplay | R009, R034 |
-| Carry item to a place | carry in hand | drag; item follows the surface under the finger | depth from physics raycast (ignores held item, inventory grid) | gameplay | R010 |
+| Carry item to a place | carry in hand | drag; item follows the surface under the finger (until the hold-distance slider is used) | depth from physics raycast (ignores held item, inventory grid) | gameplay | R010 |
+| Hold an item nearer or farther (reach out, draw the hand in) | arm reach | while an item is carried, a slider on the left under the pause button: up farther, down nearer, from 0.2 m to the grab reach (1.6 m + the eyes' offset from the location's eye point); the knob comes to a finger put down on the track, a finger on the knob drags it without a jump; once moved, the item stays at the chosen distance on the holding finger's ray for the rest of the hold (round 6, R6-1) | HudView slider → touch action 12 → rf_act_hold_depth (g_grab.manual / depth_want, eased); g_hold → RoomFix.nativeHold per display frame | gameplay | built: p105 developer, p106 release (R059, R060); device check not run (the operator took the device) |
+| Carry a painting puzzle's brush through stars (the Desert's Sun, the Witch chapter's constellations) | move the hand through the stars in the air | press the Sun and drag: it stays at the distance it was taken at (never brought up to be read, never laid onto the surface under the finger); the hold-distance slider sets its depth for each star | PaintingPuzzleBrush (an InventoryItemGrabbable) held K_FREE with a manual distance; a star counts when Vector3.Distance(brush, star) < star Radius + BrushCollisionRadius (PaintingCheckPoint.Update); teleport, snap turn and the eyepiece going off abort the attempt (PaintingPuzzle) | Desert (plinth in front of the temple, temple table), Witch chapter | operator's screenshot R058 (Desert plinth, eyepiece on); route by touch: debt (round 6) |
 | Inventory open/close | A / X button | HUD inventory | right primary pulse (RwAction 21) → HudManager.ToggleOnOff; grid follows camera pitch; on opening it is framed wholly in view, as large as in VR, in front of anything in the way (round 4, R4-2) | gameplay | R007, R010, R034, R035 |
 | Take item from inventory | point finger at slot + grip | press on the slot | PointingFingerTip ray (InventoryHud.RaycastInventory) | inventory | R006, R009 |
 | Use item on receiver (keyhole, socket) | carry to receiver, release | drag onto it, lift | receiver magnet (Controller.InventoryPoint probe formula) | gameplay | R006, R009, R010 |
@@ -96,5 +100,7 @@ could use (no gamepad path to preserve; a gamepad scheme is an optional stage-8 
   eyepiece tab, poke panel; hub → Chapel and turning a held object (R018).
 - Superzoom enter/exit by touch (R019).
 - Story-placed debts (the route did not reach them; flat paths implemented): Chapel organ keys, lockpick; Witch
-  chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles.
+  chapter pouring ("MixFirstSpell"), mirror alignment, bellows, candles; painting puzzles (Desert plinth and temple
+  table "SolvePaintingPuzzle" / "SolvePlynthPaintingPuzzle", Witch chapter): the brush and the hold-distance slider
+  are implemented (round 6), not yet played through by touch.
 - First-run hint for the gestures: done, gesture card on the first main menu and from Options (stage 8 C3, R022).

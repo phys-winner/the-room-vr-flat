@@ -114,9 +114,14 @@ static struct {
     float read_depth;  // a picked-up item comes to this distance from the eyes to be read (0: not an item)
     bool carry;        // the finger has moved on: the item is being carried somewhere (depth follows surfaces)
     v3 box_c, box_h;   // the item's box (centre, half extents) in its own axes, for keeping it in view while read
+    // round 6: a slider under the pause button sets how far from the eyes a carried item is held
+    bool manual;       // the distance is the player's (the slider) or a painting brush's own: no reading pull, no surfaces
+    float depth_want;  // distance from the eyes the item goes to while manual
+    float dmin, dmax;  // the slider's range for this hold
 } g_grab;
 
 #define REACH_M 1.6f       // farthest grab point from the location's eye point (seated VR reach incl. leaning)
+#define HOLD_NEAR 0.2f     // the hold-distance slider's near end, metres from the eyes
 #define CARRY_MOVE 0.08f   // the finger moved this far (screen heights): a picked-up item is carried, not read
 #define HOVER_FRAMES 3     // frames the hand rests on the object before the grip closes
 
@@ -584,15 +589,24 @@ int rf_act_grab_begin(float nx, float ny) {
     g_grab.inv = (rf_class_is(gr, "InventoryItemGrabbable") && in_inventory(gr)) || in_inventory_hud(gr);
     g_grab.inv_dir = d;
     g_grab.face = -1;
-    if (rf_class_is(gr, "InventoryItemGrabbable") || rf_class_is(gr, "InventoryItemProxy")) face_begin(gr);
+    // the slider's range: from just in front of the eyes to the grab reach (eyes moved back reach farther, rf_view.c)
+    g_grab.dmin = HOLD_NEAR;
+    g_grab.dmax = fmaxf(REACH_M + rf_view_offset(), g_grab.depth);
+    g_grab.depth_want = g_grab.depth;
+    // a painting puzzle's brush (the Desert's Sun, the Witch chapter's constellations) is carried through stars in
+    // mid-air: it stays at the distance it was taken at until the slider moves it - an InventoryItemGrabbable by class,
+    // but never brought up to be read and never laid onto the surface under the finger
+    if (rf_class_is(gr, "PaintingPuzzleBrush")) g_grab.manual = true;
+    else if (rf_class_is(gr, "InventoryItemGrabbable") || rf_class_is(gr, "InventoryItemProxy")) face_begin(gr);
     g_grab.target = g_grab.point0;
     g_grab.target_rot = g_grab.rot0;
     g_grab.state = G_HOVER;
     g_grab.frames = 0;
-    rf_log("grab: %s kind=%d inv=%d poke=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f h=%.3f..%.3f twistControl=%d",
+    rf_log("grab: %s kind=%d inv=%d poke=%d dist=%.2f axis(%.2f %.2f %.2f) r0=%.3f h=%.3f..%.3f twistControl=%d hold %.2f..%.2f%s",
            rf_class_name(gr), g_grab.kind, g_grab.inv, g_grab.poke, dist, g_grab.axis.x, g_grab.axis.y, g_grab.axis.z,
            g_grab.r0, g_grab.hmin, g_grab.hmax,
-           rf_class_is(gr, "RotationGrabbable") ? *((char*)gr + 0xa8) : -1);
+           rf_class_is(gr, "RotationGrabbable") ? *((char*)gr + 0xa8) : -1, g_grab.dmin, g_grab.dmax,
+           g_grab.manual ? " (held where taken)" : "");
     return RF_GRAB_OK;
 }
 
@@ -650,7 +664,35 @@ void rf_act_grab_turn(float x0, float y0, float x1, float y1) {
 }
 
 void rf_act_grab_depth(float depth) {
-    if (g_grab.state == G_HOLD || g_grab.state == G_HOVER) g_grab.depth = depth;
+    if (g_grab.state == G_HOLD || g_grab.state == G_HOVER) g_grab.depth = g_grab.depth_want = depth;
+}
+
+// ---- round 6 (operator 2026-10-17: "a puzzle cannot be solved, items must be moved farther away") ----
+// A VR player reaches out or draws the hand in; a finger only moves across the screen, and a carried item kept its
+// distance over empty space or jumped to the surface under the finger. While an item is carried, the HUD shows a
+// slider under the pause button (HudView): up is farther, down nearer. Its value is the item's distance from the eyes
+// along the holding finger's ray; once the slider moves, the item stays at that distance for the rest of the hold.
+volatile float g_hold[RF_HOLD_N];
+
+void rf_act_hold_depth(float metres) {
+    if ((g_grab.state != G_HOLD && g_grab.state != G_HOVER) || g_grab.kind != K_FREE) return;
+    if (!g_grab.manual) rf_log("grab: hold distance from the slider (was %.2f m)", g_grab.depth);
+    g_grab.manual = true;
+    g_grab.depth_want = metres < g_grab.dmin ? g_grab.dmin : metres > g_grab.dmax ? g_grab.dmax : metres;
+}
+
+// what the slider shows (HudView polls it from the UI thread): the values first, then the shown flag
+static void hold_publish(void) {
+    bool on = false;
+    if (g_grab.state == G_HOLD && g_grab.kind == K_FREE && (g_hud_state & HUD_VISIBLE) && grabber_transform())
+        on = rf_alive(CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL));
+    if (on) {
+        g_hold[1] = g_grab.manual ? g_grab.depth_want : g_grab.depth;
+        g_hold[2] = g_grab.dmin;
+        g_hold[3] = g_grab.dmax;
+    }
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+    g_hold[0] = on ? 1.0f : 0.0f;
 }
 
 // ---- inventory receivers (keyholes, sockets): InventoryReceiver.AllReceivers (static field 0) ----
@@ -896,6 +938,11 @@ static v3 drag_target(void) {
     default: {
         v3 t;
         if (receiver_magnet(g_grab.fx, g_grab.fy, &t)) return t;
+        if (g_grab.manual) {
+            // round 6: at the player's distance along the finger's ray, eased so that a jump of the slider glides
+            g_grab.depth += (g_grab.depth_want - g_grab.depth) * 0.3f;
+            return v3_add(c, v3_scale(d, g_grab.depth));
+        }
         // A VR player carries a held object to whatever they reach for: the object follows the surface under the
         // finger (just in front of it), smoothed, within arm's reach. Over empty space it keeps its distance.
         void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
@@ -1461,5 +1508,6 @@ void rf_interact_tick(void) {
     tick_click();
     tick_teleport();
     tick_grab();
+    hold_publish();
     tick_hand_visibility();
 }

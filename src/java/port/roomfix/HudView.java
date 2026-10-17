@@ -16,6 +16,8 @@ import android.view.WindowInsets;
  * Round 5: the position gauge in the top right corner - one track per axis of the view (forward, right, up) while two
  * fingers move the eyes along it inside the location (rf_view.c): the location's span, the reachable part, its centre
  * and the eyes, with a stop flash where a move was held back.
+ * Round 6: the hold-distance slider under the pause button while an item is carried (rf_interact.c) - up is farther,
+ * down nearer; the track fills from the near end to the knob. RoomFix routes a finger on it here, never to the game.
  */
 final class HudView extends View {
     // native HUD_* flags (src/roomfix/rf.h)
@@ -43,6 +45,16 @@ final class HudView extends View {
     private int gaugeAxes;
     private float gRight, gTop;  // top right corner of the gauge
     private final Paint gPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    // native RF_HOLD_N (rf.h): [0] shown, [1] the item's distance from the eyes, [2] near end, [3] far end (metres)
+    static final int HOLD_N = 4;
+    private final float[] hold = new float[HOLD_N];
+    private boolean holdOn;     // an item is carried: the slider shows
+    private float holdAlpha;    // fades in and out
+    private boolean holdDrag;   // a finger moves the knob
+    private float holdGrabDy;   // knob centre minus the finger (taking the knob itself does not make it jump)
+    private float holdFingerY;  // the dragging finger
+    private float holdValue;    // metres the knob stands for while dragged
+    private float hX, hTop, hBotFull, hBotSnap;  // track x, far end (top), near end (bottom; above the turn buttons)
 
     HudView(Context c) {
         super(c);
@@ -72,9 +84,75 @@ final class HudView extends View {
         return axes != 0;
     }
 
+    /**
+     * Round 6: hold-distance data from RoomFix.nativeHold, every display frame while polled; returns whether the slider
+     * is drawn (shown or fading out) and the caller keeps polling.
+     */
+    boolean setHold(float[] h, boolean on) {
+        boolean changed = on != holdOn;
+        for (int i = 1; i < HOLD_N && !changed && on; i++) changed = h[i] != hold[i];
+        if (on) System.arraycopy(h, 0, hold, 0, HOLD_N);
+        // a finger still on the slider from an earlier hold takes the new item from where that item is
+        if (on && !holdOn && holdDrag) holdGrabDy = holdY(hold[1]) - holdFingerY;
+        holdOn = on;
+        float a = Math.max(0f, Math.min(1f, holdAlpha + (on ? 0.2f : -0.14f)));
+        if (a != holdAlpha) changed = true;
+        holdAlpha = a;
+        if (changed) invalidate();
+        return on || holdAlpha > 0f;
+    }
+
     void setState(int s) {
         if (s != state) {
             state = s;
+            invalidate();
+        }
+    }
+
+    private float holdBottom() {
+        return (state & S_SNAP) != 0 ? hBotSnap : hBotFull;
+    }
+
+    // knob position for a distance, and the distance at a position (up is farther)
+    private float holdY(float metres) {
+        float lo = hold[2], hi = hold[3], top = hTop, bot = holdBottom();
+        float t = hi > lo ? (metres - lo) / (hi - lo) : 0f;
+        return bot - Math.max(0f, Math.min(1f, t)) * (bot - top);
+    }
+
+    private float holdMetres(float y) {
+        float top = hTop, bot = holdBottom();
+        float t = bot > top ? (bot - y) / (bot - top) : 0f;
+        return hold[2] + Math.max(0f, Math.min(1f, t)) * (hold[3] - hold[2]);
+    }
+
+    /** The hold-distance slider is under a point in this view's coordinates (only while it shows). */
+    boolean holdHit(float x, float y) {
+        if (!holdOn || holdAlpha < 0.5f || (state & S_VISIBLE) == 0) return false;
+        return Math.abs(x - hX) <= 34 * dp && y >= hTop - 30 * dp && y <= holdBottom() + 30 * dp;
+    }
+
+    /** A finger lands on the slider: returns the distance it asks for (the knob comes to it unless it took the knob). */
+    float holdDown(float y) {
+        float ky = holdY(hold[1]);
+        holdGrabDy = Math.abs(y - ky) <= 26 * dp ? ky - y : 0f;
+        holdDrag = true;
+        return holdMove(y);
+    }
+
+    float holdMove(float y) {
+        holdFingerY = y;
+        float v = holdMetres(y + holdGrabDy);
+        if (v != holdValue) {
+            holdValue = v;
+            invalidate();
+        }
+        return v;
+    }
+
+    void holdUp() {
+        if (holdDrag) {
+            holdDrag = false;
             invalidate();
         }
     }
@@ -125,6 +203,7 @@ final class HudView extends View {
 
     void clearPressed() {
         for (int b = 0; b < NB; b++) pressed[b] = false;
+        holdDrag = false;
         invalidate();
     }
 
@@ -166,6 +245,12 @@ final class HudView extends View {
         set(B_TURN_R, left + 3 * rS + gap, bottom - rS, rS);
         gRight = right;  // the gauge: top right, above the button column
         gTop = top;
+        // the hold-distance slider: under the pause button, down to the bottom (above the turn buttons while they show);
+        // its ends leave room for the far (top) and near (bottom) marks
+        hX = cx[B_PAUSE];
+        hTop = cy[B_PAUSE] + rad[B_PAUSE] + 50 * dp;
+        hBotFull = bottom - 30 * dp;
+        hBotSnap = bottom - 2 * rS - gap - 30 * dp;
     }
 
     private void set(int b, float x, float y, float r) {
@@ -189,6 +274,40 @@ final class HudView extends View {
             drawGlyph(c, b, x, y, r * 0.52f);
         }
         if (gaugeAxes != 0) drawGauge(c);
+        if (holdAlpha > 0f) drawHold(c);
+    }
+
+    // ---- round 6: hold-distance slider ----
+    private static final int H_BACK = 0x8C000000, H_TRACK = 0x59F3EBDD, H_FILL = 0xEBF3EBDD, H_MARK = 0xCCF3EBDD,
+            H_KNOB = 0xFFE6C27A, H_EDGE = 0xE6000000, H_RING = 0xF0E6C27A;
+
+    // A column under the pause button: a small item mark at the far end (top), a large one at the near end (bottom), the
+    // track filled from the near end up to the knob.
+    private void drawHold(Canvas c) {
+        float a = holdAlpha, x = hX, top = hTop, bot = holdBottom(), hw = 17 * dp;
+        gPaint.setStyle(Paint.Style.FILL);
+        gPaint.setColor(fade(H_BACK, a));
+        rect.set(x - hw, top - 36 * dp, x + hw, bot + 36 * dp);
+        c.drawRoundRect(rect, hw, hw, gPaint);
+        gPaint.setColor(fade(H_MARK, a));
+        c.drawCircle(x, top - 19 * dp, 3.5f * dp, gPaint);
+        c.drawCircle(x, bot + 19 * dp, 7f * dp, gPaint);
+        float y = holdY(holdDrag ? holdValue : hold[1]);
+        gPaint.setStyle(Paint.Style.STROKE);
+        gPaint.setStrokeWidth(3f * dp);
+        gPaint.setColor(fade(H_TRACK, a));
+        c.drawLine(x, top, x, bot, gPaint);
+        gPaint.setStrokeWidth(4f * dp);
+        gPaint.setColor(fade(H_FILL, a));
+        c.drawLine(x, y, x, bot, gPaint);
+        float r = (holdDrag ? 13f : 11f) * dp;
+        gPaint.setStyle(Paint.Style.FILL);
+        gPaint.setColor(fade(H_KNOB, a));
+        c.drawCircle(x, y, r, gPaint);
+        gPaint.setStyle(Paint.Style.STROKE);
+        gPaint.setStrokeWidth(1.5f * dp);
+        gPaint.setColor(fade(holdDrag ? H_RING : H_EDGE, a));
+        c.drawCircle(x, y, holdDrag ? r + 3 * dp : r, gPaint);
     }
 
     // ---- position gauge ----

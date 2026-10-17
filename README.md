@@ -24,6 +24,9 @@ the original APK; the tools rebuild everything else from it on your machine.
     circular finger motion;
   - a picked-up note, clipboard or tool comes up to be read, turned to the eyes with the side the inventory shows,
     upright and wholly in view;
+  - while an item is held, a slider on the left under the pause button moves it farther away or nearer (from
+    20 cm to arm's reach); the Sun of the constellation puzzles stays where it was taken and is carried through
+    the stars in mid-air, its depth set with the slider;
   - a second finger next to a held object turns it in the hand; a second finger elsewhere looks around while holding;
   - pressable panels and buttons are pushed by the fingertip, as in VR.
 - On-screen buttons: pause, teleport (then tap a glowing spot; crystals enter the miniature worlds), inventory,
@@ -48,9 +51,10 @@ the original APK; the tools rebuild everything else from it on your machine.
   muted in logcat.
 
 Verified on a Redmi Note 8 Pro (Mali-G76, Android 11), a Realme RMX3371 (Adreno, Android 15) and a POCO X3 NFC
-(Adreno 618, Android 16; tablet 16:10 emulated by display size). Not verified:
-devices with 16 KB memory pages; touch play-through of a few late story places (Chapel organ keys and lockpick;
-pouring, mirror, bellows and candles in the Witch chapter) — the controls for them exist.
+(Adreno 618, Android 16; tablet 16:10 emulated by display size); starts and loads chapters on a Pixel 10 (PowerVR,
+Android 17). Not verified: devices with 16 KB memory pages; touch play-through of a few late story places (Chapel
+organ keys and lockpick; pouring, mirror, bellows and candles in the Witch chapter; the constellation puzzles with
+the hold-distance slider) — the controls for them exist.
 
 ## Building
 

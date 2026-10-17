@@ -336,6 +336,13 @@ extern volatile float g_gauge[RF_GAUGE_N];
 void rf_view_dev_state(void);         // dev: view?
 void rf_view_dev_set(v3 eye);         // dev: place the eyes (tracking space)
 
+// ---- round 6 (operator 2026-10-17): how far a carried item is held ----
+// rf_interact.c: while an item is carried, a slider under the pause button (HudView) sets its distance from the eyes -
+// the VR player's reach (the painting puzzles: the Sun is carried through stars standing at different depths)
+#define RF_HOLD_N 4                    // [0] slider shown, [1] distance (m), [2] near end, [3] far end of the slider
+extern volatile float g_hold[RF_HOLD_N];
+void rf_act_hold_depth(float metres);  // the slider moved (main thread: touch queue action 12, x = metres)
+
 // ---- rf_scene.c: scene inspection (dev), volumetric leftovers ----
 void rf_dev_comps(const char* name);
 void rf_dev_orphans(void);
