@@ -156,7 +156,12 @@ void rf_dev_peek(const char* cls, const char* spec, const char* filter) {
             else if (kind == 'o') {  // reference to a Unity object: its GameObject's name
                 char on[48] = "-";
                 void* ref = *(void**)(o + off);
-                if (rf_alive(ref)) rf_obj_name(rf_gameobject(ref), on, sizeof on);
+                if ((uintptr_t)ref < 0x10000 || ((uintptr_t)ref & 7)) ref = NULL;  // not a pointer (wrong offset or kind)
+                // a component or GameObject only: rf_alive reads any C# object's first field as m_CachedPtr, and
+                // get_gameObject on a plain class (HintHud.HintsRootVisibility, a VisibilityController) crashed Unity
+                if (rf_class_is(ref, "Component") && rf_alive(ref)) rf_obj_name(rf_gameobject(ref), on, sizeof on);
+                else if (rf_class_is(ref, "GameObject") && rf_alive(ref)) rf_obj_name(ref, on, sizeof on);
+                else if (ref) snprintf(on, sizeof on, "(%s)", rf_class_name(ref));
                 n += snprintf(line + n, sizeof line - n, " %s='%s'", tok, on);
             }
             else if (kind == 'l') n += snprintf(line + n, sizeof line - n, " %s=[%d]", tok,
@@ -315,5 +320,95 @@ void rf_dev_rlist(const char* filter) {
         bool vis = rf_world_to_screen(rf_tr_pos(rf_transform(r)), &sx, &sy);
         rf_log("  r '%s' %s en=%d %s screen(%.2f %.2f) vis=%d", nm, rf_class_name(r),
                CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(r, NULL), sh, sx, sy, vis);
+    }
+}
+
+// dev (round 4): every TextMeshPro text of the scene with its words, where it is and its size; FILTER matches the
+// object's name or the text
+void rf_dev_texts(const char* filter) {
+    void* type = rf_class_type(rf_find_class("Unity.TextMeshPro.dll", "TMPro", "TMP_Text"));
+    void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
+    void* cam = rf_main_camera();
+    v3 cp = cam ? rf_tr_pos(rf_transform(cam)) : (v3){0, 0, 0};
+    rf_log("texts: %d", arr_len(arr));
+    for (int i = 0, shown = 0; i < arr_len(arr) && shown < 60; i++) {
+        void* t = arr_get(arr, i);
+        if (!rf_alive(t)) continue;
+        char nm[64], tx[96], root[64];
+        rf_obj_name(rf_gameobject(t), nm, sizeof nm);
+        rf_str_utf8((Il2CppString*)CALLP(C_TMP_GETTEXT, fn_obj1)(t, NULL), tx, sizeof tx);
+        if (filter && *filter && !strstr(nm, filter) && !strstr(tx, filter)) continue;
+        shown++;
+        void* tr = rf_transform(t), *r = tr;
+        for (int k = 0; k < 12 && rf_alive(rf_tr_parent(r)); k++) r = rf_tr_parent(r);
+        rf_obj_name(r, root, sizeof root);
+        v3 p = rf_tr_pos(tr);
+        float sx = -1, sy = -1;
+        bool vis = rf_world_to_screen(p, &sx, &sy);
+        bool act = CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(rf_gameobject(t), NULL);
+        rf_log("  text '%s' act=%d root='%s' \"%s\" pos(%.2f %.2f %.2f) dist %.2f screen(%.2f %.2f) vis=%d font %.1f scale %.5f",
+               nm, act, root, tx, p.x, p.y, p.z, v3_len(v3_sub(p, cp)), sx, sy, vis,
+               CALLP(C_TMP_FONTSIZE, float (*)(void*, const void*))(t, NULL),
+               CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(tr, NULL).y);
+    }
+}
+
+// dev (round 4): inventory items' display pose (InventoryItemGrabbable.InventorySlotTransform): the item's side that
+// faces -Z / +Y of that transform, against the direction to the eyes and the screen's up
+void rf_dev_slotfaces(void) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", "InventoryItemGrabbable"));
+    void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
+    void* cam = rf_main_camera();
+    if (!cam) return;
+    v3 cp = rf_tr_pos(rf_transform(cam));
+    v3 up = q_rot(rf_tr_rot(rf_transform(cam)), (v3){0, 1, 0});
+    for (int i = 0; i < arr_len(arr); i++) {
+        char* it = arr_get(arr, i);
+        if (!rf_alive(it)) continue;
+        void* st = *(void**)(it + 0xa8);  // InventorySlotTransform
+        char nm[64];
+        rf_obj_name(it, nm, sizeof nm);
+        void* t = rf_transform(it);
+        v3 p = rf_tr_pos(t);
+        if (!rf_alive(st)) {
+            rf_log("  slotface '%s': no slot transform pos(%.2f %.2f %.2f)", nm, p.x, p.y, p.z);
+            continue;
+        }
+        quat rs = rf_tr_rot(st);
+        v3 front = q_rot(rs, (v3){0, 0, -1}), top = q_rot(rs, (v3){0, 1, 0});
+        v3 to = v3_norm(v3_sub(cp, p));
+        quat local = q_mul(q_conj(rf_tr_rot(t)), rs);
+        v3 fl = q_rot(local, (v3){0, 0, -1}), tl = q_rot(local, (v3){0, 1, 0});
+        rf_log("  slotface '%s' pos(%.2f %.2f %.2f) front.toEyes %.2f top.up %.2f local front(%.2f %.2f %.2f) top(%.2f %.2f %.2f)",
+               nm, p.x, p.y, p.z, v3_dot(front, to), v3_dot(top, up), fl.x, fl.y, fl.z, tl.x, tl.y, tl.z);
+    }
+}
+
+// dev (round 4): each inventory slot's item parent (InventorySlot.ItemParent) in the frame of the grid
+// (HudManager.LayoutParent: +Z away from the viewer, +Y up when shown) - which of its axes faces the viewer
+void rf_dev_slotaxes(void) {
+    void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", "InventorySlot"));
+    void* arr = type ? CALLP(C_RES_FINDALL, void* (*)(void*, const void*))(type, NULL) : NULL;  // hidden slots too
+    rf_log("slotaxes: %d slots", arr_len(arr));
+    uintptr_t k = *(uintptr_t*)(g_il2cpp_base + META_HUDMGR_TYPEINFO);
+    void* statics = (k && !(k & 1) && k > 0x10000) ? *(void**)(k + 0xb8) : NULL;
+    void* hm = statics ? *(void**)statics : NULL;
+    void* lp = rf_alive(hm) ? *(void**)((char*)hm + 0x18) : NULL;
+    if (!rf_alive(lp)) {
+        rf_log("slotaxes: no inventory");
+        return;
+    }
+    quat rl = rf_tr_rot(lp);
+    for (int i = 0; i < arr_len(arr) && i < 12; i++) {
+        char* sl = arr_get(arr, i);
+        if (!rf_alive(sl)) continue;
+        void* ip = *(void**)(sl + 0x18);  // ItemParent (BoxCollider)
+        if (!rf_alive(ip)) continue;
+        quat r = q_mul(q_conj(rf_tr_rot(rf_transform(ip))), rl);  // grid axes in the item parent's frame
+        v3 view = q_rot(r, (v3){0, 0, -1}), up = q_rot(r, (v3){0, 1, 0});
+        char nm[64];
+        rf_obj_name(sl, nm, sizeof nm);
+        rf_log("  slotaxes '%s': towards the viewer (%.2f %.2f %.2f) up (%.2f %.2f %.2f) in the item parent's axes", nm,
+               view.x, view.y, view.z, up.x, up.y, up.z);
     }
 }

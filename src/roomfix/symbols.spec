@@ -188,3 +188,23 @@ CALL BEH_SETENABLED   UnityEngine.Behaviour$$set_enabled
 CALL TR_SETPARENT2    UnityEngine.Transform$$SetParent|bool worldPositionStays
 CALL TR_SETLOCALPOS   UnityEngine.Transform$$set_localPosition
 CALL TR_SETLOCALROT   UnityEngine.Transform$$set_localRotation
+# ---- round 4 (operator 2026-10-16) ----
+# the posture wizard never appears: the game's own path for a platform without standing play (ContinueGame at once,
+# sitting forced in SetSittingCoroutine, no posture rows in Options)
+HOOK VRPM_STANDING    VrPlatformManager$$IsStandingSupported
+# the VR glove is hidden while the hand is empty (HandController visibility reasons)
+CALL HAND_SETVISIBLE  HandController$$SetVisible
+# flat texts sized by their font (rf_flatui.c), held items turned to the eyes (rf_interact.c), dev texts
+CALL TMP_FONTSIZE     TMPro.TMP_Text$$get_fontSize
+CALL TMP_GETTEXT      TMPro.TMP_Text$$get_text
+CALL MF_SHAREDMESH    UnityEngine.MeshFilter$$get_sharedMesh
+CALL MESH_BOUNDS      UnityEngine.Mesh$$get_bounds
+CALL BOX_SIZE         UnityEngine.BoxCollider$$get_size
+CALL BOX_CENTER       UnityEngine.BoxCollider$$get_center
+# the level title (rf_view.c): shown while its fade-in timeline plays or its canvas group is visible
+CALL GO_GETCOMP       UnityEngine.GameObject$$GetComponent|System_Type_o* type
+CALL PD_STATE         UnityEngine.Playables.PlayableDirector$$get_state
+# the opened inventory framed in view after every HudManager.Show, also at a puzzle's forced position (rf_hud.c)
+HOOK INV_SHOW         HudManager$$Show
+# ---- round 5 (operator 2026-10-17): the eyes move inside the location's play area, clear of walls (rf_view.c) ----
+CALL PHYS_SPHERECASTALL UnityEngine.Physics$$SphereCastAll|UnityEngine_Vector3_o origin, float radius

@@ -145,6 +145,18 @@
       "Simplified Chinese": "视角",
       "Traditional Chinese": "視角"
     },
+    "PORT_GAUGE": {
+      "English": "position indicator",
+      "French": "indicateur de position",
+      "German": "positionsanzeige",
+      "Spanish": "indicador de posición",
+      "Italian": "indicatore posizione",
+      "Russian": "индикатор позиции",
+      "Japanese": "位置表示",
+      "Korean": "위치 표시",
+      "Simplified Chinese": "位置指示器",
+      "Traditional Chinese": "位置指示器"
+    },
     "PORT_DISPLAY": {
       "English": "display",
       "French": "écran",

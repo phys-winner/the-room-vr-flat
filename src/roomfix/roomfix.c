@@ -206,6 +206,16 @@ static void h_pxr_bind_verify(void* object_name, const void* mi) {
     rf_log("pxr: verify service binding skipped");
 }
 
+// Round 4 (operator 2026-10-16: "the dialog asking whether the player sits or stands must not show at all, not just be
+// skipped"): VrPlatformManager.IsStandingSupported answers false - the game's own path for a platform without standing
+// play. New game / Continue go straight on (MainMenuScreen.ContinueGamePressed calls ContinueGame instead of opening
+// PostureSelectScreen), SetSittingCoroutine keeps the player seated and Options shows no posture rows. The wizard's
+// automatic answer (rf_menu.c) stays as a fallback.
+static bool h_vrpm_standing(void* self, const void* mi) {
+    (void)self; (void)mi;
+    return false;
+}
+
 // Logger.IsLogTypeAllowed: developer runs let the shipped logger reach logcat; release builds let nothing through
 // (no managed log output and no stack trace work for it)
 static bool h_log_allowed(void* self, int32_t type, const void* mi) {
@@ -390,6 +400,7 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_UIOPT_UPDATE, (void*)h_uiopt_update, true, false},
     {H_LOC_GETSTRING, (void*)h_loc_getstring, true, false},
     {H_INV_SHOWXFORM, (void*)h_inv_show_xform, true, false},
+    {H_INV_SHOW, (void*)h_inv_show, true, false},
     {H_QSM_POSTFX, (void*)h_qsm_postfx, true, true},
     {H_PXR_CONFIGINT, (void*)h_pxr_config_int, true, false},
     {H_GFX_SETUP, (void*)h_gfx_setup, true, false},
@@ -398,6 +409,7 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_PXR_BINDVERIFY, (void*)h_pxr_bind_verify, false, false},
     {H_FEP_SETLENGTH, (void*)h_fep_setlength, false, false},  // menu beam: full replacement
     {H_SIV_UPDATE, (void*)h_siv_update, false, false},
+    {H_VRPM_STANDING, (void*)h_vrpm_standing, false, false},  // full replacement: no posture wizard
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, !RF_RELEASE},  // release: always installed (silent logger)
 };
 
@@ -506,6 +518,13 @@ static void native_app_locale(JNIEnv* env, jclass cls, jstring jtags) {
     if (t) (*env)->ReleaseStringUTFChars(env, jtags, t);
 }
 
+static void native_metrics(JNIEnv* env, jclass cls, jfloat ydpi, jint height) {
+    (void)env; (void)cls;
+    if (ydpi != g_disp_ydpi || height != g_disp_h) rf_log("display: %.0f dpi, game view %d px high", ydpi, (int)height);
+    g_disp_ydpi = ydpi;
+    g_disp_h = height;
+}
+
 static jint native_want_max_refresh(JNIEnv* env, jclass cls) {
     (void)env; (void)cls;
     return g_fps_idx == RF_FPS_DISPLAY;
@@ -531,6 +550,15 @@ static jint native_gyro_wanted(JNIEnv* env, jclass cls) {
     return rf_gyro_wanted();
 }
 
+// round 5: the position gauge (rf_view.c) - copies g_gauge into out, returns the bits of the axes to draw
+static jint native_gauge(JNIEnv* env, jclass cls, jfloatArray out) {
+    (void)cls;
+    float g[RF_GAUGE_N];
+    for (int i = 0; i < RF_GAUGE_N; i++) g[i] = g_gauge[i];
+    if (out && (*env)->GetArrayLength(env, out) >= RF_GAUGE_N) (*env)->SetFloatArrayRegion(env, out, 0, RF_GAUGE_N, g);
+    return (jint)g[0];
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
     (void)reserved;
 #if RF_RELEASE
@@ -554,6 +582,8 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeGyro", "(FFFFFF)V", (void*)native_gyro},
         {"nativeGyroWanted", "()I", (void*)native_gyro_wanted},
         {"nativeAccel", "(FF)V", (void*)native_accel},
+        {"nativeMetrics", "(FI)V", (void*)native_metrics},
+        {"nativeGauge", "([F)I", (void*)native_gauge},
     };
     if ((*env)->RegisterNatives(env, cls, m, sizeof m / sizeof m[0]) != 0) return JNI_ERR;
     return JNI_VERSION_1_6;

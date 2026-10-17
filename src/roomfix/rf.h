@@ -231,8 +231,10 @@ extern int g_tut_action;  // RwAction the current tutorial box asks for (-1 none
 void rf_hud_tick(void);
 void rf_hud_button(int id);
 bool rf_inventory_open(void);
+void* rf_inventory_root(void);  // the open inventory grid (HudManager.LayoutParent), else NULL
 bool rf_goggles_on(void);
 void h_inv_show_xform(void* self, const void* mi);
+void h_inv_show(void* self, const void* mi);
 
 // ---- rf_menu.c: VR setup wizards answered with flat defaults ----
 void* h_posture_setup(void* self, const void* mi);
@@ -284,9 +286,7 @@ extern char g_app_locale[64];
 void rf_loc_app_locale(const char* tags);  // from Java: LocaleManager.getApplicationLocales() (API 33+)
 void h_loc_load_initial(const void* mi);
 
-// ---- rf_view.c: flat camera (FOV, lean) ----
-extern float g_lean;      // metres the head leans along the view direction (pinch gesture)
-extern float g_sway_x, g_sway_y;  // head sway right / up in metres (two-finger pan)
+// ---- rf_view.c: flat camera (FOV, the eyes inside the location) ----
 extern float g_fov_h;     // horizontal field of view on screen, degrees
 void rf_view_tick(void);
 
@@ -295,7 +295,8 @@ void rf_view_tick(void);
 extern float g_menu_vfov;  // vertical FOV (degrees) the open menu needs; 0 outside menus
 // rf_flatui.c: head-following texts pinned flat to the screen; menu laser hidden
 enum { RF_FLAT_BOTTOM = 0, RF_FLAT_TOP = 1, RF_FLAT_CENTRE = 2, RF_FLAT_KEEP = -1 };
-void rf_flatui_add(void* comp, int slot);  // element = comp's transform; RF_FLAT_KEEP keeps a known slot
+void rf_flatui_add(void* comp, int slot);
+void rf_dev_flats(void);  // dev: pinned flat elements  // element = comp's transform; RF_FLAT_KEEP keeps a known slot
 void rf_flatui_pin_all(bool tick);         // tick: main tick (may re-measure); false: camera pose callback
 void h_siv_update(void* self, const void* mi);
 void h_fep_setlength(void* self, float len, const void* mi);
@@ -305,7 +306,7 @@ void rf_dev_beam_report(void);  // dev: "beam?" answer
 // rf_gyro.c: gyroscope options (eye position / tilt and turn, each with a sensitivity)
 #define RF_GYRO_SENS_COUNT 7
 extern int g_gyro_pos, g_gyro_rot, g_gyro_pos_sens, g_gyro_rot_sens;
-extern float g_gyro_px, g_gyro_py, g_gyro_pz;  // eye offset from the phone's motion, metres right / up / forward
+extern float g_gyro_pz;  // passing eye offset from pushing the phone, metres along the view
 int rf_gyro_sens_pct(int idx);
 void rf_gyro_post(float dx, float dy, float dz, float ux, float uy, float uz);  // any thread (Java sensor thread)
 void rf_accel_post(float az, float dt);  // linear acceleration along the screen normal (towards the player), any thread
@@ -315,6 +316,25 @@ void rf_gyro_tick(void);
 // rf_options.c: the Options page with the gyroscope rows
 bool rf_options_press(void* btn);  // a port button of Options was pressed (handled)
 bool rf_options_back(void);        // Back on the gyroscope page: back to the options (handled)
+
+// ---- round 4 (operator 2026-10-16) ----
+bool rf_view_base(v3* base);  // rf_view.c: the location's eye point (tracking-space origin), world
+// rf_flatui.c: texts sized by the display's density (Java DisplayMetrics) and the game view's height in pixels
+extern volatile float g_disp_ydpi;
+extern volatile int g_disp_h;
+void rf_dev_texts(const char* filter);  // dev: TextMeshPro texts with where they are
+void rf_dev_slotfaces(void);            // dev: inventory items' display pose against the eyes
+
+// ---- round 5 (operator 2026-10-17): the eyes stay put when the view turns, teleports go to the centre ----
+// rf_view.c: touch and the gyroscope move the eyes inside the location (its play area); the position gauge
+void rf_view_move(v3 d, bool touch);  // move the eyes by d (tracking space) this frame; touch moves show the gauge
+float rf_view_offset(void);           // eyes' distance from the location's eye point, world metres
+extern int g_gauge_on;                // Options: position indicator (gauge= in port_settings.cfg)
+#define RF_GAUGE_STRIDE 6             // per axis (right, up, forward): alpha, eyes, reach low, reach high, stop side, stop
+#define RF_GAUGE_N (1 + 3 * RF_GAUGE_STRIDE)  // [0]: bit per drawn axis
+extern volatile float g_gauge[RF_GAUGE_N];
+void rf_view_dev_state(void);         // dev: view?
+void rf_view_dev_set(v3 eye);         // dev: place the eyes (tracking space)
 
 // ---- rf_scene.c: scene inspection (dev), volumetric leftovers ----
 void rf_dev_comps(const char* name);

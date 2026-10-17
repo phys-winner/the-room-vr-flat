@@ -6,7 +6,9 @@
 //   gameplay                       press on a grabbable -> grab it with the right hand, drag moves it
 //                                  along its constraint, lift releases;
 //                                  press elsewhere + drag -> look around (head yaw/pitch);
-//                                  second finger while looking -> pinch: lean in / back;
+//                                  second finger while looking -> pinch: the eyes forward / back along the view,
+//                                  both fingers moving together: sideways / up and down (inside the location,
+//                                  rf_view.c; turning the view never moves them);
 //                                  teleport mode (HUD) + tap on a location marker -> teleport.
 // HUD buttons are hit-tested in Java; their presses arrive here as action 10 (id = button) so every game
 // action still runs on the Unity main thread. Action 11 cancels all fingers (window focus lost).
@@ -69,21 +71,26 @@ static struct {
 static struct {
     int id;
     float x, y;
-    float d0, lean0;
-    float mx0, my0, sx0, sy0;  // two-finger pan: midpoint and sway at the start
+    float d, mx, my;  // finger spread and midpoint at the last event (pinch / two-finger pan: moves since then)
+    v3 moved;   // tracking-space move asked for by this gesture (log)
     bool look;  // second finger turns the view while the first one holds an object
     bool turn;  // second finger, put down next to the held object, turns it in the hand
     float tx, ty;  // turn: last position of finger 2 relative to finger 1 (ball radii)
     int turn_moves;
 } g_f2;  // second finger: pinch, look while holding, or turn the held object
 
-#define LEAN_PER_UNIT 0.5f  // metres of lean per screen height of finger spread
+#define LEAN_PER_UNIT 0.5f  // metres along the view per screen height of finger spread
 #define TURN_R 0.3f         // second finger this close to the holding one (screen heights) turns the object
-#define SWAY_PER_UNIT 0.5f  // metres of head sway per screen height of two-finger pan
+#define SWAY_PER_UNIT 0.5f  // metres sideways / up per screen height of two-finger pan
 
 #define TAP_MS 350
 #define MOVE_X 0.012f
 #define MOVE_Y 0.022f
+
+// The camera turns only in gameplay: never in menus (round 2), and never without a player - the loading scene
+// between the main menu and a level, scene changes, the start-up screens (round 4, operator 2026-10-16: "while the
+// main menu switches pages the camera can be moved").
+static bool look_allowed(void) { return !rf_menu_context() && rf_player(); }
 
 static void finger_down(const touch_ev* e) {
     g_f.mode = F_PENDING;
@@ -107,7 +114,7 @@ static void finger_move(const touch_ev* e) {
     }
     if (g_f.mode == F_PENDING && (fabsf(e->x - g_f.x0) > MOVE_X || fabsf(e->y - g_f.y0) > MOVE_Y))
         g_f.mode = rf_menu_context() ? F_MENUDRAG : F_LOOK;  // no camera turning in menus (round 2)
-    if (g_f.mode == F_LOOK && !rf_menu_context()) {
+    if (g_f.mode == F_LOOK && look_allowed()) {
         g_head.yaw += dx * g_deg_per_x;
         g_head.pitch -= dy * g_deg_per_y;
         if (g_head.pitch > 80) g_head.pitch = 80;
@@ -168,17 +175,15 @@ static void on_event(const touch_ev* e) {
             } else {
                 g_f2.look = true;
             }
-        } else if ((g_f.mode == F_PENDING || g_f.mode == F_LOOK) && !rf_menu_context() && e->id != g_f.id) {
+        } else if ((g_f.mode == F_PENDING || g_f.mode == F_LOOK) && look_allowed() && e->id != g_f.id) {
             g_f.mode = F_PINCH;
             g_f2.id = e->id;
             g_f2.x = e->x;
             g_f2.y = e->y;
-            g_f2.d0 = pinch_dist();
-            g_f2.lean0 = g_lean;
-            g_f2.mx0 = (g_f.x + g_f2.x) * 0.5f;
-            g_f2.my0 = (g_f.y + g_f2.y) * 0.5f;
-            g_f2.sx0 = g_sway_x;
-            g_f2.sy0 = g_sway_y;
+            g_f2.d = pinch_dist();
+            g_f2.mx = (g_f.x + g_f2.x) * 0.5f;
+            g_f2.my = (g_f.y + g_f2.y) * 0.5f;
+            g_f2.moved = (v3){0, 0, 0};
         }
         return;
     }
@@ -197,7 +202,7 @@ static void on_event(const touch_ev* e) {
         return;
     }
     if (g_f2.look && e->id == g_f2.id) {
-        if (e->action == 2 && !rf_menu_context()) {
+        if (e->action == 2 && look_allowed()) {
             g_head.yaw += (e->x - g_f2.x) * g_deg_per_x;
             g_head.pitch -= (e->y - g_f2.y) * g_deg_per_y;
             if (g_head.pitch > 80) g_head.pitch = 80;
@@ -214,14 +219,26 @@ static void on_event(const touch_ev* e) {
         if (e->action == 2) {
             if (e->id == g_f.id) { g_f.x = e->x; g_f.y = e->y; }
             else { g_f2.x = e->x; g_f2.y = e->y; }
-            g_lean = g_f2.lean0 + (pinch_dist() - g_f2.d0) * LEAN_PER_UNIT;
-            // both fingers moving together: the head sways sideways / up and down (peek around an obstacle, reach
-            // the strand behind another one) — a VR player moves the head inside the play area
-            g_sway_x = g_f2.sx0 + ((g_f.x + g_f2.x) * 0.5f - g_f2.mx0) * g_aspect * SWAY_PER_UNIT;
-            g_sway_y = g_f2.sy0 - ((g_f.y + g_f2.y) * 0.5f - g_f2.my0) * SWAY_PER_UNIT;
+            // spreading the fingers moves the eyes along the view; both fingers moving together move them sideways /
+            // up and down (peek around an obstacle, reach the strand behind another one) - a VR player moves the head
+            // inside the play area. Each event moves by the change since the last one, so a move held back at the
+            // edge of the play area comes back at once when the fingers turn round.
+            float d = pinch_dist(), mx = (g_f.x + g_f2.x) * 0.5f, my = (g_f.y + g_f2.y) * 0.5f;
+            float lean = (d - g_f2.d) * LEAN_PER_UNIT, sx = (mx - g_f2.mx) * g_aspect * SWAY_PER_UNIT,
+                  sy = -(my - g_f2.my) * SWAY_PER_UNIT;
+            g_f2.d = d;
+            g_f2.mx = mx;
+            g_f2.my = my;
+            float yaw = g_head.yaw * DEG2RAD;
+            v3 right = {cosf(yaw), 0, -sinf(yaw)};  // horizontal, follows the head's yaw only
+            v3 m = v3_add(v3_scale(q_rot(rf_head_rot(), (v3){0, 0, 1}), lean),
+                          v3_add(v3_scale(right, sx), (v3){0, sy, 0}));
+            g_f2.moved = v3_add(g_f2.moved, m);
+            rf_view_move(m, true);
         } else {
             g_f.mode = F_NONE;  // the remaining finger is ignored until it lifts
-            rf_log("touch: pinch lean %.2f m sway %.2f %.2f m", g_lean, g_sway_x, g_sway_y);
+            rf_log("touch: two-finger move (%.2f %.2f %.2f) m asked for; eyes %.2f m from the location's centre",
+                   g_f2.moved.x, g_f2.moved.y, g_f2.moved.z, rf_view_offset());
         }
         return;
     }

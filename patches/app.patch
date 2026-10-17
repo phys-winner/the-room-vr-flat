@@ -1,6 +1,6 @@
 # The port's edits of the decoded game (decoded_original -> app), written by work/tools/app_patch.py.
 # Apply with work/tools/prepare_app.py; per file: sha256 of the decoded file -> sha256 of the result.
-# sha256 d596abba461059ac8c0167bffb1761c4e73a570b405d52a8ad61e2be76bdddd8 -> 29a607cc7b062e7a61ca7476d6cfb6f5b875c4e570b7bc8e1ac148cf0125beb5
+# sha256 d596abba461059ac8c0167bffb1761c4e73a570b405d52a8ad61e2be76bdddd8 -> 1069ea1a4bbfecb16f001dfc59e94a12c198d6082faedf79a9f4b65c1c22ab92
 --- a/AndroidManifest.xml
 +++ b/AndroidManifest.xml
 @@ -2,42 +2,26 @@
@@ -23,7 +23,7 @@
 -    <uses-permission ns0:name="android.permission.WRITE_SETTINGS" />
 -    <application ns0:label="@string/app_name" ns0:icon="@mipmap/app_icon" ns0:allowBackup="true" ns0:requestLegacyExternalStorage="true">
 -        <activity ns0:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" ns0:name="com.unity3d.player.UnityPlayerActivity" ns0:excludeFromRecents="true" ns0:launchMode="singleTask" ns0:screenOrientation="landscape" ns0:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density|layoutDirection|fontScale" ns0:hardwareAccelerated="false" ns0:resizeableActivity="false">
-+    <application ns0:label="@string/app_name" ns0:icon="@mipmap/app_icon" ns0:allowBackup="true" ns0:name="port.compat.PortApplication" ns0:localeConfig="@xml/locales_config">
++    <application ns0:label="@string/app_name" ns0:icon="@mipmap/app_icon" ns0:allowBackup="true" ns0:name="port.compat.PortApplication" ns0:localeConfig="@xml/locales_config" ns0:enableOnBackInvokedCallback="false">
 +        <activity ns0:theme="@style/RoomFlatTheme" ns0:name="com.unity3d.player.UnityPlayerActivity" ns0:exported="true" ns0:launchMode="singleTask" ns0:screenOrientation="sensorLandscape" ns0:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|density|layoutDirection|fontScale" ns0:hardwareAccelerated="false" ns0:resizeableActivity="false">
              <intent-filter>
                  <action ns0:name="android.intent.action.MAIN" />

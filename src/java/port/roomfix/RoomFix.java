@@ -65,6 +65,12 @@ public final class RoomFix {
     /** Sensors the gyroscope options need: bit 0 gyroscope + gravity, bit 1 linear acceleration; 0 when both off. */
     static native int nativeGyroWanted();
 
+    /** Display density (vertical dots per inch) and the game view's height in pixels: texts are sized in millimetres. */
+    static native void nativeMetrics(float ydpi, int heightPx);
+
+    /** Position gauge (HudView.GAUGE_N floats) into out; returns the bits of the axes to draw, 0 when none. */
+    static native int nativeGauge(float[] out);
+
     private static final int A_DOWN = 0, A_UP = 1, A_MOVE = 2, A_CANCEL = 3, A_HUD = 10, A_CANCEL_ALL = 11;
     private static final int OWNER_GAME = 0;
 
@@ -171,6 +177,7 @@ public final class RoomFix {
             nativeAppLocale(lm != null ? lm.getApplicationLocales().toLanguageTags() : "");
         }
         sReady = true;
+        if (Build.VERSION.SDK_INT >= 33) BackApi33.register(activity);
         sMain = new Handler(Looper.getMainLooper());
         // runs after onCreate has set the Unity player as the content view
         sMain.post(new Runnable() {
@@ -201,6 +208,24 @@ public final class RoomFix {
     private static int sPollCount;
     private static int sMaxModeId;
     private static boolean sWantMax;
+    private static final float[] sGauge = new float[HudView.GAUGE_N];
+    private static boolean sGaugeFrames;  // the gauge is drawn: sGaugeFrame runs every display frame
+
+    /**
+     * While the position gauge shows, it follows the eyes every display frame (the 100 ms poll only starts it); without
+     * window focus (Home, another app over the game) the game does not move, so the gauge is cleared and the frames stop.
+     */
+    private static final Runnable sGaugeFrame = new Runnable() {
+        @Override
+        public void run() {
+            if (sHud != null && !sFocused) {
+                java.util.Arrays.fill(sGauge, 0f);
+                sHud.setGauge(sGauge, 0);
+            }
+            sGaugeFrames = sHud != null && sFocused && sHud.setGauge(sGauge, nativeGauge(sGauge));
+            if (sGaugeFrames) sHud.postOnAnimation(this);
+        }
+    };
 
     private static final Runnable sPoll = new Runnable() {
         @Override
@@ -209,6 +234,10 @@ public final class RoomFix {
                 int s = nativeHudState();
                 if ((s & HudView.S_VISIBLE) == 0 && (sHud.state() & HudView.S_VISIBLE) != 0) releaseHudFingers();
                 sHud.setState(s);
+                if (!sGaugeFrames && sFocused && sHud.setGauge(sGauge, nativeGauge(sGauge))) {
+                    sGaugeFrames = true;
+                    sHud.postOnAnimation(sGaugeFrame);
+                }
             }
             int help = nativeHelpRequest();
             if (help > 0 && sHelp != null) showHelp(help - 1);
@@ -236,6 +265,10 @@ public final class RoomFix {
         sMaxModeId = maxId;
         sRotation = d.getRotation();
         nativeDisplay(hz, max);
+        android.util.DisplayMetrics dm = sActivity.getResources().getDisplayMetrics();
+        float ydpi = dm.ydpi;
+        if (ydpi < dm.densityDpi * 0.5f || ydpi > dm.densityDpi * 2f) ydpi = dm.densityDpi;  // bogus panel value
+        nativeMetrics(ydpi, gameView().getHeight());
         boolean want = nativeWantMaxRefresh() != 0;
         if (want != sWantMax && Build.VERSION.SDK_INT >= 23) {
             sWantMax = want;
@@ -366,14 +399,35 @@ public final class RoomFix {
     /** Called from UnityPlayerActivity.dispatchKeyEvent: Back opens / closes the game's pause menu. */
     public static boolean onKey(KeyEvent ev) {
         if (!sReady || ev.getKeyCode() != KeyEvent.KEYCODE_BACK) return false;
-        if (sHelp != null && sHelp.showing()) {
-            if (ev.getAction() == KeyEvent.ACTION_UP && !ev.isCanceled()) sHelp.hide();
-            return true;
-        }
-        if (ev.getAction() == KeyEvent.ACTION_UP && !ev.isCanceled()) {
-            nativeTouch(A_HUD, 7 /* HB_BACK */, 0, 0, ev.getEventTime());
-        }
+        if (ev.getAction() == KeyEvent.ACTION_UP && !ev.isCanceled()) back(ev.getEventTime());
         return true;
+    }
+
+    /** Back: closes the gesture card, else the game's own back (menu screen back, resume, pause). */
+    static void back(long timeMs) {
+        if (sHelp != null && sHelp.showing()) {
+            sHelp.hide();
+            return;
+        }
+        nativeTouch(A_HUD, 7 /* HB_BACK */, 0, 0, timeMs);
+    }
+
+    /**
+     * Android 16 with targetSdk 36+ no longer dispatches KEYCODE_BACK by default (predictive back): Back finished the
+     * activity, i.e. closed the game. The manifest opts out (enableOnBackInvokedCallback="false", legacy key
+     * dispatch, onKey above); should a platform ignore the opt-out, this callback gives Back the same meaning.
+     */
+    private static final class BackApi33 {
+        static void register(Activity activity) {
+            activity.getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                    new android.window.OnBackInvokedCallback() {
+                        @Override
+                        public void onBackInvoked() {
+                            if (sReady) back(SystemClock.uptimeMillis());
+                        }
+                    });
+        }
     }
 
     /** Called from UnityPlayerActivity.onWindowFocusChanged. */

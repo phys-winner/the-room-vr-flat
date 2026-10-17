@@ -1,6 +1,7 @@
 // Port rows in the game's own Options screen (front end and pause menu):
 //   FPS LIMIT      < 30 | 45 | 60 | DISPLAY (n Hz) >   default 60
 //   FIELD OF VIEW  < 70 | 80 | 90 | 100 | 110 >        default 90
+//   POSITION INDICATOR < on | off >                    default on (round 5: the eyes' place in the location, rf_view.c)
 //   QA (TESTING)   < off | level select | skip level | all >   default off (stage 8, rf_chapters.c)
 // The rows are clones of the authored "turn fade" selector row (same layout, buttons, sounds and fonts) placed
 // where that row was. VR-only entries are hidden: turn fade (snap-turn comfort fade), posture (sitting /
@@ -24,7 +25,7 @@
 
 typedef void (*fn_setb)(void*, bool, const void*);
 
-enum { ROW_FPS = 0, ROW_FOV, ROW_QA, ROW_GPOS, ROW_GPOS_S, ROW_GROT, ROW_GROT_S, NROW };
+enum { ROW_FPS = 0, ROW_FOV, ROW_GAUGE, ROW_QA, ROW_GPOS, ROW_GPOS_S, ROW_GROT, ROW_GROT_S, NROW };
 #define NSCREEN 4
 #define NHIDE 16
 
@@ -32,7 +33,7 @@ enum { ROW_FPS = 0, ROW_FOV, ROW_QA, ROW_GPOS, ROW_GPOS_S, ROW_GROT, ROW_GROT_S,
 static struct {
     rf_ref screen;
     rf_ref sel[NROW];  // UiOptionSelector of the cloned rows
-    bool roomy;        // front end: divider and buttons moved down for the fifth row
+    bool roomy;        // room made for the rows past the fourth (front end: divider and buttons; pause: layout)
     rf_ref gyro_btn;   // MenuButton GYROSCOPE
     rf_ref gyro_back;  // MenuButton BACK of the gyroscope page
     bool page;         // the gyroscope page is shown
@@ -116,6 +117,7 @@ static void show_value(void* sel, int row) {
         else snprintf(key, sizeof key, "PORT_V_%d", rf_fps_value(g_fps_idx));
         break;
     case ROW_FOV: snprintf(key, sizeof key, "PORT_V_%d", rf_fov_value(g_fov_idx)); break;
+    case ROW_GAUGE: snprintf(key, sizeof key, "%s", g_gauge_on ? g_on_key : g_off_key); break;
     case ROW_GPOS: snprintf(key, sizeof key, "%s", g_gyro_pos ? g_on_key : g_off_key); break;
     case ROW_GROT: snprintf(key, sizeof key, "%s", g_gyro_rot ? g_on_key : g_off_key); break;
     case ROW_GPOS_S: snprintf(key, sizeof key, "PORT_V_%d%%", rf_gyro_sens_pct(g_gyro_pos_sens)); break;
@@ -161,20 +163,40 @@ static void* clone_button(void* src_btn, int sibling, const char* name, const ch
     return rf_alive(btn) ? btn : NULL;
 }
 
-// The front end's Options screen has room for four selector rows above its divider; with the QA row there are
-// five, so the divider and the buttons below move down by one row pitch (Hints -> Language, authored).
-static void make_room(void* screen) {
+// The front end's Options screen has room for four selector rows above its divider. Its rows sit in a centred layout,
+// so every further row (position indicator, QA) grows it half a row pitch up towards the subtitle and half down: the
+// divider and the buttons below move down by a whole pitch per row (Hints -> Language, authored), the rows' layout by a
+// quarter (measured with six rows: the top row then clears the subtitle by half a pitch, the last one keeps 0.8 of a
+// pitch above the divider).
+static void make_room(void* screen, int rows) {
     void* st = rf_transform(screen);
     void* hints = find(st, "Layout [Profile Option types]/HintsOption");
     void* lang = find(st, "Layout [Profile Option types]/LanguageOption");
-    if (!hints || !lang) return;
-    v3 pitch = v3_sub(rf_tr_pos(lang), rf_tr_pos(hints));
+    void* lay = find(st, "Layout [Profile Option types]");
+    if (!hints || !lang || !lay || rows <= 0) return;
+    v3 pitch = v3_scale(v3_sub(rf_tr_pos(lang), rf_tr_pos(hints)), (float)rows);
     static const char* const BELOW[] = {"Sprite [line] (1)", "Layout [Profile Option Buttons]"};
     for (size_t i = 0; i < sizeof BELOW / sizeof BELOW[0]; i++) {
         void* t = find(st, BELOW[i]);
         if (t) CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(t, v3_add(rf_tr_pos(t), pitch), NULL);
     }
-    rf_log("options: divider and buttons moved by one row (%.3f %.3f %.3f)", pitch.x, pitch.y, pitch.z);
+    CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(lay, v3_add(rf_tr_pos(lay), v3_scale(pitch, 0.25f)), NULL);
+    rf_log("options: rows moved by %d quarter rows, divider and buttons by %d rows (%.3f %.3f %.3f)", rows, rows, pitch.x,
+           pitch.y, pitch.z);
+}
+
+// The pause menu's Options panel keeps its rows and the buttons below them in one centred layout, so every row added
+// grows it into the title as much as downwards; with the position-indicator row its top row (Hints) ran over the
+// subtitle. The whole layout moves down by one row pitch.
+static void make_room_pause(void* screen) {
+    void* st = rf_transform(screen);
+    void* lay = find(st, "Layout [Option Selectors]");
+    void* hints = find(st, "Layout [Option Selectors]/HintsOption");
+    void* lang = find(st, "Layout [Option Selectors]/LanguageOption");
+    if (!lay || !hints || !lang) return;
+    v3 pitch = v3_sub(rf_tr_pos(lang), rf_tr_pos(hints));
+    CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(lay, v3_add(rf_tr_pos(lay), pitch), NULL);
+    rf_log("options: pause layout moved down by one row (%.3f %.3f %.3f)", pitch.x, pitch.y, pitch.z);
 }
 
 // the screen title's text ("Text [Options]" under the title art in both layouts)
@@ -315,11 +337,12 @@ static void patch(void* screen) {
     char nm[64];
     rf_obj_name(row, nm, sizeof nm);
     if (!strcmp(nm, "Option")) row = rf_tr_parent(row);
-    // the QA row only in the front end's Options (a pre-game test setting; the pause menu's panel has no room for
-    // a third port row: its top row would run into the title)
+    // the QA row only in the front end's Options (a pre-game test setting; the pause menu's panel takes one more row
+    // only by moving down, make_room_pause)
     bool want_qa = !strcmp(g_scene, "MainMenu");
     static const struct { int row; const char* name; const char* label; } ROWS[NROW] = {
         {ROW_FPS, "PortFpsOption", "PORT_FPS_LIMIT"},      {ROW_FOV, "PortFovOption", "PORT_FOV"},
+        {ROW_GAUGE, "PortGaugeOption", "PORT_GAUGE"},
         {ROW_QA, "PortQaOption", "PORT_QA"},               {ROW_GPOS, "PortGyroPosOption", "PORT_GYRO_POS"},
         {ROW_GPOS_S, "PortGyroPosSensOption", "PORT_SENSITIVITY"}, {ROW_GROT, "PortGyroRotOption", "PORT_GYRO_ROT"},
         {ROW_GROT_S, "PortGyroRotSensOption", "PORT_SENSITIVITY"},
@@ -339,8 +362,11 @@ static void patch(void* screen) {
         next++;
     }
     set_active(rf_gameobject(row), false);
-    if (want_qa && rf_alive(R(g_os[slot].sel[ROW_QA])) && !g_os[slot].roomy) {
-        make_room(screen);
+    if (!g_os[slot].roomy) {
+        if (want_qa)  // the front end
+            make_room(screen, rf_alive(R(g_os[slot].sel[ROW_GAUGE])) + rf_alive(R(g_os[slot].sel[ROW_QA])));
+        else if (rf_alive(R(g_os[slot].sel[ROW_GAUGE])))
+            make_room_pause(screen);
         g_os[slot].roomy = true;
     }
     // GYROSCOPE after "view controls", the page's BACK last in the same button layout
@@ -371,6 +397,7 @@ static void step(int row, int d) {
         rf_log("options: QA %d (level select %s, skip level %s)", g_qa, g_qa & QA_CHAPTERS ? "all" : "reached",
                g_qa & QA_SKIP ? "shown" : "secret");
         break;
+    case ROW_GAUGE: g_gauge_on = !g_gauge_on; break;
     case ROW_GPOS: g_gyro_pos = !g_gyro_pos; break;
     case ROW_GROT: g_gyro_rot = !g_gyro_rot; break;
     case ROW_GPOS_S: g_gyro_pos_sens = (g_gyro_pos_sens + d + RF_GYRO_SENS_COUNT) % RF_GYRO_SENS_COUNT; break;

@@ -14,8 +14,10 @@
 // to zero whenever the phone rests (|a| below the noise level for 80 ms), so a push keeps its full length; the
 // accelerometer cannot hold a position, so the shift then glides back to zero (time constant 4 s) - push the phone in to
 // look closer, and the view eases back out.
-// Increments are dropped in menus (the camera never turns there, R2-1) and while no player exists. The eye offsets are
-// limited like the touch lean / sway and reset on teleports and scene changes (rf_view.c).
+// Increments are dropped in menus (the camera never turns there, R2-1) and while no player exists. Round 5: the
+// sideways / up-down eye moves take the way of the two-finger pan (rf_view_move: inside the location's play area,
+// clear of walls, where turning the view leaves them); the push is a passing offset along the view, reset on teleports
+// and scene changes (rf_view.c).
 #include <pthread.h>
 #include <time.h>
 
@@ -23,15 +25,13 @@
 
 int g_gyro_pos, g_gyro_rot;        // options on / off
 int g_gyro_pos_sens = 3, g_gyro_rot_sens = 3;  // sensitivity option (index into SENS)
-float g_gyro_px, g_gyro_py, g_gyro_pz;  // eye offset from the phone's motion, metres right / up / forward
+float g_gyro_pz;  // passing eye offset from pushing the phone, metres along the view
 
 static const int SENS[RF_GYRO_SENS_COUNT] = {25, 50, 75, 100, 150, 200, 300};  // percent
 
 int rf_gyro_sens_pct(int idx) { return SENS[idx >= 0 && idx < RF_GYRO_SENS_COUNT ? idx : 3]; }
 
 #define POS_PER_RAD 0.5f  // metres of eye movement per radian of phone rotation at 100 % (about 9 mm per degree)
-#define POS_MAX_X 0.3f
-#define POS_MAX_Y 0.2f
 #define YAW_RELAX 1.41f
 #define TIGHT_DPS 0.7f    // tightening threshold, degrees per second
 #define ACC_NOISE 0.15f   // m/s^2: linear acceleration of a phone at rest stays below this
@@ -84,7 +84,7 @@ void rf_accel_post(float az, float dt) {
 int rf_gyro_wanted(void) { return (g_gyro_pos || g_gyro_rot ? 1 : 0) | (g_gyro_pos ? 2 : 0); }
 
 void rf_gyro_reset_pos(void) {
-    g_gyro_px = g_gyro_py = g_gyro_pz = 0;
+    g_gyro_pz = 0;
     pthread_mutex_lock(&g_mu);
     g_push.v = g_push.x = 0;
     pthread_mutex_unlock(&g_mu);
@@ -105,7 +105,7 @@ void rf_gyro_tick(void) {
     push = g_push.x;
     pthread_mutex_unlock(&g_mu);
     if (!g_gyro_pos) {
-        if (g_gyro_px != 0 || g_gyro_py != 0 || g_gyro_pz != 0) rf_gyro_reset_pos();
+        if (g_gyro_pz != 0) rf_gyro_reset_pos();
     } else if (!rf_menu_context()) {
         float z = push * ACC_GAIN * rf_gyro_sens_pct(g_gyro_pos_sens) * 0.01f;
         g_gyro_pz = z > POS_MAX_IN ? POS_MAX_IN : z < -POS_MAX_OUT ? -POS_MAX_OUT : z;
@@ -139,13 +139,9 @@ void rf_gyro_tick(void) {
         if (g_head.pitch < -80) g_head.pitch = -80;
     }
     if (g_gyro_pos) {
-        float s = rf_gyro_sens_pct(g_gyro_pos_sens) * 0.01f * POS_PER_RAD;
-        g_gyro_px -= yaw * s;  // turn right -> eyes to the right
-        g_gyro_py += pitch * s;
-        if (g_gyro_px > POS_MAX_X) g_gyro_px = POS_MAX_X;
-        if (g_gyro_px < -POS_MAX_X) g_gyro_px = -POS_MAX_X;
-        if (g_gyro_py > POS_MAX_Y) g_gyro_py = POS_MAX_Y;
-        if (g_gyro_py < -POS_MAX_Y) g_gyro_py = -POS_MAX_Y;
+        float s = rf_gyro_sens_pct(g_gyro_pos_sens) * 0.01f * POS_PER_RAD, h = g_head.yaw * DEG2RAD;
+        v3 right = {cosf(h), 0, -sinf(h)};  // the view's horizontal right, tracking space
+        rf_view_move(v3_add(v3_scale(right, -yaw * s), (v3){0, pitch * s, 0}), false);  // turn right -> eyes right
     }
     if (g_dev) {
         static int n;
@@ -153,8 +149,9 @@ void rf_gyro_tick(void) {
         sy += yaw;
         sp += pitch;
         if (++n % 120 == 0) {
-            rf_log("gyro: 2 s yaw %.1f pitch %.1f deg (up %.2f %.2f %.2f) head yaw %.1f pitch %.1f eye %.3f %.3f %.3f",
-                   sy / DEG2RAD, sp / DEG2RAD, up.x, up.y, up.z, g_head.yaw, g_head.pitch, g_gyro_px, g_gyro_py, g_gyro_pz);
+            rf_log("gyro: 2 s yaw %.1f pitch %.1f deg (up %.2f %.2f %.2f) head yaw %.1f pitch %.1f eyes(%.3f %.3f %.3f) push %.3f",
+                   sy / DEG2RAD, sp / DEG2RAD, up.x, up.y, up.z, g_head.yaw, g_head.pitch, g_head.pos.x, g_head.pos.y,
+                   g_head.pos.z, g_gyro_pz);
             sy = sp = 0;
         }
     }

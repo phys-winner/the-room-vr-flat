@@ -13,22 +13,32 @@ the original APK; the tools rebuild everything else from it on your machine.
 
 - Runs as a normal app: the PICO / Oculus VR runtime, the platform entitlement and the headset checks are detached.
 - Touch controls for every VR action:
-  - swipe on empty space to look around; pinch to lean in; drag with two fingers to move the head sideways or up
-    (peek behind things);
-  - press an object and drag to take it and move it: levers, drawers, handles, ropes, bolts (lift, turn, hang up);
-    turn cranks, winches, keys and knobs with a circular finger motion;
+  - swipe on empty space to look around - turning never moves the player, and a teleport puts them at the centre of
+    the location; spread or pinch two fingers to step forward or back, drag with two fingers to move sideways or up
+    (peek behind things) - always inside the location's play area, as a VR player moves in theirs, never into a wall;
+  - a position indicator (top right) shows, for the axis being moved, where the player stands relative to the
+    location's centre and how far they can go; at the edge the game's own "return to the play area" marker appears;
+    the indicator can be turned off in Options;
+  - press an object and drag to take it and move it: levers (they follow the finger along their arc from any
+    angle), drawers, handles, ropes, bolts (lift, turn, hang up); turn cranks, winches, keys and knobs with a
+    circular finger motion;
+  - a picked-up note, clipboard or tool comes up to be read, turned to the eyes with the side the inventory shows,
+    upright and wholly in view;
   - a second finger next to a held object turns it in the hand; a second finger elsewhere looks around while holding;
   - pressable panels and buttons are pushed by the fingertip, as in VR.
 - On-screen buttons: pause, teleport (then tap a glowing spot; crystals enter the miniature worlds), inventory,
-  eyepiece, turn arrows. Android Back closes menus and pauses the game.
+  eyepiece, turn arrows. Android Back closes menus and pauses the game (also on Android 16, where predictive back
+  would otherwise close it). The inventory always opens wholly in view; its hint tab is pulled with a finger.
 - Menus are tapped directly — no laser pointer beam, no camera turning; every menu screen is framed in view
   (the field of view widens while a menu needs it).
 - Tutorial hints and the hero's remarks are pinned flat to the screen (hints at the top, remarks at the bottom) and
-  drawn over the scene instead of drifting after the view.
+  drawn over the scene instead of drifting after the view; their letters have a set size in millimetres, every box
+  fits the screen (tablets included), and two hints shown at once are stacked. A new game opens facing the level's
+  title.
 - Gyroscope options: *eye position* (turn / tilt / push the phone to move the eyes) and *tilt and turn* (the camera
   follows the phone), each with its own sensitivity 25–300 %.
-- Options: FPS limit 30 / 45 / 60 / display rate (default 60), field of view 70–110° (hor+, default 90), a gesture
-  card in all 10 game languages, the game's hidden graphics screen (MSAA, texture quality, render scale, AO, bloom,
+- Options: FPS limit 30 / 45 / 60 / display rate (default 60), field of view 70–110° (hor+, default 90), position
+  indicator on / off, a gesture card in all 10 game languages, the game's hidden graphics screen (MSAA, texture quality, render scale, AO, bloom,
   volumetrics), a chapter select that replays chapters without touching progress, and a QA row.
 - Fixes for Mali GPUs (glow "disc" artefact, shadow-pass shader link errors); the one DXT5 texture re-encoded to
   ASTC; full screen including the display cutout; Unity's "trial version" mark removed.
@@ -37,7 +47,8 @@ the original APK; the tools rebuild everything else from it on your machine.
 - The release build writes no logs: no log file, no developer console, and on Android 11+ the game's process is
   muted in logcat.
 
-Verified on a Redmi Note 8 Pro (Mali-G76, Android 11) and a Realme RMX3371 (Adreno, Android 15). Not verified:
+Verified on a Redmi Note 8 Pro (Mali-G76, Android 11), a Realme RMX3371 (Adreno, Android 15) and a POCO X3 NFC
+(Adreno 618, Android 16; tablet 16:10 emulated by display size). Not verified:
 devices with 16 KB memory pages; touch play-through of a few late story places (Chapel organ keys and lockpick;
 pouring, mirror, bellows and candles in the Witch chapter) — the controls for them exist.
 

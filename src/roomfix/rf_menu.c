@@ -13,9 +13,11 @@
 //
 // VR setup wizards in the front end are answered with the flat defaults the way a player would answer them.
 //
-// PostureSelectScreen ("Select Posture: Sitting / Standing") appears before every level load. Flat play is
-// seated (camera at the authored seated eye height), so once the screen has faded in the port presses its
-// own Sitting button handler (PostureSelectScreen.SittingPressed: SlotManager sitting mode + continue).
+// PostureSelectScreen ("Select Posture: Sitting / Standing") appeared before every level load. Flat play is
+// seated (camera at the authored seated eye height): since round 4 the game is told that standing play is not supported
+// (roomfix.c), so it never opens the screen. Should it still open, it is shrunk to nothing, the camera does not turn to
+// it, and once it has faded in the port presses its own Sitting button handler (PostureSelectScreen.SittingPressed:
+// SlotManager sitting mode + continue).
 #include <string.h>
 
 #include "rf.h"
@@ -31,7 +33,8 @@ void* h_posture_setup(void* self, const void* mi) {
     void* r = ORIG(H_POSTURE_SETUP, void* (*)(void*, const void*))(self, mi);
     g_posture.screen = self;
     g_posture.frame = g_frame;
-    rf_log("menu: posture wizard shown");
+    CALLP(C_TR_SETLOCALSCALE, void (*)(void*, v3, const void*))(rf_transform(self), (v3){0, 0, 0}, NULL);
+    rf_log("menu: posture wizard opened (hidden)");
     return r;
 }
 
@@ -256,6 +259,7 @@ static void tick_face_menu(void) {
     if (!g_menu.ctrl || g_frame - g_menu.frame > 2 || !rf_alive(g_menu.ctrl)) return;
     void* scr = *(void**)((char*)g_menu.ctrl + 0xd8);  // MenuController.CurrentScreen
     if (!rf_alive(scr)) return;
+    if (rf_class_is(scr, "PostureSelectScreen")) return;  // hidden, answered at once: the view stays
     if (scr != g_menu.screen) {
         g_menu.screen = scr;
         g_menu.since = 0;

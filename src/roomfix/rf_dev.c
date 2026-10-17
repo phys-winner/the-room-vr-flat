@@ -392,6 +392,133 @@ static void cmd_boxes(void) {
     }
 }
 
+// dev (round 5): the location's play area as the game checks it - Player.UpdateOutOfRange compares the eyes' horizontal
+// distance from the location point with MaxPlayerDistanceBeforeFadeOut; HeadInsideGeometryHUD fades out with the head
+// inside a HeadCollisionVolume or a layer-2 collider between the head and the location's eye level - and what the game
+// shows beyond it (the "return to the play area" message and the return marker at the location)
+static void log_parts(void* go, const char* label, const char* cls, const char* image) {
+    void* type = rf_class_type(rf_find_class(image, "UnityEngine", cls));
+    char* arr = type && rf_alive(go)
+                    ? CALLP(C_GO_GETCOMPSCHILD, char* (*)(void*, void*, bool, const void*))(go, type, true, NULL)
+                    : NULL;
+    int n = arr ? (int)*(uint64_t*)(arr + 0x18) : 0;
+    for (int i = 0; i < n && i < 16; i++) {
+        void* c = ((void**)(arr + 0x20))[i];
+        if (!rf_alive(c)) continue;
+        char nm[64];
+        rf_obj_name(rf_gameobject(c), nm, sizeof nm);
+        int layer = CALLP(C_GO_GETLAYER, int32_t (*)(void*, const void*))(rf_gameobject(c), NULL);
+        struct { v3 c, e; } b = {{0, 0, 0}, {0, 0, 0}};
+        int en = -1, trig = -1;
+        if (rf_class_is(c, "Renderer")) {
+            b = CALLP(C_REND_BOUNDS, __typeof__(b) (*)(void*, const void*))(c, NULL);
+            en = CALLP(C_REND_GETENABLED, bool (*)(void*, const void*))(c, NULL);
+        } else if (rf_class_is(c, "Collider")) {
+            b = CALLP(C_COL_BOUNDS, __typeof__(b) (*)(void*, const void*))(c, NULL);
+            trig = CALLP(C_COL_ISTRIGGER, bool (*)(void*, const void*))(c, NULL);
+        }
+        rf_log("  %s %s '%s' layer %d en=%d trigger=%d centre(%.3f %.3f %.3f) extents(%.3f %.3f %.3f)", label, rf_class_name(c),
+               nm, layer, en, trig, b.c.x, b.c.y, b.c.z, b.e.x, b.e.y, b.e.z);
+    }
+}
+
+static void cmd_bounds(void) {
+    void* pl = rf_player();
+    void* loc = pl ? *(void**)((char*)pl + 0x70) : NULL;  // Player.CurrentLocation
+    void* cam = rf_main_camera();
+    void* rig = cam ? rf_tr_parent(rf_transform(cam)) : NULL;
+    if (!rf_alive(loc) || !rf_alive(rig)) {
+        rf_log("bounds? no player location");
+        return;
+    }
+    char ln[64];
+    rf_obj_name(rf_gameobject(loc), ln, sizeof ln);
+    v3 lp = rf_tr_pos(rf_transform(loc)), rp = rf_tr_pos(rig), ep = rf_tr_pos(rf_transform(cam));
+    void* eyel = *(void**)((char*)loc + 0x60);  // PlayerLocation.EyeLevel
+    v3 el = rf_alive(eyel) ? rf_tr_pos(eyel) : (v3){0, 0, 0};
+    v3 sc = CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(rig, NULL);
+    float dh = sqrtf((ep.x - lp.x) * (ep.x - lp.x) + (ep.z - lp.z) * (ep.z - lp.z));
+    float rh = sqrtf((rp.x - lp.x) * (rp.x - lp.x) + (rp.z - lp.z) * (rp.z - lp.z));
+    rf_log("bounds? location '%s' (%s) state %d pos(%.3f %.3f %.3f) fade radius %.3f collider radius %.3f eye level(%.3f %.3f %.3f)",
+           ln, rf_class_name(loc), *(int32_t*)((char*)loc + 0x21c), lp.x, lp.y, lp.z, *(float*)((char*)loc + 0x70),
+           *(float*)((char*)loc + 0x200), el.x, el.y, el.z);
+    rf_log("bounds? rig(%.3f %.3f %.3f) scale %.3f, %.3f m from the location; eyes(%.3f %.3f %.3f) %.3f m from it, %.3f above the rig",
+           rp.x, rp.y, rp.z, sc.y, rh, ep.x, ep.y, ep.z, dh, ep.y - rp.y);
+    void* lcol = *(void**)((char*)loc + 0x208);  // PlayerLocation.Collider
+    if (rf_alive(lcol)) log_parts(rf_gameobject(lcol), "location", "Collider", "UnityEngine.PhysicsModule.dll");
+    void* ind = *(void**)((char*)loc + 0x90);  // IndicatorParent
+    if (rf_alive(ind)) log_parts(ind, "indicator", "Renderer", "UnityEngine.CoreModule.dll");
+    void* glow = *(void**)((char*)loc + 0x100);  // FloorGlow (UI Image)
+    if (rf_alive(glow)) {
+        typedef struct { float x, y, w, h; } rect_t;
+        void* gt = rf_transform(glow);
+        rect_t r = CALLP(C_RT_GETRECT, rect_t (*)(void*, const void*))(gt, NULL);
+        v3 gs = CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(gt, NULL);
+        v3 gp = rf_tr_pos(gt);
+        rf_log("bounds? floor glow (%.3f %.3f %.3f) %.3f x %.3f m", gp.x, gp.y, gp.z, r.w * gs.x, r.h * gs.y);
+    }
+    char* hud = *(char**)((char*)pl + 0xb0);  // Player.HeadInsideHud
+    if (!rf_alive(hud)) {
+        rf_log("bounds? no HeadInsideGeometryHUD");
+        return;
+    }
+    void* col = *(void**)(hud + 0x30), *marker = *(void**)(hud + 0x70), *canvas = *(void**)(hud + 0x60);
+    char* vols = *(char**)(hud + 0x50);
+    rf_log("bounds? hud out of range %d in the way %d state %d inside %d culling %#x / ui %#x marker %s canvas %s",
+           hud[0x18], hud[0x19], *(int32_t*)(hud + 0x38), vols ? *(int32_t*)(vols + 0x18) : -1, *(int32_t*)(hud + 0x48),
+           *(int32_t*)(hud + 0x4c), rf_alive(marker) ? "yes" : "-", rf_alive(canvas) ? "yes" : "-");
+    if (rf_alive(col)) {
+        v3 cp = rf_tr_pos(col);
+        rf_log("bounds? head collision transform (%.3f %.3f %.3f), %.3f m from the camera", cp.x, cp.y, cp.z, v3_len(v3_sub(cp, ep)));
+        log_parts(rf_gameobject(col), "head", "Collider", "UnityEngine.PhysicsModule.dll");
+    }
+    if (rf_alive(marker)) {  // a GameObject
+        tree(CALLP(C_GO_TRANSFORM, void* (*)(void*, const void*))(marker, NULL), 0, 3, ep, rf_tr_rot(rf_transform(cam)));
+        log_parts(marker, "marker", "Renderer", "UnityEngine.CoreModule.dll");
+    }
+    if (rf_alive(canvas)) tree(rf_transform(canvas), 0, 2, ep, rf_tr_rot(rf_transform(cam)));
+    void* t_hcv = rf_class_type(rf_find_class("TheRoomVR.dll", "", "HeadCollisionVolume"));
+    char* all = t_hcv ? CALLP(C_OBJ_FINDALLTYPE, char* (*)(void*, const void*))(t_hcv, NULL) : NULL;
+    int n = all ? (int)*(uint64_t*)(all + 0x18) : 0, shown = 0;
+    for (int i = 0; i < n && shown < 24; i++) {
+        char* h = ((char**)(all + 0x20))[i];
+        void* c = rf_alive(h) ? *(void**)(h + 0x18) : NULL;  // HeadCollisionVolume.Coll
+        if (!rf_alive(c)) continue;
+        struct { v3 c, e; } b = CALLP(C_COL_BOUNDS, __typeof__(b) (*)(void*, const void*))(c, NULL);
+        float d = v3_len(v3_sub(b.c, ep));
+        if (d > 4.0f) continue;
+        char hn[64];
+        rf_obj_name(rf_gameobject(c), hn, sizeof hn);
+        shown++;
+        rf_log("bounds? volume '%s' %s layer %d trigger %d centre(%.2f %.2f %.2f) %.2f m away extents(%.2f %.2f %.2f)", hn,
+               rf_class_name(c), CALLP(C_GO_GETLAYER, int32_t (*)(void*, const void*))(rf_gameobject(c), NULL),
+               CALLP(C_COL_ISTRIGGER, bool (*)(void*, const void*))(c, NULL), b.c.x, b.c.y, b.c.z, d, b.e.x, b.e.y, b.e.z);
+    }
+    rf_log("bounds? %d head-collision volumes in the scene, %d within 4 m", n, shown);
+}
+
+// dev (round 5): show the game's return marker at the location / its message canvas in the normal view (A/B frames)
+static void cmd_retmark(int what, bool on) {
+    void* pl = rf_player();
+    char* hud = pl ? *(char**)((char*)pl + 0xb0) : NULL;
+    void* loc = pl ? *(void**)((char*)pl + 0x70) : NULL;
+    if (!rf_alive(hud) || !rf_alive(loc)) {
+        rf_log("retmark: no player");
+        return;
+    }
+    void* obj = what ? *(void**)(hud + 0x60) : *(void**)(hud + 0x70);
+    void* go = what ? (rf_alive(obj) ? rf_gameobject(obj) : NULL) : obj;
+    if (!rf_alive(go)) {
+        rf_log("retmark: no %s", what ? "canvas" : "marker");
+        return;
+    }
+    if (!what)
+        CALLP(C_TR_SETPOS, void (*)(void*, v3, const void*))(CALLP(C_GO_TRANSFORM, void* (*)(void*, const void*))(go, NULL),
+                                                             rf_tr_pos(rf_transform(loc)), NULL);
+    CALLP(C_GO_SETACTIVE, void (*)(void*, bool, const void*))(go, on, NULL);
+    rf_log("retmark: %s -> %d", what ? "message canvas" : "return marker", on);
+}
+
 static void cmd_tree(int up, int maxdepth) {
     void* cam = rf_main_camera();
     if (!cam) { rf_log("tree: no camera"); return; }
@@ -430,7 +557,8 @@ static void exec_line(char* line) {
     } else if (!strcmp(argv[0], "head?")) {
         void* cam = rf_main_camera();
         v3 cp = cam ? rf_tr_pos(rf_transform(cam)) : (v3){0, 0, 0};
-        rf_log("head? yaw %.1f pitch %.1f lean %.2f cam(%.3f %.3f %.3f)", g_head.yaw, g_head.pitch, g_lean, cp.x, cp.y, cp.z);
+        rf_log("head? yaw %.1f pitch %.1f eyes %.2f m from the centre cam(%.3f %.3f %.3f)", g_head.yaw, g_head.pitch,
+               rf_view_offset(), cp.x, cp.y, cp.z);
     } else if (!strcmp(argv[0], "ttaploc") && argc >= 2) {
         cmd_ttap_loc(argv[1]);
     } else if (!strcmp(argv[0], "aimtip") && argc >= 4) {
@@ -515,6 +643,40 @@ static void exec_line(char* line) {
         for (int i = 0; i < 100; i++) rf_accel_post(i < 50 ? -a : a, 0.005f);
         for (int i = 0; i < 40; i++) rf_accel_post(0, 0.005f);
         rf_log("dev: push %.2f m posted", dist);
+    } else if (!strcmp(argv[0], "held?")) {
+        extern void rf_dev_held_axes(void);
+        rf_dev_held_axes();
+    } else if (!strcmp(argv[0], "faceoff") && argc >= 2) {
+        extern bool g_dev_face_off;
+        g_dev_face_off = atoi(argv[1]) != 0;
+    } else if (!strcmp(argv[0], "invtree") && argc >= 2) {
+        void* hm = static_instance(META_HUDMGR_TYPEINFO);
+        void* lp = rf_alive(hm) ? *(void**)((char*)hm + 0x18) : NULL;
+        void* cam = rf_main_camera();
+        if (rf_alive(lp) && cam) tree(lp, 0, atoi(argv[1]), rf_tr_pos(rf_transform(cam)), rf_tr_rot(rf_transform(cam)));
+        else rf_log("invtree: no inventory");
+    } else if (!strcmp(argv[0], "slotaxes")) {
+        extern void rf_dev_slotaxes(void);
+        rf_dev_slotaxes();
+    } else if (!strcmp(argv[0], "slotfaces")) {
+        rf_dev_slotfaces();
+    } else if (!strcmp(argv[0], "viewtrace") && argc >= 2) {
+        extern int g_dev_view_trace;
+        g_dev_view_trace = atoi(argv[1]);
+    } else if (!strcmp(argv[0], "flats")) {
+        rf_dev_flats();
+    } else if (!strcmp(argv[0], "texts")) {
+        rf_dev_texts(argc >= 2 ? argv[1] : NULL);
+    } else if (!strcmp(argv[0], "view?")) {
+        v3 b = {0, 0, 0};
+        bool ok = rf_view_base(&b);
+        rf_log("view? base %d (%.3f %.3f %.3f) head pos(%.3f %.3f %.3f) yaw %.1f pitch %.1f", ok, b.x, b.y, b.z,
+               g_head.pos.x, g_head.pos.y, g_head.pos.z, g_head.yaw, g_head.pitch);
+        rf_view_dev_state();
+    } else if (!strcmp(argv[0], "bounds?")) {
+        cmd_bounds();
+    } else if (!strcmp(argv[0], "retmark") && argc >= 3) {
+        cmd_retmark(atoi(argv[1]), atoi(argv[2]) != 0);  // retmark 0|1 (marker | message canvas) 0|1
     } else if (!strcmp(argv[0], "menubtns")) {
         cmd_menubtns();
     } else if (!strcmp(argv[0], "menutree") && argc >= 2) {
@@ -549,8 +711,8 @@ static void exec_line(char* line) {
         rf_act_button(h, k, argc >= 4 ? atoi(argv[3]) : 6);
     } else if (!strcmp(argv[0], "hud") && argc >= 2) {
         rf_hud_button(atoi(argv[1]));
-    } else if (!strcmp(argv[0], "lean") && argc >= 2) {
-        g_lean = strtof(argv[1], NULL);
+    } else if (!strcmp(argv[0], "eye") && argc >= 4) {  // eye X Y Z: the eyes' offset (tracking space) for a check
+        rf_view_dev_set((v3){strtof(argv[1], NULL), strtof(argv[2], NULL), strtof(argv[3], NULL)});
     } else if (!strcmp(argv[0], "fpsopt") && argc >= 2) {
         int v = atoi(argv[1]);
         if (v >= 0 && v < RF_FPS_COUNT) {

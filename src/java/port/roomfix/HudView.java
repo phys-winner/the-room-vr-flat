@@ -13,6 +13,9 @@ import android.view.WindowInsets;
 /**
  * Touch HUD drawn over the game. It never receives touches itself: RoomFix.onTouch hit-tests it and sends
  * presses to libroomfix. Visibility follows the game's own input gates (state flags from native code).
+ * Round 5: the position gauge in the top right corner - one track per axis of the view (forward, right, up) while two
+ * fingers move the eyes along it inside the location (rf_view.c): the location's span, the reachable part, its centre
+ * and the eyes, with a stop flash where a move was held back.
  */
 final class HudView extends View {
     // native HUD_* flags (src/roomfix/rf.h)
@@ -21,6 +24,10 @@ final class HudView extends View {
     // native HB_* buttons
     static final int B_TELEPORT = 1, B_INVENTORY = 2, B_GOGGLES = 3, B_PAUSE = 4, B_TURN_L = 5, B_TURN_R = 6;
     private static final int NB = 7;
+    // native RF_GAUGE_* (rf.h): [0] axes to draw (bit 0 right, 1 up, 2 forward); per axis alpha, eyes, reach low,
+    // reach high, stop side, stop strength - positions in units of the location's half span
+    static final int GAUGE_STRIDE = 6, GAUGE_N = 1 + 3 * GAUGE_STRIDE;
+    private static final int AX_RIGHT = 0, AX_UP = 1, AX_FORWARD = 2;
 
     private final float[] cx = new float[NB], cy = new float[NB], rad = new float[NB];
     private final boolean[] pressed = new boolean[NB];
@@ -32,6 +39,10 @@ final class HudView extends View {
     private final Paint solid = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF rect = new RectF();
+    private final float[] gauge = new float[GAUGE_N];
+    private int gaugeAxes;
+    private float gRight, gTop;  // top right corner of the gauge
+    private final Paint gPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     HudView(Context c) {
         super(c);
@@ -47,6 +58,18 @@ final class HudView extends View {
         glyph.setColor(0xF2F3EBDD);
         solid.setStyle(Paint.Style.FILL);
         solid.setColor(0xF2F3EBDD);
+        gPaint.setStrokeCap(Paint.Cap.ROUND);
+        gPaint.setStrokeJoin(Paint.Join.ROUND);
+    }
+
+    /** Gauge data from RoomFix.nativeGauge; returns whether any track is drawn (the caller keeps polling then). */
+    boolean setGauge(float[] g, int axes) {
+        boolean changed = axes != gaugeAxes;
+        for (int i = 0; i < GAUGE_N && !changed && axes != 0; i++) changed = g[i] != gauge[i];
+        System.arraycopy(g, 0, gauge, 0, GAUGE_N);
+        gaugeAxes = axes;
+        if (changed) invalidate();
+        return axes != 0;
     }
 
     void setState(int s) {
@@ -141,6 +164,8 @@ final class HudView extends View {
         set(B_PAUSE, left + 21 * dp, top + 21 * dp, 21 * dp);
         set(B_TURN_L, left + rS, bottom - rS, rS);
         set(B_TURN_R, left + 3 * rS + gap, bottom - rS, rS);
+        gRight = right;  // the gauge: top right, above the button column
+        gTop = top;
     }
 
     private void set(int b, float x, float y, float r) {
@@ -163,6 +188,127 @@ final class HudView extends View {
             glyph.setStrokeWidth(Math.max(2f * dp, r * 0.085f));
             drawGlyph(c, b, x, y, r * 0.52f);
         }
+        if (gaugeAxes != 0) drawGauge(c);
+    }
+
+    // ---- position gauge ----
+    private static final int G_BACK = 0x8C000000, G_SPAN = 0x66F3EBDD, G_REACH = 0xEBF3EBDD, G_CENTRE = 0xFFE6C27A,
+            G_EYES = 0xFFE6C27A, G_EDGE = 0xE6000000, G_STOP = 0xFFFF6A3D;
+    private static final float G_LEN = 50, G_HIGH = 120, G_X_WIDE = 172, G_Z_WIDE = 46, G_Y_WIDE = 24, G_GAP = 12;
+
+    private static int fade(int argb, float a) {
+        return ((int) ((argb >>> 24) * Math.max(0f, Math.min(1f, a))) << 24) | (argb & 0xFFFFFF);
+    }
+
+    private static float clampUnit(float v) {
+        return Math.max(-1.12f, Math.min(1.12f, v));
+    }
+
+    // Tracks right to left: up (a vertical bar), right (a horizontal bar), forward (a lane narrowing into the distance,
+    // the far end on top). Each one only while native code draws its axis; a track is G_LEN dp per half span.
+    private void drawGauge(Canvas c) {
+        float top = gTop, mid = top + G_HIGH * dp * 0.5f, len = G_LEN * dp;
+        float yR = gRight, yL = yR - G_Y_WIDE * dp;
+        float xR = yL - G_GAP * dp, xL = xR - G_X_WIDE * dp;
+        float zR = xL - G_GAP * dp, zL = zR - G_Z_WIDE * dp;
+        // up: x fixed, y = mid - v * len
+        if ((gaugeAxes & (1 << AX_UP)) != 0) {
+            int o = 1 + AX_UP * GAUGE_STRIDE;
+            float a = gauge[o], x = (yL + yR) * 0.5f;
+            backdrop(c, yL, top, yR, top + G_HIGH * dp, a);
+            track(c, x, mid + len, x, mid - len, gauge, o, a, 0, true);
+            chevron(c, x, mid - len - 6 * dp, 0, -1, a);
+            chevron(c, x, mid + len + 6 * dp, 0, 1, a);
+        }
+        // right: y fixed, x = centre + v * len
+        if ((gaugeAxes & (1 << AX_RIGHT)) != 0) {
+            int o = 1 + AX_RIGHT * GAUGE_STRIDE;
+            float a = gauge[o], x = (xL + xR) * 0.5f, h = 15 * dp;
+            backdrop(c, xL, mid - h, xR, mid + h, a);
+            track(c, x - len, mid, x + len, mid, gauge, o, a, 0, true);
+            chevron(c, x - len - 8 * dp, mid, -1, 0, a);
+            chevron(c, x + len + 8 * dp, mid, 1, 0, a);
+        }
+        // forward: a lane on the floor seen from behind, x fixed, y = mid - v * len, narrower towards the far end
+        if ((gaugeAxes & (1 << AX_FORWARD)) != 0) {
+            int o = 1 + AX_FORWARD * GAUGE_STRIDE;
+            float a = gauge[o], x = (zL + zR) * 0.5f, near = 16 * dp, far = 7 * dp;
+            backdrop(c, zL, top, zR, top + G_HIGH * dp, a);
+            gPaint.setStyle(Paint.Style.STROKE);
+            gPaint.setStrokeWidth(1.2f * dp);
+            gPaint.setColor(fade(G_SPAN, a));
+            path.reset();
+            path.moveTo(x - near, mid + len);
+            path.lineTo(x - far, mid - len);
+            path.moveTo(x + near, mid + len);
+            path.lineTo(x + far, mid - len);
+            for (int i = -2; i <= 2; i += 1) {  // rungs every half of the half span
+                if (i == 0) continue;
+                float t = i * 0.5f, y = mid - t * len, w = near + (far - near) * (t + 1) * 0.5f;
+                path.moveTo(x - w, y);
+                path.lineTo(x + w, y);
+            }
+            c.drawPath(path, gPaint);
+            track(c, x, mid + len, x, mid - len, gauge, o, a, (near + far) * 0.5f, false);
+        }
+    }
+
+    private void backdrop(Canvas c, float l, float t, float r, float b, float a) {
+        gPaint.setStyle(Paint.Style.FILL);
+        gPaint.setColor(fade(G_BACK, a));
+        rect.set(l, t, r, b);
+        float rr = Math.min(r - l, b - t) * 0.5f;
+        c.drawRoundRect(rect, rr, rr, gPaint);
+    }
+
+    // a track from (x0, y0) at -1 to (x1, y1) at +1: its span, the reachable part, the centre tick, the eyes and the
+    // stop flash; tick: half length of the centre tick (0: default)
+    private void track(Canvas c, float x0, float y0, float x1, float y1, float[] g, int o, float a, float tick,
+                       boolean span) {
+        float mx = (x0 + x1) * 0.5f, my = (y0 + y1) * 0.5f, hx = (x1 - x0) * 0.5f, hy = (y1 - y0) * 0.5f;
+        float l = (float) Math.hypot(hx, hy), nx = -hy / l, ny = hx / l;  // unit normal of the track
+        gPaint.setStyle(Paint.Style.STROKE);
+        if (span) {
+            gPaint.setStrokeWidth(2.5f * dp);
+            gPaint.setColor(fade(G_SPAN, a));
+            c.drawLine(x0, y0, x1, y1, gPaint);
+        }
+        float lo = clampUnit(g[o + 2]), hi = clampUnit(g[o + 3]);
+        gPaint.setStrokeWidth(3.5f * dp);
+        gPaint.setColor(fade(G_REACH, a));
+        if (hi > lo) c.drawLine(mx + lo * hx, my + lo * hy, mx + hi * hx, my + hi * hy, gPaint);
+        float t = tick > 0 ? tick : 7 * dp;
+        gPaint.setStrokeWidth(2.5f * dp);
+        gPaint.setColor(fade(G_CENTRE, a));
+        c.drawLine(mx - nx * t, my - ny * t, mx + nx * t, my + ny * t, gPaint);
+        float side = g[o + 4], stop = g[o + 5];
+        float v = clampUnit(g[o + 1]), ex = mx + v * hx, ey = my + v * hy, er = 6.5f * dp;
+        if (side != 0 && stop > 0) {  // where the move stopped: just past the eyes, on the side they were pushed to
+            float k = side * (er + 3 * dp) / l, sx = ex + k * hx, sy = ey + k * hy, sl = 10 * dp;
+            gPaint.setStrokeWidth(3.5f * dp);
+            gPaint.setColor(fade(G_STOP, a * stop));
+            c.drawLine(sx - nx * sl, sy - ny * sl, sx + nx * sl, sy + ny * sl, gPaint);
+        }
+        gPaint.setStyle(Paint.Style.FILL);
+        gPaint.setColor(fade(G_EYES, a));
+        c.drawCircle(ex, ey, er, gPaint);
+        gPaint.setStyle(Paint.Style.STROKE);
+        gPaint.setStrokeWidth(1.5f * dp);
+        gPaint.setColor(side != 0 && stop > 0 ? fade(G_STOP, a * stop) : fade(G_EDGE, a));
+        c.drawCircle(ex, ey, er, gPaint);
+    }
+
+    // a small arrowhead at (x, y) pointing along (dx, dy)
+    private void chevron(Canvas c, float x, float y, float dx, float dy, float a) {
+        float s = 4 * dp;
+        gPaint.setStyle(Paint.Style.STROKE);
+        gPaint.setStrokeWidth(1.8f * dp);
+        gPaint.setColor(fade(G_SPAN, a));
+        path.reset();
+        path.moveTo(x - dx * s - dy * s, y - dy * s - dx * s);
+        path.lineTo(x, y);
+        path.lineTo(x - dx * s + dy * s, y - dy * s + dx * s);
+        c.drawPath(path, gPaint);
     }
 
     // glyphs in a unit box [-1, 1] scaled by s around (x, y)
