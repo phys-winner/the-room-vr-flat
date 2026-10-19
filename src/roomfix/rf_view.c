@@ -469,6 +469,8 @@ static void tick_eyes(void) {
     // while (the pause menu stops it) changes nothing - after the pause the view the player had comes back (rf_menu.c)
     bool new_scene = strcmp(g_scene, g_arrive.scene) != 0, arrived = loc && loc != g_arrive.location;
     if (new_scene || arrived) {
+        rf_hand_velocity_reset(0);
+        rf_hand_velocity_reset(1);
         if (arrived) g_arrive.face_frames = 45;
         if (new_scene) g_arrive.level_start = true;  // a level's first location
         else if (g_arrive.location) g_arrive.level_start = false;  // a teleport

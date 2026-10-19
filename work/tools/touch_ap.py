@@ -46,6 +46,8 @@ class Session:
         self.p.stdin.flush()
 
     def down(self, slot, x, y):
+        if f"{d.PKG}/{d.ACT}" not in d.focus():
+            raise RuntimeError("Game lost foreground; refusing to inject a new touch into another app")
         self.pos[slot] = (float(x), float(y))
         self.send([f"down {slot} {x:.1f} {y:.1f}"])
 

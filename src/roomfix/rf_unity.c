@@ -1,5 +1,6 @@
 // Unity / game helpers shared by the touch and interaction modules (main thread only).
 #include <stdio.h>
+#include <time.h>
 
 #include "rf.h"
 
@@ -89,7 +90,7 @@ void* rf_controller(int h) {
 v3 g_hand_prev_pos[2];
 static void* find_anchor(void* t, int h) {
     void* p = t;
-    for (int i = 0; i < 8 && rf_alive(p); i++) {
+    for (int i = 0; i < 16 && rf_alive(p); i++) {  // the animated fingertip is nine parents below its tracker
         v3 lp = rf_tr_localpos(p);
         if (v3_len(v3_sub(lp, g_hand[h].pos)) < 0.005f || v3_len(v3_sub(lp, g_hand_prev_pos[h])) < 0.005f) return p;
         p = rf_tr_parent(p);
@@ -105,14 +106,15 @@ bool rf_place_transform(int h, void* T, v3 pos, quat rot) {
     if (!anchor) return false;
     void* parent = rf_tr_parent(anchor);
     if (!rf_alive(parent)) return false;
-    v3 ap = rf_tr_pos(anchor), rp = rf_tr_pos(T), pp = rf_tr_pos(parent);
+    v3 ap = rf_tr_pos(anchor), rp = rf_tr_pos(T);
     quat aq = rf_tr_rot(anchor), rq = rf_tr_rot(T), pq = rf_tr_rot(parent);
     quat lq = q_mul(q_conj(aq), rq);               // T relative to the anchor (rigid)
     v3 lp = q_rot(q_conj(aq), v3_sub(rp, ap));
     quat want_aq = q_mul(rot, q_conj(lq));
     v3 want_ap = v3_sub(pos, q_rot(want_aq, lp));
     g_hand[h].rot = q_mul(q_conj(pq), want_aq);
-    g_hand[h].pos = q_rot(q_conj(pq), v3_sub(want_ap, pp));
+    // Superzoom scales the tracking space; XR positions must stay in that parent's local coordinates.
+    g_hand[h].pos = CALLP(C_TR_INVPOINT, fn_v3_v3)(parent, want_ap, NULL);
     g_hand_resting[h] = false;
     return true;
 }
@@ -123,6 +125,7 @@ bool rf_aim_transform(int h, void* T, v3 origin, v3 dir) { return rf_place_trans
 // (|pitch| <= 80), turning with the head yaw like a body that faces where the player looks.
 static const v3 REST_OFF[2] = {{-0.2f, -0.5f, -0.3f}, {0.2f, -0.5f, -0.3f}};
 bool g_hand_resting[2] = {true, true};
+static bool g_hand_velocity_active[2];
 
 static void rest_pose(int h) {
     quat yaw = q_axis((v3){0, 1, 0}, g_head.yaw * DEG2RAD);
@@ -147,12 +150,44 @@ void rf_face_point(v3 p) {
     if (g_head.pitch < -80) g_head.pitch = -80;
 }
 
+void rf_hand_velocity_reset(int h) {
+    g_hand_velocity_active[h] = false;
+    g_hand[h].vel = (v3){0, 0, 0};
+}
+
 void rf_hand_rest(int h) {
     g_hand_resting[h] = true;
+    rf_hand_velocity_reset(h);
     rest_pose(h);
 }
 
 void rf_hand_rest_apply(void) {
     for (int h = 0; h < 2; h++)
         if (g_hand_resting[h]) rest_pose(h);
+}
+
+static v3 hand_velocity_step(v3 previous, v3 delta, float dt) {
+    float alpha = 1 - expf(-dt / .05f);
+    return v3_add(previous, v3_scale(v3_sub(v3_scale(delta, 1 / dt), previous), alpha));
+}
+
+// Touch samples leave gaps between frames; raw zero/spike velocities defeat native acceleration limits.
+void rf_hand_velocity_tick(void) {
+    static int64_t last;
+    static void* player;
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    int64_t now = (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+    float dt = (float)(now - last) * 1e-9f;
+    void* current = rf_player();
+    bool valid = last && dt >= 0.001f && dt <= 0.1f && current && current == player && !rf_menu_context();
+    for (int h = 0; h < 2; h++) {
+        bool moving = current && !g_hand_resting[h] && !rf_menu_context();
+        g_hand[h].vel = valid && moving && g_hand_velocity_active[h]
+                           ? hand_velocity_step(g_hand[h].vel, v3_sub(g_hand[h].pos, g_hand_prev_pos[h]), dt)
+                           : (v3){0, 0, 0};
+        g_hand_velocity_active[h] = moving;
+    }
+    last = now;
+    player = current;
 }

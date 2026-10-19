@@ -591,6 +591,8 @@ static void exec_line(char* line) {
         rf_dev_levels();
     } else if (!strcmp(argv[0], "hint?")) {
         rf_dev_hint();
+    } else if (!strcmp(argv[0], "puzzle")) {
+        rf_dev_puzzle(argc - 1, argv + 1);
     } else if (!strcmp(argv[0], "peek") && argc >= 3) {
         rf_dev_peek(argv[1], argv[2], argc >= 4 ? argv[3] : NULL);
     } else if (!strcmp(argv[0], "tpto") && argc >= 2) {

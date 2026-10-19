@@ -27,10 +27,6 @@ int g_gyro_pos, g_gyro_rot;        // options on / off
 int g_gyro_pos_sens = 3, g_gyro_rot_sens = 3;  // sensitivity option (index into SENS)
 float g_gyro_pz;  // passing eye offset from pushing the phone, metres along the view
 
-static const int SENS[RF_GYRO_SENS_COUNT] = {25, 50, 75, 100, 150, 200, 300};  // percent
-
-int rf_gyro_sens_pct(int idx) { return SENS[idx >= 0 && idx < RF_GYRO_SENS_COUNT ? idx : 3]; }
-
 #define POS_PER_RAD 0.5f  // metres of eye movement per radian of phone rotation at 100 % (about 9 mm per degree)
 #define YAW_RELAX 1.41f
 #define TIGHT_DPS 0.7f    // tightening threshold, degrees per second
@@ -107,7 +103,7 @@ void rf_gyro_tick(void) {
     if (!g_gyro_pos) {
         if (g_gyro_pz != 0) rf_gyro_reset_pos();
     } else if (!rf_menu_context()) {
-        float z = push * ACC_GAIN * rf_gyro_sens_pct(g_gyro_pos_sens) * 0.01f;
+        float z = push * ACC_GAIN * rf_sens_pct(g_gyro_pos_sens) * 0.01f;
         g_gyro_pz = z > POS_MAX_IN ? POS_MAX_IN : z < -POS_MAX_OUT ? -POS_MAX_OUT : z;
     }
     if (!ev || !rf_gyro_wanted()) return;
@@ -132,14 +128,14 @@ void rf_gyro_tick(void) {
         }
     }
     if (g_gyro_rot) {
-        float s = rf_gyro_sens_pct(g_gyro_rot_sens) * 0.01f;
+        float s = rf_sens_pct(g_gyro_rot_sens) * 0.01f;
         g_head.yaw -= yaw * s / DEG2RAD;
         g_head.pitch += pitch * s / DEG2RAD;
         if (g_head.pitch > 80) g_head.pitch = 80;
         if (g_head.pitch < -80) g_head.pitch = -80;
     }
     if (g_gyro_pos) {
-        float s = rf_gyro_sens_pct(g_gyro_pos_sens) * 0.01f * POS_PER_RAD, h = g_head.yaw * DEG2RAD;
+        float s = rf_sens_pct(g_gyro_pos_sens) * 0.01f * POS_PER_RAD, h = g_head.yaw * DEG2RAD;
         v3 right = {cosf(h), 0, -sinf(h)};  // the view's horizontal right, tracking space
         rf_view_move(v3_add(v3_scale(right, -yaw * s), (v3){0, pitch * s, 0}), false);  // turn right -> eyes right
     }

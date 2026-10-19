@@ -33,7 +33,11 @@ static pthread_mutex_t g_qmu = PTHREAD_MUTEX_INITIALIZER;
 
 void rf_touch_post(int action, int id, float x, float y, int64_t t) {
     pthread_mutex_lock(&g_qmu);
-    if (g_qt - g_qh < QN) g_q[g_qt++ % QN] = (touch_ev){action, id, x, y, t};
+    if (g_qt - g_qh == QN) {
+        g_qh = g_qt;
+        g_q[g_qt++ % QN] = (touch_ev){.action = 11};  // a stalled frame must never lose a release
+    }
+    g_q[g_qt++ % QN] = (touch_ev){action, id, x, y, t};
     pthread_mutex_unlock(&g_qmu);
 }
 
@@ -93,6 +97,14 @@ static struct {
 // main menu switches pages the camera can be moved").
 static bool look_allowed(void) { return !rf_menu_context() && rf_player(); }
 
+static void look_delta(float dx, float dy) {
+    float gain = rf_sens_pct(g_look_sens) * 0.01f;
+    g_head.yaw += dx * g_deg_per_x * gain;
+    g_head.pitch -= dy * g_deg_per_y * gain;
+    if (g_head.pitch > 80) g_head.pitch = 80;
+    if (g_head.pitch < -80) g_head.pitch = -80;
+}
+
 static void finger_down(const touch_ev* e) {
     g_f.mode = F_PENDING;
     g_f.id = e->id;
@@ -116,10 +128,7 @@ static void finger_move(const touch_ev* e) {
     if (g_f.mode == F_PENDING && (fabsf(e->x - g_f.x0) > MOVE_X || fabsf(e->y - g_f.y0) > MOVE_Y))
         g_f.mode = rf_menu_context() ? F_MENUDRAG : F_LOOK;  // no camera turning in menus (round 2)
     if (g_f.mode == F_LOOK && look_allowed()) {
-        g_head.yaw += dx * g_deg_per_x;
-        g_head.pitch -= dy * g_deg_per_y;
-        if (g_head.pitch > 80) g_head.pitch = 80;
-        if (g_head.pitch < -80) g_head.pitch = -80;
+        look_delta(dx, dy);
     }
 }
 
@@ -143,13 +152,16 @@ static float pinch_dist(void) {
 }
 
 static void cancel_all(void) {
-    if (g_f.mode == F_GRAB) rf_act_grab_end();
+    rf_act_grab_end();
+    rf_hand_velocity_reset(0);
+    rf_hand_velocity_reset(1);
     g_f.mode = F_NONE;
     g_f2.look = false;
     g_f2.turn = false;
 }
 
 static void on_event(const touch_ev* e) {
+    if (rf_puzzle_touch(e->action, e->id, e->x, e->y)) return;
     if (e->action == 10) {
         rf_hud_button(e->id);
         return;
@@ -208,10 +220,7 @@ static void on_event(const touch_ev* e) {
     }
     if (g_f2.look && e->id == g_f2.id) {
         if (e->action == 2 && look_allowed()) {
-            g_head.yaw += (e->x - g_f2.x) * g_deg_per_x;
-            g_head.pitch -= (e->y - g_f2.y) * g_deg_per_y;
-            if (g_head.pitch > 80) g_head.pitch = 80;
-            if (g_head.pitch < -80) g_head.pitch = -80;
+            look_delta(e->x - g_f2.x, e->y - g_f2.y);
             g_f2.x = e->x;
             g_f2.y = e->y;
         } else {

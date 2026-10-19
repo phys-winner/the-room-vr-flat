@@ -145,6 +145,18 @@
       "Simplified Chinese": "视角",
       "Traditional Chinese": "視角"
     },
+    "PORT_LOOK_SENS": {
+      "English": "look sensitivity",
+      "French": "sensibilité de vue",
+      "German": "blickempfindlichkeit",
+      "Spanish": "sensibilidad de vista",
+      "Italian": "sensibilita' visuale",
+      "Russian": "чувствительность обзора",
+      "Japanese": "カメラ感度",
+      "Korean": "시점 감도",
+      "Simplified Chinese": "视角感度",
+      "Traditional Chinese": "視角感度"
+    },
     "PORT_GAUGE": {
       "English": "position indicator",
       "French": "indicateur de position",

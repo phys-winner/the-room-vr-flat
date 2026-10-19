@@ -208,3 +208,34 @@ CALL PD_STATE         UnityEngine.Playables.PlayableDirector$$get_state
 HOOK INV_SHOW         HudManager$$Show
 # ---- round 5 (operator 2026-10-17): the eyes move inside the location's play area, clear of walls (rf_view.c) ----
 CALL PHYS_SPHERECASTALL UnityEngine.Physics$$SphereCastAll|UnityEngine_Vector3_o origin, float radius
+# ---- startup progress: the game's completed shader/material count, until the first interactive menu ----
+HOOK LOADING_SHADERS  ShaderCompilationManager$$StartWarmUpAllShaders
+CALL SHADER_PROGRESS  ShaderCompilationManager$$GetProgress
+# two hands on the Witch chapter's sphere; the original puzzle still measures and solves it
+HOOK CRYSTAL_UPDATE   CrystalBallPuzzle$$Update
+CALL RECV_CANPLACE    InventoryReceiver$$CanBePlaced
+# developer-only puzzle navigation and read-only geometry (rf_puzzle_dev.c)
+CALL PD_PAINT_START   PaintingPuzzle$$StartPuzzle
+CALL PD_CRYSTAL_START CrystalBallPuzzle$$StartPuzzle
+CALL PD_GRAB_STATE    Grabbable$$SetState
+CALL PD_ORGAN_FUNC    KeyboardActivator$$SetOrganFunctional
+CALL PD_ORGAN_KEYS    KeyboardActivator$$SetKeyState
+CALL PD_GO_SCENE      UnityEngine.GameObject$$get_scene
+CALL PD_SCENE_LOADED  UnityEngine.SceneManagement.Scene$$get_isLoaded
+CALL PD_HOT_PROGRESS  HotSpotPosition$$GetDistanceProgress|int32_t side
+CALL PD_VIS_BOLT      VisibilityController$$SetVisibilityFromBolt
+CALL PD_VIS_VISIBLE   VisibilityController$$IsVisible
+CALL PD_BALL_ACTIVE   OrganBall$$SetActive
+CALL PD_PORTAL_ACTIVE Portal$$Activate
+CALL PD_DIRECTOR_PLAY UnityEngine.Playables.PlayableDirector$$Play
+CALL PD_DIRECTOR_TIME UnityEngine.Playables.PlayableDirector$$get_time
+CALL PD_DIRECTOR_DURATION UnityEngine.Playables.PlayableDirector$$get_duration
+CALL PD_LOC_STATE     PlayerLocation$$SetState
+CALL PD_DISSOLVE_ACTIVE GoggleDissolveController$$SetActive
+# Current native grab-volume dimensions, including long ropes and the organ pipe ring.
+CALL GC_COLLIDER      GrabbableCollider$$GetCollider
+CALL SPHERE_RADIUS    UnityEngine.SphereCollider$$get_radius
+CALL CAPSULE_RADIUS   UnityEngine.CapsuleCollider$$get_radius
+CALL CAPSULE_HEIGHT   UnityEngine.CapsuleCollider$$get_height
+HOOK KEYBOARD_KEYS    KeyboardActivator$$SetKeyState
+HOOK KEY_MODIFIER_UPDATE RotationModifier$$ShouldUpdate

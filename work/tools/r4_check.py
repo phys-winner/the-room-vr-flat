@@ -109,8 +109,12 @@ def tut_to_desk(tag):
     time.sleep(3)
     teleport(tag, "ProjectorPosition")
     time.sleep(2)
+    dev("look -40 -25", settle=0.8)
     for _ in range(5):
-        v = volume(grabbable="RotationGrabbable")
+        handles = [v for v in lc.volumes() if v["grabbable"] == "RotationGrabbable" and
+                   0.2 < v["x"] < 0.8 and 0.45 < v["y"] < 0.9]
+        handle = min(handles, key=lambda v: (v["x"] - 0.5) ** 2 + (v["y"] - 0.6) ** 2) if handles else None
+        v = (handle["x"], handle["y"]) if handle else None
         if v:
             x, y = v[0] * W, v[1] * H
             with ta.Session() as s:

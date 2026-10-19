@@ -79,7 +79,8 @@ static void tick_click(void) {
 }
 
 // ------------------------------------------------------------------------------------------ grabbing
-enum { K_FREE = 0, K_SLIDER = 1, K_ROTATION = 2, K_TWIST = 3, K_PLANE = 4, K_CYLINDER = 5, K_ROLL = 6 };
+enum { K_FREE = 0, K_SLIDER = 1, K_ROTATION = 2, K_TWIST = 3, K_PLANE = 4, K_CYLINDER = 5, K_ROLL = 6,
+       K_DRAW = 7, K_SLIDE_TWIST = 8 };
 enum { G_IDLE = 0, G_HOVER, G_HOLD, G_RELEASE, G_REGRAB };
 
 static struct {
@@ -89,6 +90,7 @@ static struct {
     v3 cam0;     // camera position at grab time
     float depth; // camera distance to the grab point
     v3 axis;     // slider direction / rotation axis (world, unit)
+    v3 twist_axis;  // wrist axis of a combination whose position follows a slider
     v3 pivot;    // rotation pivot (world)
     float h0, r0;
     float hmin, hmax;  // K_CYLINDER: heights along the axis (from the pivot) the slide limits allow
@@ -102,15 +104,19 @@ static struct {
     bool twist_armed;  // finger has left the dead zone around the pivot: twist0 is a valid baseline
     bool poke;         // pokeable volume: the fingertip's poke probe follows the target instead of the grip
     float twist_last, twist_acc;  // last finger angle and accumulated turn (multi-turn cranks)
+    float twist_sign;  // screen direction fixed for this grab; looking around cannot reverse an accumulated turn
+    float twist_extra;  // the second finger's accumulated axial turn
     v3 target;
     quat target_rot;
     bool inv;   // item taken out of the inventory grid with the pointing finger ray
+    void* inv_slot;
     v3 inv_dir;
     // round 4: a carried item is turned to the eyes (its face, upright) and keeps facing them
     int face;       // 0 not yet, 1 waiting for the game to finish moving the item into the hand, 2 turning, -1 off
     quat face_cam;  // wanted item rotation in camera space
     quat face_rel;  // item rotation relative to the grabber, measured once the item rests in the hand
     quat face_last; // grabber rotation last frame (the hand must be still when face_rel is measured)
+    v3 face_pos_last, face_offset;  // stable grabber-local item centre; never feed animation lag back into hand position
     float read_depth;  // a picked-up item comes to this distance from the eyes to be read (0: not an item)
     bool carry;        // the finger has moved on: the item is being carried somewhere (depth follows surfaces)
     v3 box_c, box_h;   // the item's box (centre, half extents) in its own axes, for keeping it in view while read
@@ -120,7 +126,6 @@ static struct {
     float dmin, dmax;  // the slider's range for this hold
 } g_grab;
 
-#define REACH_M 1.6f       // farthest grab point from the location's eye point (seated VR reach incl. leaning)
 #define HOLD_NEAR 0.2f     // the hold-distance slider's near end, metres from the eyes
 #define CARRY_MOVE 0.08f   // the finger moved this far (screen heights): a picked-up item is carried, not read
 #define HOVER_FRAMES 3     // frames the hand rests on the object before the grip closes
@@ -170,6 +175,60 @@ static v3 gc_center(void* gc) {
     void* mi;
     v3 (*f)(void*, void*) = (v3(*)(void*, void*))vslot(gc, 8, &mi);
     return f(gc, mi);
+}
+
+static v3 cylinder_contact(v3 p, float inner, float outer, float bottom, float top, v3 scale) {
+    float radial_scale = fminf(fabsf(scale.x), fabsf(scale.y)), axial_scale = fabsf(scale.z);
+    if (!isfinite(inner) || !isfinite(outer) || !isfinite(bottom) || !isfinite(top) ||
+        !isfinite(radial_scale) || !isfinite(axial_scale) || inner < 0 || outer <= inner || top <= bottom ||
+        radial_scale < 1e-6f || axial_scale < 1e-6f) return p;
+    // The offset native probe can miss the physical mesh at a grab-volume edge.
+    float skin = fminf(.04f / radial_scale, (outer - inner) * .25f);
+    float r = hypotf(p.x, p.y), lo = inner > 0 ? inner + skin : 0, hi = outer - skin;
+    if (r > 1e-6f) {
+        float wanted = fmaxf(lo, fminf(r, hi));
+        p.x *= wanted / r;
+        p.y *= wanted / r;
+    }
+    skin = fminf(.04f / axial_scale, (top - bottom) * .25f);
+    p.z = fmaxf(bottom + skin, fminf(p.z, top - skin));
+    return p;
+}
+
+static float gc_radius(void* gc) {
+    v3 s = CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(rf_transform(gc), NULL);
+    s = (v3){fabsf(s.x), fabsf(s.y), fabsf(s.z)};
+    float r = 0;
+    if (rf_class_is(gc, "CylinderGrabbableCollider")) {
+        r = fabsf(*(float*)((char*)gc + 0x58)) * hypotf(s.x, s.y) +
+            fmaxf(fabsf(*(float*)((char*)gc + 0x60)), fabsf(*(float*)((char*)gc + 0x64))) * s.z;
+    } else {
+        void* col = CALLP(C_GC_COLLIDER, fn_obj1)(gc, NULL);
+        if (!rf_alive(col)) return 0.8f;
+        if (rf_class_is(gc, "BoxGrabbableCollider")) {
+            v3 size = CALLP(C_BOX_SIZE, v3 (*)(void*, const void*))(col, NULL);
+            r = (fabsf(size.x) * s.x + fabsf(size.y) * s.y + fabsf(size.z) * s.z) * 0.5f;
+        } else if (rf_class_is(gc, "SphereGrabbableCollider")) {
+            // Native Contains applies scale.x to its local radius before transforming the point.
+            r = fabsf(CALLP(C_SPHERE_RADIUS, float (*)(void*, const void*))(col, NULL)) * s.x * v3_len(s);
+        } else if (rf_class_is(gc, "CapsuleGrabbableCollider")) {
+            // Native capsule ends use unscaled height along the world-space unit up vector.
+            r = fabsf(CALLP(C_CAPSULE_HEIGHT, float (*)(void*, const void*))(col, NULL)) * 0.5f +
+                fabsf(CALLP(C_CAPSULE_RADIUS, float (*)(void*, const void*))(col, NULL)) * s.x;
+        }
+    }
+    return isfinite(r) ? fmaxf(0.8f, r) : 0.8f;
+}
+
+static bool volume_ray_span(v3 o, v3 d, v3 c, float radius, float lo, float hi, float* first, float* last) {
+    v3 oc = v3_sub(c, o);
+    float t = v3_dot(oc, d);
+    float disc = radius * radius - fmaxf(0, v3_dot(oc, oc) - t * t);
+    if (disc < 0) return false;
+    float half = sqrtf(disc);
+    *first = fmaxf(lo, t - half);
+    *last = fminf(hi, t + half);
+    return *first <= *last;
 }
 
 static bool gc_usable(void* gc, void* ctrl, void** grabbable_out) {
@@ -229,11 +288,12 @@ static void* pick_volume(float nx, float ny, v3* point, float* dist, void** grab
         if (!gc_usable(gc, ctrl, &gr)) continue;
         v3 c = gc_center(gc);
         float t = v3_dot(v3_sub(c, o), d);
-        if (t < 0.1f || t > 3.5f) continue;
-        if (v3_len(v3_sub(c, v3_add(o, v3_scale(d, t)))) > 0.8f) continue;
+        // Framing can bring the inventory within 10 cm of the near-plane ray origin beside a wall.
+        float ray_near = in_inventory_hud(gc) ? 0.002f : 0.1f;
+        float t0, t1;
+        if (!volume_ray_span(o, d, c, gc_radius(gc), ray_near, 3.5f, &t0, &t1)) continue;
         bool hit = false;
-        float t0 = t - 0.8f < 0.1f ? 0.1f : t - 0.8f;
-        for (float tt = t0; tt < t + 0.8f && tt < best_t; tt += 0.004f) {
+        for (float tt = t0; tt <= t1 && tt < best_t; tt += 0.004f) {
             if (gc_contains(gc, v3_add(o, v3_scale(d, tt)))) {
                 best = gc;
                 best_t = tt;
@@ -243,7 +303,7 @@ static void* pick_volume(float nx, float ny, v3* point, float* dist, void** grab
             }
         }
         if (hit || best) continue;
-        v3 q = gc_closest_in(gc, v3_add(o, v3_scale(d, t)));
+        v3 q = gc_closest_in(gc, v3_add(o, v3_scale(d, fmaxf(t0, fminf(t, t1)))));
         float sx, sy;
         if (!rf_world_to_screen(q, &sx, &sy)) continue;
         float dx = (sx - nx) * 2.1f, dy = sy - ny, sd = sqrtf(dx * dx + dy * dy);
@@ -255,24 +315,30 @@ static void* pick_volume(float nx, float ny, v3* point, float* dist, void** grab
             *grabbable = gr;
         }
     }
-    if (best) {
-        *point = v3_add(o, v3_scale(d, best_t));
-        *dist = best_t;
-        return best;
+    void* selected = best ? best : near;
+    if (!selected) return NULL;
+    *point = best ? v3_add(o, v3_scale(d, best_t)) : near_p;
+    *dist = best ? best_t : near_t;
+    if (rf_class_is(selected, "CylinderGrabbableCollider")) {
+        // The mathematical ring edge can leave the offset grab probe outside its physical mesh.
+        void* tr = rf_transform(selected);
+        v3 p = CALLP(C_TR_INVPOINT, v3 (*)(void*, v3, const void*))(tr, *point, NULL);
+        p = cylinder_contact(p, *(float*)((char*)selected + 0x5c), *(float*)((char*)selected + 0x58),
+                             *(float*)((char*)selected + 0x64), *(float*)((char*)selected + 0x60),
+                             CALLP(C_TR_LOSSYSCALE, v3 (*)(void*, const void*))(tr, NULL));
+        p = CALLP(C_TR_POINT, v3 (*)(void*, v3, const void*))(tr, p, NULL);
+        if (gc_contains(selected, p)) {
+            *point = p;
+            *dist = v3_len(v3_sub(p, o));
+        }
     }
-    if (near) {
-        *point = near_p;
-        *dist = near_t;
-        return near;
-    }
-    return NULL;
+    return selected;
 }
 
 void rf_act_list_volumes(void) {
     void* ctrl = rf_controller(RIGHT);
-    int shown = 0;
     rf_log("volumes: %d registered", g_ngc);
-    for (int i = 0; i < g_ngc && shown < 80; i++) {
+    for (int i = 0; i < g_ngc; i++) {
         void* gc = g_gcs[i];
         void* gr = NULL;
         if (!gc_usable(gc, ctrl, &gr)) continue;
@@ -283,8 +349,13 @@ void rf_act_list_volumes(void) {
         rf_obj_name(gc, nm, sizeof nm);
         rf_log("  vol '%s' %s grab=%d poke=%d grabbable=%s screen(%.3f %.3f) center(%.2f %.2f %.2f)", nm,
                rf_class_name(gc), ((char*)gc)[0x20], ((char*)gc)[0x21], gr ? rf_class_name(gr) : "-", sx, sy, c.x, c.y, c.z);
-        shown++;
     }
+}
+
+void* rf_act_pick_poke(float nx, float ny, v3* point, void** grabbable) {
+    float dist;
+    void* gc = pick_volume(nx, ny, point, &dist, grabbable);
+    return gc && *((char*)gc + 0x21) ? gc : NULL;
 }
 
 // Raycast through the finger. Returns the nearest grabbable the right hand may grab (NULL if a solid
@@ -354,6 +425,16 @@ static bool in_inventory(void* item) {
     return ((bool (*)(void*, void*, const void*))RVA(g_call_desc[C_INV_ISIN].rva))(mgr, item, NULL);
 }
 
+static void* inventory_slot(void* item) {
+    void* mgr = static_field0(META_INVMGR_TYPEINFO);
+    void* slots = rf_alive(mgr) ? *(void**)((char*)mgr + 0x18) : NULL;
+    for (int i = 0; i < rf_list_size(slots) && i < 32; i++) {
+        void* slot = rf_list_get(slots, i);
+        if (rf_alive(slot) && *(void**)((char*)slot + 0x48) == item) return slot;
+    }
+    return NULL;
+}
+
 static void* pointing_tip(void) {
     void* c = rf_controller(RIGHT);
     void* hc = c ? *(void**)((char*)c + 0x38) : NULL;  // Controller.HandController
@@ -417,6 +498,7 @@ static void setup_combination(void* gr, v3 p) {
     v3 ra = {0, 0, 0}, rp = {0, 0, 0}, sa[2];
     char* sk = NULL;  // the (first) slider child
     int nr = 0, ns = 0;
+    bool wrist = false;
     for (int i = 0; i < rf_list_size(kids) && i < 4; i++) {
         void* k = rf_list_get(kids, i);
         if (!rf_alive(k)) continue;
@@ -424,6 +506,7 @@ static void setup_combination(void* gr, v3 p) {
         if (rf_class_is(k, "RotationGrabbable") && !nr) {
             ra = v3_norm(rf_tr_dir(tr, *(v3*)((char*)k + 0x94)));  // RotateAxis
             rp = rf_tr_pos(tr);
+            wrist = *((char*)k + 0xa8) != 0;  // RotationGrabbable.TwistControl
             nr++;
         } else if (rf_class_is(k, "SliderGrabbable") && ns < 2) {
             if (!sk) sk = k;
@@ -432,6 +515,14 @@ static void setup_combination(void* gr, v3 p) {
     }
     g_grab.kind = K_PLANE;
     g_grab.axis = (v3){0, 0, 0};  // plane normal; zero = upright plane facing the player
+    if (wrist && ns == 1 && fabsf(v3_dot(ra, sa[0])) > 0.9f) {
+        // The Egypt tablet handle and scarab tool slide with the arm and twist with the wrist.
+        g_grab.kind = K_SLIDE_TWIST;
+        g_grab.axis = sa[0];
+        g_grab.twist_axis = ra;
+        g_grab.pivot = rp;
+        return;
+    }
     if (nr && ns == 1 && fabsf(v3_dot(ra, sa[0])) > 0.9f) {
         v3 rel = v3_sub(p, rp);
         g_grab.h0 = v3_dot(rel, ra);
@@ -511,7 +602,22 @@ static v3 rot_point(float a) {
 static void setup_constraint(void* gr, v3 p, float nx, float ny) {
     void* tr = rf_transform(gr);
     g_grab.kind = K_FREE;
-    if (rf_class_is(gr, "SliderGrabbable") || rf_class_is(gr, "RopeGrabbable")) {
+    g_grab.twist_acc = g_grab.twist_extra = 0;
+    g_grab.twist_armed = false;
+    if (rf_class_is(gr, "SymbolDrawingPuzzle")) {
+        void* plane = *(void**)((char*)gr + 0xa0);  // DrawingPlaneTransform
+        if (rf_alive(plane)) {
+            g_grab.kind = K_DRAW;
+            g_grab.axis = *(v3*)((char*)gr + 0xe8);  // the Plane actually used by HandleGrabMove
+            float d = *(float*)((char*)gr + 0xf4), n2 = v3_dot(g_grab.axis, g_grab.axis);
+            if (isfinite(d) && isfinite(n2) && n2 > 0.5f) {
+                g_grab.pivot = v3_scale(g_grab.axis, -d / n2);
+            } else {
+                g_grab.axis = rf_tr_dir(plane, (v3){0, 0, 1});
+                g_grab.pivot = rf_tr_pos(plane);
+            }
+        }
+    } else if (rf_class_is(gr, "SliderGrabbable") || rf_class_is(gr, "RopeGrabbable")) {
         // ropes are pulled along their own LocalSlideAxis (same field offset as SliderGrabbable): each drag along
         // the rope is one hand-over-hand pull
         g_grab.kind = K_SLIDER;
@@ -543,7 +649,14 @@ static void setup_constraint(void* gr, v3 p, float nx, float ny) {
         g_grab.twist0 = finger_angle(nx, ny);
         g_grab.twist_last = g_grab.twist0;
         g_grab.twist_acc = 0;
+        g_grab.twist_extra = 0;
         g_grab.twist_armed = finger_off_pivot(nx, ny);
+    }
+    if (g_grab.kind == K_TWIST || g_grab.kind == K_SLIDE_TWIST) {
+        void* cam = rf_main_camera();
+        v3 fwd = cam ? q_rot(rf_tr_rot(rf_transform(cam)), (v3){0, 0, 1}) : (v3){0, 0, 1};
+        v3 a = g_grab.kind == K_SLIDE_TWIST ? g_grab.twist_axis : g_grab.axis;
+        g_grab.twist_sign = v3_dot(a, fwd) > 0 ? 1.0f : -1.0f;
     }
 }
 
@@ -569,10 +682,12 @@ int rf_act_grab_begin(float nx, float ny) {
     // puzzle whole still reach it as from the location, eyes moved towards something reach it from there (rf_view.c)
     v3 base;
     float reach = rf_view_base(&base) ? fminf(v3_len(v3_sub(p, base)), dist) : dist;
-    if (reach > REACH_M) {
+    if (reach > RF_REACH_M) {
         rf_log("grab: %s at %.2f m is out of reach", rf_class_name(gr), reach);
         return RF_GRAB_FAR;
     }
+    rf_hand_velocity_reset(RIGHT);
+    g_hand[RIGHT].grip = 0;
     memset(&g_grab, 0, sizeof g_grab);
     g_grab.grabbable = gr;
     g_grab.poke = poke;
@@ -587,11 +702,12 @@ int rf_act_grab_begin(float nx, float ny) {
     // with its inventory probe, which is on only while the pointing fingertip is inside the grid's bounds
     // (HudManager.IsNearHud) - round 4: "the hint lever in the inventory cannot be pulled"
     g_grab.inv = (rf_class_is(gr, "InventoryItemGrabbable") && in_inventory(gr)) || in_inventory_hud(gr);
+    g_grab.inv_slot = g_grab.inv && rf_class_is(gr, "InventoryItemGrabbable") ? inventory_slot(gr) : NULL;
     g_grab.inv_dir = d;
     g_grab.face = -1;
     // the slider's range: from just in front of the eyes to the grab reach (eyes moved back reach farther, rf_view.c)
     g_grab.dmin = HOLD_NEAR;
-    g_grab.dmax = fmaxf(REACH_M + rf_view_offset(), g_grab.depth);
+    g_grab.dmax = fmaxf(RF_REACH_M + rf_view_offset(), g_grab.depth);
     g_grab.depth_want = g_grab.depth;
     // a painting puzzle's brush (the Desert's Sun, the Witch chapter's constellations) is carried through stars in
     // mid-air: it stays at the distance it was taken at until the slider moves it - an InventoryItemGrabbable by class,
@@ -616,7 +732,7 @@ void rf_act_grab_drag(float nx, float ny) {
 }
 
 void rf_act_grab_end(void) {
-    if (g_grab.state == G_HOVER || g_grab.state == G_HOLD) {
+    if (g_grab.state == G_HOVER || g_grab.state == G_HOLD || g_grab.state == G_REGRAB) {
         g_grab.state = G_RELEASE;
         g_grab.frames = 0;
     }
@@ -628,7 +744,13 @@ bool rf_act_grabbing(void) { return g_grab.state != G_IDLE; }
 // around the holding finger. The second finger drags the ball's surface: circling the holding finger rolls the
 // object about the view axis, a sideways drag across it turns it about the vertical, an up/down drag tips it.
 bool rf_act_grab_can_roll(void) {
-    return (g_grab.state == G_HOLD || g_grab.state == G_HOVER) && g_grab.kind == K_FREE && !g_grab.inv;
+    return (g_grab.state == G_HOLD || g_grab.state == G_HOVER) &&
+           ((g_grab.kind == K_FREE && !g_grab.inv) || g_grab.kind == K_TWIST || g_grab.kind == K_SLIDE_TWIST);
+}
+
+static float turn_step(float x0, float y0, float x1, float y1) {
+    if (x0 * x0 + y0 * y0 < 0.01f || x1 * x1 + y1 * y1 < 0.01f) return 0;
+    return atan2f(x0 * y1 - y0 * x1, x0 * x1 + y0 * y1);
 }
 
 // (x, y): second finger relative to the holding one, in ball radii (x right, y down on screen)
@@ -646,6 +768,10 @@ static v3 ball_point(float x, float y, v3 right, v3 up, v3 fwd) {
 
 void rf_act_grab_turn(float x0, float y0, float x1, float y1) {
     if (!rf_act_grab_can_roll()) return;
+    if (g_grab.kind == K_TWIST || g_grab.kind == K_SLIDE_TWIST) {
+        g_grab.twist_extra += turn_step(x0, y0, x1, y1);
+        return;
+    }
     void* cam = rf_main_camera();
     if (!cam) return;
     quat cq = rf_tr_rot(rf_transform(cam));
@@ -703,12 +829,6 @@ static void* static_field0(uintptr_t meta) {
     return statics ? *(void**)statics : NULL;
 }
 
-static bool list_contains(void* list, void* obj) {
-    for (int i = 0; i < rf_list_size(list); i++)
-        if (rf_list_get(list, i) == obj) return true;
-    return false;
-}
-
 // When the finger is over a receiver that accepts the held item, returns the grabber position that puts
 // the item's probe point (InventoryItemGrabbable.ProbeTransform) on the receiver centre.
 static bool receiver_magnet(float nx, float ny, v3* grabber_target) {
@@ -717,7 +837,8 @@ static bool receiver_magnet(float nx, float ny, v3* grabber_target) {
     if (!rf_alive(held) || !rf_class_is(held, "InventoryItemGrabbable")) return false;
     void* all = static_field0(META_INVRECV_TYPEINFO);
     void* gt = grabber_transform();
-    if (!all || !gt) return false;
+    void* interaction = *(void**)((char*)ctrl + 0xb0);  // Controller.PlayerInteractionState
+    if (!all || !gt || !interaction || !g_call_ok[C_RECV_CANPLACE]) return false;
     // The game's own probe point (InventoryItemGrabbable.GetBestTarget):
     //   Controller.InventoryPoint.TransformPoint(GrabTransform.InverseTransformPoint(ProbeTransform.position))
     // It moves rigidly with the hand, so shifting the grabber by (centre - probe) lands the probe on the
@@ -735,7 +856,8 @@ static bool receiver_magnet(float nx, float ny, v3* grabber_target) {
     bool found = false;
     for (int i = 0; i < rf_list_size(all) && i < 256; i++) {
         void* r = rf_list_get(all, i);
-        if (!rf_alive(r) || !list_contains(*(void**)((char*)r + 0x50) /* ValidItems */, held)) continue;
+        if (!rf_alive(r) || !CALLP(C_RECV_CANPLACE, bool (*)(void*, void*, void*, const void*))(r, held, interaction, NULL))
+            continue;
         v3 c = ((v3(*)(void*, const void*))RVA(g_call_desc[C_RECV_CENTRE].rva))(r, NULL);
         float sx, sy;
         if (!rf_world_to_screen(c, &sx, &sy)) continue;
@@ -772,7 +894,7 @@ static bool child_of(void* t, void* root) {
 // own hands/head; <= 0 when nothing is hit within reach.
 static float surface_depth(v3 o, v3 d, void* held) {
     void* arr = ((void* (*)(v3, v3, float, int32_t, int32_t, const void*))RVA(g_call_desc[C_PHYS_RAYCASTALL].rva))(
-        o, d, REACH_M + rf_view_offset() + 0.3f, -1, 1 /* QueryTriggerInteraction.Ignore */, NULL);
+        o, d, RF_REACH_M + rf_view_offset() + 0.3f, -1, 1 /* QueryTriggerInteraction.Ignore */, NULL);
     if (!arr) return 0;
     int32_t n = (int32_t) * (uint64_t*)((char*)arr + 0x18);
     raycast_hit* hits = (raycast_hit*)((char*)arr + 0x20);
@@ -798,10 +920,8 @@ static v3 read_target(v3 c, v3 d, void* held) {
     void* cam = rf_main_camera();
     void* gt = grabber_transform();
     if (!cam || !gt || !rf_alive(held) || g_grab.face < 2) return want;
-    void* it = rf_transform(held);
-    quat ri = rf_tr_rot(it), rc = rf_tr_rot(rf_transform(cam));
-    v3 centre = v3_add(rf_tr_pos(it), q_rot(ri, g_grab.box_c));
-    v3 off = v3_sub(centre, rf_tr_pos(gt));  // item centre from the grabber
+    quat ri = q_mul(g_grab.target_rot, g_grab.face_rel), rc = rf_tr_rot(rf_transform(cam));
+    v3 off = q_rot(g_grab.target_rot, g_grab.face_offset);
     // half extents of the item on the screen's axes
     v3 ax[3] = {q_rot(ri, (v3){g_grab.box_h.x, 0, 0}), q_rot(ri, (v3){0, g_grab.box_h.y, 0}), q_rot(ri, (v3){0, 0, g_grab.box_h.z})};
     v3 right = q_rot(rc, (v3){1, 0, 0}), up = q_rot(rc, (v3){0, 1, 0});
@@ -820,7 +940,8 @@ static v3 drag_target(void) {
     v3 c, d;
     if (!rf_screen_ray(g_grab.fx, g_grab.fy, &c, &d)) return g_grab.target;
     switch (g_grab.kind) {
-    case K_SLIDER: {
+    case K_SLIDER:
+    case K_SLIDE_TWIST: {
         // point of the slide line closest to the finger ray
         v3 a = g_grab.axis, w0 = v3_sub(g_grab.point0, c);
         float b = v3_dot(a, d), dd = v3_dot(a, w0), e = v3_dot(d, w0);
@@ -860,6 +981,12 @@ static v3 drag_target(void) {
     }
     case K_TWIST:
         return g_grab.point0;
+    case K_DRAW: {
+        float dn = v3_dot(d, g_grab.axis);
+        if (fabsf(dn) < 0.01f) return g_grab.target;
+        float s = v3_dot(v3_sub(g_grab.pivot, c), g_grab.axis) / dn;
+        return s > 0 ? v3_add(c, v3_scale(d, s)) : g_grab.target;
+    }
     case K_PLANE: {
         v3 n = g_grab.axis;
         if (v3_len(n) < 0.5f || fabsf(v3_dot(d, n)) < 0.15f) {
@@ -956,7 +1083,7 @@ static v3 drag_target(void) {
         float sd = (g_grab.frames > 6) ? surface_depth(c, d, held) : 0;
         if (g_dev && (g_grab.frames % 20) == 0) rf_log("carry: surface %.2f m, depth %.2f m", sd, g_grab.depth);
         if (sd > 0) {
-            float want = sd - 0.06f, reach = REACH_M + rf_view_offset();
+            float want = sd - 0.06f, reach = RF_REACH_M + rf_view_offset();
             if (want < 0.25f) want = 0.25f;
             if (want > reach) want = reach;
             g_grab.depth += (want - g_grab.depth) * 0.25f;
@@ -1112,15 +1239,23 @@ static void tick_face(void* gt) {
     if (g_grab.face == 0) {
         face_setup(held, cam);
         g_grab.face_last = rg;
+        g_grab.face_pos_last = rf_tr_pos(gt);
         g_grab.face = 1;
         return;
     }
     if (g_grab.face == 1) {
         // the item rests in the hand: no lerp left and the hand did not turn since the last frame
         float d = fabsf(rg.x * g_grab.face_last.x + rg.y * g_grab.face_last.y + rg.z * g_grab.face_last.z + rg.w * g_grab.face_last.w);
+        v3 gp = rf_tr_pos(gt);
+        float moved = v3_len(v3_sub(gp, g_grab.face_pos_last));
         g_grab.face_last = rg;
-        if (*(float*)((char*)held + 0x174) > 0 || d < 0.99999f) return;  // InventoryItemGrabbable.LerpTimeLeft
-        g_grab.face_rel = q_mul(q_conj(rg), rf_tr_rot(rf_transform(held)));
+        g_grab.face_pos_last = gp;
+        if (*(float*)((char*)held + 0x174) > 0 || d < 0.99999f || moved > 0.001f) return;
+        void* it = rf_transform(held);
+        quat ri = rf_tr_rot(it);
+        g_grab.face_rel = q_mul(q_conj(rg), ri);
+        v3 centre = v3_add(rf_tr_pos(it), q_rot(ri, g_grab.box_c));
+        g_grab.face_offset = q_rot(q_conj(rg), v3_sub(centre, gp));
         g_grab.face = 2;
     }
     quat want = q_mul(q_mul(rf_tr_rot(rf_transform(cam)), g_grab.face_cam), q_conj(g_grab.face_rel));
@@ -1135,7 +1270,8 @@ static void tick_hand_visibility(void) {
     static int shown = -1, since;
     void* c = rf_controller(RIGHT);
     void* held = c && g_grab.state == G_HOLD ? CALLP(C_CTRL_GRABBED, fn_obj1)(c, NULL) : NULL;
-    bool want = rf_alive(held) && !rf_class_is(held, "InventoryItemGrabbable") && !rf_class_is(held, "InventoryItemProxy");
+    bool want = rf_puzzle_hand_active(RIGHT) ||
+                (rf_alive(held) && !rf_class_is(held, "InventoryItemGrabbable") && !rf_class_is(held, "InventoryItemProxy"));
     void* hc = c ? *(void**)((char*)c + 0x38) : NULL;  // Controller.HandController
     if (!rf_alive(hc) || !*(void**)((char*)hc + 0x148)) {  // HandController.VisController (set up in Awake)
         shown = -1;
@@ -1158,6 +1294,34 @@ static void tick_grab(void) {
         rf_hand_rest(RIGHT);
         return;
     }
+    void* ctrl = rf_controller(RIGHT);
+    void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(ctrl, NULL);
+    // A same-frame UP/DOWN must release the old object before moving the hand to the new one.
+    if (g_grab.state == G_HOVER && rf_alive(held) && *(void**)((char*)held + 0x80) == ctrl &&
+        *(int32_t*)((char*)held + 0x90) == 1) {  // GetGrabbedGrabbable also returns hovered objects.
+        g_hand[RIGHT].grip = 0;
+        g_grab.frames = 0;
+        return;
+    }
+    if (g_grab.inv && g_grab.state == G_HOLD) {
+        if (held == g_grab.grabbable) g_grab.inv = false;
+        else if (rf_alive(held) || g_grab.frames >= 30) rf_act_grab_end();
+    }
+    if (g_grab.state == G_HOLD && held != g_grab.grabbable && rf_class_is(held, "InventoryItemGrabbable") &&
+        g_grab.kind != K_FREE) {
+        // A solved lock hands the reusable tool back without lifting the player's finger.
+        rf_hand_velocity_reset(RIGHT);
+        g_grab.grabbable = held;
+        g_grab.point0 = g_grab.target = rf_tr_pos(gt);
+        g_grab.fx0 = g_grab.fx;
+        g_grab.fy0 = g_grab.fy;
+        g_grab.rot0 = g_grab.target_rot;
+        g_grab.carry = g_grab.manual = false;
+        setup_constraint(held, g_grab.point0, g_grab.fx, g_grab.fy);
+        face_begin(held);
+        rf_log("grab: returned to inventory item; free carry");
+    }
+    tick_face(gt);
     if (g_grab.state == G_HOLD) {
         g_grab.target = drag_target();
         if (g_dev && g_grab.kind == K_ROTATION && (g_grab.frames % 10) == 0 && rf_class_is(g_grab.grabbable, "RotationGrabbable")) {
@@ -1191,7 +1355,6 @@ static void tick_grab(void) {
             g_grab.twist0 = finger_angle(g_grab.fx, g_grab.fy);
             g_grab.twist_last = g_grab.twist0;
             g_grab.twist_acc = 0;
-            g_grab.rot0 = g_grab.target_rot;
         }
         if (g_grab.kind == K_TWIST && g_grab.twist_armed) {
             // accumulate the per-frame change (unwrapped across +-180) so circling keeps turning a crank
@@ -1200,13 +1363,14 @@ static void tick_grab(void) {
             while (step < -(float)M_PI) step += 2.0f * (float)M_PI;
             g_grab.twist_last = a;
             g_grab.twist_acc += step;
-            float da = g_grab.twist_acc;
+        }
+        bool axial = g_grab.kind == K_TWIST || g_grab.kind == K_SLIDE_TWIST;
+        if (axial && (g_grab.twist_armed || g_grab.twist_extra != 0)) {
+            float da = g_grab.twist_acc + g_grab.twist_extra;
             // the finger angle (screen, y down) grows clockwise as seen by the player, while a positive Unity
             // rotation about an axis pointing into the screen is counter-clockwise: follow the finger 1:1
-            void* cam = rf_main_camera();
-            v3 fwd = cam ? q_rot(rf_tr_rot(rf_transform(cam)), (v3){0, 0, 1}) : (v3){0, 0, 1};
-            float sign = v3_dot(g_grab.axis, fwd) > 0 ? 1.0f : -1.0f;
-            g_grab.target_rot = q_mul(q_axis(g_grab.axis, -sign * da), g_grab.rot0);
+            v3 axis = g_grab.kind == K_SLIDE_TWIST ? g_grab.twist_axis : g_grab.axis;
+            g_grab.target_rot = q_mul(q_axis(axis, -g_grab.twist_sign * da), g_grab.rot0);
             if (g_dev && (g_grab.frames % 10) == 0 && rf_class_is(g_grab.grabbable, "RotationGrabbable")) {
                 char* gr = (char*)g_grab.grabbable;
                 quat cg = *(quat*)(gr + 0xe4), cc = *(quat*)(gr + 0xf4);
@@ -1217,38 +1381,71 @@ static void tick_grab(void) {
             }
         }
     }
-    tick_face(gt);
-    if (g_grab.inv && g_grab.state == G_HOVER && pointing_tip()) {
-        // inventory slots are selected by the pointing finger ray (InventoryHud.RaycastInventory: starts 0.10 m
-        // behind the fingertip, 0.20 m long), so the tip hovers 5 cm in front of the slot
-        rf_aim_transform(RIGHT, pointing_tip(), v3_sub(g_grab.point0, v3_scale(g_grab.inv_dir, 0.05f)), g_grab.inv_dir);
+    if (g_grab.inv && (g_grab.state == G_HOVER || g_grab.state == G_HOLD) && pointing_tip()) {
+        v3 p = v3_sub(g_grab.point0, v3_scale(g_grab.inv_dir, 0.05f));
+        if (rf_alive(g_grab.inv_slot)) {
+            void* box = *(void**)((char*)g_grab.inv_slot + 0x18);  // InventorySlot.ItemParent
+            if (rf_alive(box)) {
+                v3 local = CALLP(C_BOX_CENTER, v3 (*)(void*, const void*))(box, NULL);
+                p = CALLP(C_TR_POINT, v3 (*)(void*, v3, const void*))(rf_transform(box), local, NULL);
+            }
+        }
+        // Keep the native slot ray inside the scaled grid until the game confirms acquisition.
+        rf_aim_transform(RIGHT, pointing_tip(), p, g_grab.inv_dir);
     } else {
         void* pt = g_grab.poke ? poke_probe_transform() : NULL;
-        rf_place_transform(RIGHT, pt ? pt : gt, g_grab.target, g_grab.target_rot);
+        void* ctrl = rf_controller(RIGHT);
+        void* tip = ctrl && g_grab.kind == K_DRAW && g_grab.state == G_HOLD ? *(void**)((char*)ctrl + 0x40) : NULL;
+        if (rf_alive(tip)) {
+            // HandleGrabMove casts a short ray from FingerTip onto the authored drawing plane.
+            v3 n = g_grab.axis;
+            if (v3_dot(n, v3_sub(g_grab.target, g_grab.cam0)) < 0) n = v3_scale(n, -1);
+            bool placed = rf_place_transform(RIGHT, tip, v3_sub(g_grab.target, v3_scale(n, 0.005f)), rf_q_look(n, (v3){0, 1, 0}));
+            (void)placed;
+#if !RF_RELEASE
+            if (g_dev && !(g_grab.frames % 15)) {
+                float tx = -1, ty = -1, px = -1, py = -1;
+                rf_world_to_screen(g_grab.target, &tx, &ty);
+                rf_world_to_screen(rf_tr_pos(tip), &px, &py);
+                rf_log("draw: placed=%d finger(%.6f %.6f) target(%.6f %.6f) tip(%.6f %.6f)",
+                       placed, g_grab.fx, g_grab.fy, tx, ty, px, py);
+            }
+#endif
+        } else {
+            rf_place_transform(RIGHT, pt ? pt : gt, g_grab.target, g_grab.target_rot);
+        }
     }
     switch (g_grab.state) {
     case G_HOVER: {
         // close the grip once the controller's own probe reports a grabbable under the hand
         // (Controller.ClosestGrabbableCollider +0x80; inventory slots highlight a few frames later)
-        void* ctrl = rf_controller(RIGHT);
         void* closest = ctrl ? *(void**)((char*)ctrl + 0x80) : NULL;
-        if ((g_grab.frames >= HOVER_FRAMES && rf_alive(closest)) || g_grab.frames >= 30) {
+        bool ready = rf_alive(closest);
+        if (g_grab.inv) {
+            ready = ready && CALLP(C_GC_GRABBABLE, fn_obj1)(closest, NULL) == g_grab.grabbable;
+            if (rf_alive(g_grab.inv_slot)) {
+                void* hud = static_field0(META_INVHUD_TYPEINFO);
+                ready = ready && rf_alive(hud) && *(void**)((char*)hud + 0x58) == g_grab.inv_slot &&
+                        *(void**)((char*)hud + 0x60) == ctrl;
+            }
+        }
+        if ((g_grab.frames >= HOVER_FRAMES && ready) || (!g_grab.inv && g_grab.frames >= 30)) {
+            if (g_dev) rf_log("grab: grip after %d hover frames (probe %s)", g_grab.frames, ready ? "ready" : "timeout");
             g_hand[RIGHT].grip = 1.0f;
             g_grab.state = G_HOLD;
             g_grab.frames = 0;
-            if (g_dev) rf_log("grab: grip after %d hover frames (probe %s)", g_grab.frames, rf_alive(closest) ? "ready" : "timeout");
-        }
+        } else if (g_grab.inv && g_grab.frames >= 30) rf_act_grab_end();
         break;
     }
     case G_HOLD: {
         // the game may hand the grab over to another object (key inserted into a lock becomes the lock's
         // rotating key): re-derive the drag constraint from what the hand really holds now
-        void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
         if (rf_alive(held) && held != g_grab.grabbable && !rf_class_is(held, "InventoryItemGrabbable")) {
             // The game handed the grab to another object (an item placed into its receiver becomes e.g. the
             // lock's rotating key) without a grab start. A VR player lets go and grabs the new object to turn
             // it: release for a few frames and grab it again on the spot.
             v3 hp = rf_tr_pos(gt);
+            rf_hand_velocity_reset(RIGHT);
             g_grab.grabbable = held;
             g_grab.point0 = hp;
             g_grab.target = hp;
@@ -1280,6 +1477,7 @@ static void tick_grab(void) {
             g_grab.twist0 = finger_angle(g_grab.fx, g_grab.fy);
             g_grab.twist_last = g_grab.twist0;
             g_grab.twist_acc = 0;
+            g_grab.twist_extra = 0;
             g_grab.twist_armed = finger_off_pivot(g_grab.fx, g_grab.fy);
         }
         break;
@@ -1340,7 +1538,7 @@ bool rf_act_teleport_tap(float nx, float ny) {
     float best = 0.09f;  // normalised distance
     void* best_loc = NULL;
     v3 best_pt = {0, 0, 0};
-    for (int i = 0; i < rf_list_size(locs) && i < 64; i++) {
+    for (int i = 0; i < rf_list_size(locs); i++) {
         void* loc = rf_list_get(locs, i);
         if (!rf_alive(loc) || *(int32_t*)((char*)loc + 0x21c) != 0 /* State.Active */) continue;
         v3 base = rf_tr_pos(rf_transform(loc));

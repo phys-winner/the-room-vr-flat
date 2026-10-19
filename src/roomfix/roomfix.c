@@ -279,7 +279,10 @@ void rf_frame_tick(void) {
     rf_view_tick();
     rf_hand_rest_apply();
     rf_interact_tick();
+    rf_puzzle_tick();
+    rf_hand_velocity_tick();
     rf_menu_tick();
+    rf_loading_tick();
     rf_hud_tick();
     rf_settings_tick();
     rf_flatui_pin_all(true);  // after every change of the head this frame
@@ -411,6 +414,10 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_SIV_UPDATE, (void*)h_siv_update, false, false},
     {H_VRPM_STANDING, (void*)h_vrpm_standing, false, false},  // full replacement: no posture wizard
     {H_LOG_ALLOWED, (void*)h_log_allowed, false, !RF_RELEASE},  // release: always installed (silent logger)
+    {H_LOADING_SHADERS, (void*)h_loading_shaders, true, false},
+    {H_CRYSTAL_UPDATE, (void*)h_crystal_update, true, false},
+    {H_KEYBOARD_KEYS, (void*)h_keyboard_keys, true, false},
+    {H_KEY_MODIFIER_UPDATE, (void*)h_key_modifier_update, true, false},
 };
 
 static int install_table(const struct rf_hook_entry* t, size_t n, int* fail) {
@@ -504,6 +511,11 @@ static jint native_hud_state(JNIEnv* env, jclass cls) {
     return g_hud_state;
 }
 
+static jint native_loading_state(JNIEnv* env, jclass cls) {
+    (void)env; (void)cls;
+    return rf_loading_state();
+}
+
 static void native_display(JNIEnv* env, jclass cls, jfloat hz, jfloat max_hz) {
     (void)env; (void)cls;
     if (hz != g_display_hz || max_hz != g_display_max_hz) rf_log("display: %.1f Hz (max %.1f Hz)", hz, max_hz);
@@ -586,6 +598,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved) {
         {"nativeInit", "(Ljava/lang/String;Ljava/lang/String;I)V", (void*)native_init},
         {"nativeTouch", "(IIFFJ)V", (void*)native_touch},
         {"nativeHudState", "()I", (void*)native_hud_state},
+        {"nativeLoadingState", "()I", (void*)native_loading_state},
         {"nativeDisplay", "(FF)V", (void*)native_display},
         {"nativeWantMaxRefresh", "()I", (void*)native_want_max_refresh},
         {"nativeAppLocale", "(Ljava/lang/String;)V", (void*)native_app_locale},

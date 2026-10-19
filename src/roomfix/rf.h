@@ -186,14 +186,18 @@ bool rf_aim_transform(int h, void* T, v3 origin, v3 dir);
 void rf_face_point(v3 world);   // turn the synthetic head to look at a world point
 void rf_hand_rest(int h);        // hand h goes back to rest and follows the head yaw from now on
 void rf_hand_rest_apply(void);   // per frame: resting hands follow the head yaw
+void rf_hand_velocity_reset(int h);  // a new target/tracking origin must not create a movement impulse
+void rf_hand_velocity_tick(void);  // main thread: real controller pose deltas for authored velocity-driven parts
 extern bool g_hand_resting[2];
 bool rf_class_is(void* obj, const char* name);  // obj's class or any base class has this name
 extern v3 g_hand_prev_pos[2];
 
 // ---- rf_interact.c: game actions driven by touch ----
+#define RF_REACH_M 1.6f  // farthest contact from the eyes or the location's eye point, including leaning
 enum { RF_GRAB_NONE = 0, RF_GRAB_OK = 1, RF_GRAB_FAR = 2, RF_GRAB_NOPLAYER = 3 };
 void rf_act_laser_click(float nx, float ny);
 int rf_act_grab_begin(float nx, float ny);
+void* rf_act_pick_poke(float nx, float ny, v3* point, void** grabbable);
 void rf_act_probe(float nx, float ny);  // dev diagnostics
 void rf_act_list_volumes(void);         // dev diagnostics
 void rf_act_list_volumes_all(void);     // dev: every registered volume with usability and distance
@@ -246,11 +250,14 @@ void rf_menu_tick(void);
 // ---- rf_settings.c: port settings (FPS limit, field of view), <ext>/port_settings.cfg ----
 enum { RF_FPS_30 = 0, RF_FPS_45, RF_FPS_60, RF_FPS_DISPLAY, RF_FPS_COUNT };
 #define RF_FOV_COUNT 5
-extern int g_fps_idx, g_fov_idx;
+#define RF_SENS_COUNT 7
+#define RF_LOOK_SENS_DEFAULT 5  // 200%; index 3 preserves the original swipe speed
+extern int g_fps_idx, g_fov_idx, g_look_sens;
 extern volatile float g_display_hz;    // current display refresh rate (from Java)
 extern volatile float g_display_max_hz;  // highest refresh rate of the display at this resolution
 int rf_fps_value(int idx);              // frames per second for an FPS-limit option
 int rf_fov_value(int idx);              // horizontal degrees for a field-of-view option
+int rf_sens_pct(int idx);               // shared look/gyroscope sensitivity values (25..300%)
 void rf_settings_load(void);
 void rf_settings_changed(void);         // apply + save
 void rf_settings_save(void);
@@ -304,10 +311,8 @@ void rf_act_dev_beam(bool on, float x, float y);  // dev: hold the menu pointer 
 void rf_dev_beam_watch(void);   // dev: count frames with an enabled menu beam renderer (every frame tick)
 void rf_dev_beam_report(void);  // dev: "beam?" answer
 // rf_gyro.c: gyroscope options (eye position / tilt and turn, each with a sensitivity)
-#define RF_GYRO_SENS_COUNT 7
 extern int g_gyro_pos, g_gyro_rot, g_gyro_pos_sens, g_gyro_rot_sens;
 extern float g_gyro_pz;  // passing eye offset from pushing the phone, metres along the view
-int rf_gyro_sens_pct(int idx);
 void rf_gyro_post(float dx, float dy, float dz, float ux, float uy, float uz);  // any thread (Java sensor thread)
 void rf_accel_post(float az, float dt);  // linear acceleration along the screen normal (towards the player), any thread
 int rf_gyro_wanted(void);                // bit 0: gyroscope + gravity, bit 1: linear acceleration
@@ -354,6 +359,7 @@ void rf_dev_szstate(const char* name, int state);
 void rf_dev_levels(void);
 void* rf_live_instance(const char* cls);  // active instance of a TheRoomVR.dll class
 void rf_dev_hint(void);
+void rf_dev_puzzle(int argc, char* const argv[]);  // developer-only: five puzzle types, explicit start/arm, no solve writes
 void rf_dev_rhide(const char* name, bool hide);
 
 // ---- rf_gfx.c: graphics state (dev) ----
@@ -371,5 +377,14 @@ void* h_gfx_setup(void* self, const void* mi);
 void rf_xr_init(void);      // XR device emulation (head)
 void rf_dev_tick(void);     // command file polling (dev builds)
 void rf_frame_tick(void);   // called once per frame on the Unity main thread
+void h_loading_shaders(void* self, const void* mi);
+void rf_loading_tick(void);  // main thread: first launch only, shader progress and first interactive menu
+int rf_loading_state(void);  // UI thread: atomic stage / measured shader percent / game language snapshot
+void h_crystal_update(void* self, const void* mi);
+void h_keyboard_keys(void* self, int32_t state, const void* mi);
+bool h_key_modifier_update(void* self, void* key, const void* mi);
+bool rf_puzzle_touch(int action, int id, float x, float y);  // per-pointer contacts on the ball or keyboard
+void rf_puzzle_tick(void);  // main thread: real hand/probe poses; original puzzles process the contacts
+bool rf_puzzle_hand_active(int h);  // the touch-controlled puzzle hand should be visible
 void rf_touch_post(int action, int id, float x, float y, int64_t t);  // any thread
 void rf_touch_tick(void);   // main thread

@@ -1,7 +1,7 @@
 // Port settings: FPS limit (30 / 45 / 60 / display refresh rate, default 60) and horizontal field of view; the
 // stage-8 QA row (qa=) and whether the gesture card was shown (help=); round 2: the gyroscope options (gpos= / grot=
 // on or off, gposs= / grots= sensitivity option, rf_gyro.c); round 5: the position indicator (gauge= on or off,
-// rf_view.c).
+// rf_view.c); swipe look sensitivity (looks=, 25..300%, default 200%).
 // Stored in <getExternalFilesDir>/port_settings.cfg as "key=value" lines; shown as rows of the game's own
 // Options screen (rf_options.c).
 //
@@ -17,11 +17,15 @@
 char g_app_locale[64];  // app locale tags last applied (Android 13+ per-app language)
 int g_fps_idx = RF_FPS_60;
 int g_fov_idx = 2;  // 90 degrees across a 16:9 reference screen
+int g_look_sens = RF_LOOK_SENS_DEFAULT;
 volatile float g_display_hz = 60.0f;
 volatile float g_display_max_hz = 60.0f;
 
 static const int FPS_VALUES[RF_FPS_COUNT] = {30, 45, 60, 0};
 static const int FOV_VALUES[RF_FOV_COUNT] = {70, 80, 90, 100, 110};
+static const int SENS[RF_SENS_COUNT] = {25, 50, 75, 100, 150, 200, 300};
+
+int rf_sens_pct(int idx) { return SENS[idx >= 0 && idx < RF_SENS_COUNT ? idx : 3]; }
 
 int rf_fps_value(int idx) {
     if (idx == RF_FPS_DISPLAY) {
@@ -36,9 +40,9 @@ int rf_fov_value(int idx) { return FOV_VALUES[idx >= 0 && idx < RF_FOV_COUNT ? i
 static void path(char* out, size_t n) { snprintf(out, n, "%s/port_settings.cfg", g_ext_dir); }
 
 static void log_settings(void) {
-    rf_log("settings: fps limit %d (option %d), field of view %d, position indicator %d, gyroscope eye position %d (%d%%) "
-           "tilt and turn %d (%d%%)", rf_fps_value(g_fps_idx), g_fps_idx, rf_fov_value(g_fov_idx), g_gauge_on, g_gyro_pos,
-           rf_gyro_sens_pct(g_gyro_pos_sens), g_gyro_rot, rf_gyro_sens_pct(g_gyro_rot_sens));
+    rf_log("settings: fps limit %d (option %d), field of view %d, look sensitivity %d%%, position indicator %d, gyroscope eye position %d (%d%%) "
+           "tilt and turn %d (%d%%)", rf_fps_value(g_fps_idx), g_fps_idx, rf_fov_value(g_fov_idx), rf_sens_pct(g_look_sens),
+           g_gauge_on, g_gyro_pos, rf_sens_pct(g_gyro_pos_sens), g_gyro_rot, rf_sens_pct(g_gyro_rot_sens));
 }
 
 void rf_settings_load(void) {
@@ -51,12 +55,13 @@ void rf_settings_load(void) {
             int v;
             if (sscanf(line, "fps=%d", &v) == 1 && v >= 0 && v < RF_FPS_COUNT) g_fps_idx = v;
             else if (sscanf(line, "fov=%d", &v) == 1 && v >= 0 && v < RF_FOV_COUNT) g_fov_idx = v;
+            else if (sscanf(line, "looks=%d", &v) == 1 && v >= 0 && v < RF_SENS_COUNT) g_look_sens = v;
             else if (sscanf(line, "qa=%d", &v) == 1 && v >= 0 && v < QA_COUNT) g_qa = v;  // else: off
             else if (sscanf(line, "help=%d", &v) == 1) g_help_seen = v == 1;
             else if (sscanf(line, "gpos=%d", &v) == 1) g_gyro_pos = v == 1;
             else if (sscanf(line, "grot=%d", &v) == 1) g_gyro_rot = v == 1;
-            else if (sscanf(line, "gposs=%d", &v) == 1 && v >= 0 && v < RF_GYRO_SENS_COUNT) g_gyro_pos_sens = v;
-            else if (sscanf(line, "grots=%d", &v) == 1 && v >= 0 && v < RF_GYRO_SENS_COUNT) g_gyro_rot_sens = v;
+            else if (sscanf(line, "gposs=%d", &v) == 1 && v >= 0 && v < RF_SENS_COUNT) g_gyro_pos_sens = v;
+            else if (sscanf(line, "grots=%d", &v) == 1 && v >= 0 && v < RF_SENS_COUNT) g_gyro_rot_sens = v;
             else if (sscanf(line, "gauge=%d", &v) == 1) g_gauge_on = v != 0;
             else if (!strncmp(line, "applocale=", 10)) {
                 snprintf(g_app_locale, sizeof g_app_locale, "%s", line + 10);
@@ -75,8 +80,8 @@ void rf_settings_save(void) {
     snprintf(tmp, sizeof tmp, "%s.tmp", p);
     FILE* f = fopen(tmp, "w");
     if (!f) return;
-    fprintf(f, "fps=%d\nfov=%d\nqa=%d\nhelp=%d\ngpos=%d\ngposs=%d\ngrot=%d\ngrots=%d\ngauge=%d\napplocale=%s\n",
-            g_fps_idx, g_fov_idx, g_qa, g_help_seen, g_gyro_pos, g_gyro_pos_sens, g_gyro_rot, g_gyro_rot_sens, g_gauge_on,
+    fprintf(f, "fps=%d\nfov=%d\nlooks=%d\nqa=%d\nhelp=%d\ngpos=%d\ngposs=%d\ngrot=%d\ngrots=%d\ngauge=%d\napplocale=%s\n",
+            g_fps_idx, g_fov_idx, g_look_sens, g_qa, g_help_seen, g_gyro_pos, g_gyro_pos_sens, g_gyro_rot, g_gyro_rot_sens, g_gauge_on,
             g_app_locale);
     fclose(f);
     rename(tmp, p);

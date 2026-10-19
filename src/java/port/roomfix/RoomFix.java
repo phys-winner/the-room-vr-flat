@@ -45,6 +45,9 @@ public final class RoomFix {
     /** HUD_* flags computed by libroomfix every frame. */
     static native int nativeHudState();
 
+    /** Startup snapshot: stage, shader percent (255 when unknown), game language (255 before localisation). */
+    static native int nativeLoadingState();
+
     /** Current and highest refresh rate of the display (FPS limit option "display"). */
     static native void nativeDisplay(float hz, float maxHz);
 
@@ -83,6 +86,7 @@ public final class RoomFix {
     private static boolean sReady;
     private static HudView sHud;
     private static HelpCard sHelp;
+    private static LoadingView sLoading;
     private static long sHelpShownAt;
     private static boolean sHelpDown;  // a finger went down on the shown card (its lift closes the card)
     private static Handler sMain;
@@ -207,6 +211,10 @@ public final class RoomFix {
         if (android.os.Build.VERSION.SDK_INT >= 29) sHelp.setForceDarkAllowed(false);
         sActivity.addContentView(sHelp, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        sLoading = new LoadingView(sActivity);
+        if (android.os.Build.VERSION.SDK_INT >= 29) sLoading.setForceDarkAllowed(false);
+        sActivity.addContentView(sLoading, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         sMain.post(sPoll);
     }
 
@@ -264,6 +272,10 @@ public final class RoomFix {
     private static final Runnable sPoll = new Runnable() {
         @Override
         public void run() {
+            if (sLoading != null && sLoading.setState(nativeLoadingState())) {
+                ((ViewGroup) sLoading.getParent()).removeView(sLoading);
+                sLoading = null;
+            }
             if (sHud != null) {
                 int s = nativeHudState();
                 if ((s & HudView.S_VISIBLE) == 0 && (sHud.state() & HudView.S_VISIBLE) != 0) releaseHudFingers();
@@ -274,7 +286,7 @@ public final class RoomFix {
                 }
                 if (!sHoldFrames && sFocused && nativeHold(sHold) != 0) startHoldFrames();
             }
-            int help = nativeHelpRequest();
+            int help = sLoading == null ? nativeHelpRequest() : 0;
             if (help > 0 && sHelp != null) showHelp(help - 1);
             setGyro(sFocused ? nativeGyroWanted() : 0);
             if (sPollCount++ % 20 == 0) updateDisplay();
@@ -353,6 +365,7 @@ public final class RoomFix {
     /** Called from UnityPlayerActivity.dispatchTouchEvent; returns true when the port consumed the event. */
     public static boolean onTouch(MotionEvent ev) {
         if (!sReady || sActivity == null) return false;
+        if (sLoading != null) return true;
         if (sHelp != null && sHelp.showing()) {
             // a tap that starts on the card closes it (not the lift of a finger that was down before it opened)
             int m = ev.getActionMasked();
@@ -449,6 +462,7 @@ public final class RoomFix {
 
     /** Back: closes the gesture card, else the game's own back (menu screen back, resume, pause). */
     static void back(long timeMs) {
+        if (sLoading != null) return;
         if (sHelp != null && sHelp.showing()) {
             sHelp.hide();
             return;
