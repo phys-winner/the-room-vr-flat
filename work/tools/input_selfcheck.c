@@ -84,6 +84,34 @@ int main(void) {
         for (int i = 0; i < fps; i++) velocity = hand_velocity_step(velocity, (v3){0, 0, 0}, dt);
         assert(v3_len(velocity) < 1e-5f);
     }
+    v3 repaired = {7, 8, 9};
+    assert(repair_box_size((v3){.11f, .08f, -.07f}, &repaired));
+    assert(repaired.x == .11f && repaired.y == .08f && repaired.z == .07f);
+    assert(repair_box_size((v3){-.11f, -.08f, -.07f}, &repaired));
+    assert(repaired.x == .11f && repaired.y == .08f && repaired.z == .07f);
+    assert(!repair_box_size((v3){.11f, .08f, .07f}, &repaired));
+    assert(repaired.x == .11f && repaired.y == .08f && repaired.z == .07f);
+    assert(!repair_box_size((v3){0, 0, 0}, &repaired));
+    assert(repair_box_size((v3){-0.0f, 0, -.07f}, &repaired));
+    assert(signbit(repaired.x) && repaired.y == 0 && repaired.z == .07f);
+    assert(inventory_full_return(0, false, false, false));
+    assert(!inventory_full_return(0, false, true, false));  // an existing reserved slot or stackable match
+    assert(!inventory_full_return(0, false, false, true));  // room to archive a new item
+    assert(!inventory_full_return(0, false, true, true));
+    assert(!inventory_full_return(0, true, false, false));  // a hand switch does not archive
+    assert(!inventory_full_return(1, false, false, false));  // authored return-to-pickup
+    assert(!inventory_full_return(2, false, false, false));  // authored discard
+    assert(!inventory_full_return(-1, false, false, false));
+    assert(!inventory_full_return(3, false, false, false));
+    assert(inventory_pickup_returned(1));
+    assert(!inventory_pickup_returned(0));
+    assert(!inventory_pickup_returned(2));  // preserve a successful receiver placement
+    assert(!inventory_pickup_returned(3));
+    assert(!inventory_pickup_returned(-1));
+    assert(!repair_box_size((v3){NAN, .08f, -.07f}, &repaired));
+    assert(!repair_box_size((v3){-.11f, INFINITY, .07f}, &repaired));
+    assert(!repair_box_size((v3){.11f, .08f, -INFINITY}, &repaired));
+    assert(signbit(repaired.x) && repaired.y == 0 && repaired.z == .07f);
     v3 inset = cylinder_contact((v3){3.16f, 0, -.35f}, 3.16f, 3.35f, -.35f, -.2f, (v3){1, 1, 1});
     assert(fabsf(inset.x - 3.20f) < 1e-5f && fabsf(inset.z + .3125f) < 1e-5f);
     inset = cylinder_contact((v3){3.22f, 0, -.28f}, 3.16f, 3.35f, -.35f, -.2f, (v3){1, 1, 1});
@@ -98,6 +126,81 @@ int main(void) {
     assert(inset.x == .32f);
     inset = cylinder_contact((v3){.32f, 0, 0}, NAN, .32f, -.1f, .1f, (v3){1, 1, 1});
     assert(inset.x == .32f);
+    assert(rotation_roll(false, 0) && rotation_roll(false, -.59f));
+    assert(!rotation_roll(true, 0) && !rotation_roll(false, .6f) && !rotation_roll(false, -1));
+    assert(!rotation_roll(false, NAN));
+    // Native surface contact can lead/lag the virtual hand; the lower stop hid the crank's 35.8 degree offset.
+    v3 turn_axis = {0, 0, 1}, turn_zero = {1, 0, 0};
+    for (int sign = -1; sign <= 1; sign += 2) {
+        float offset = sign * 35.8f;
+        for (int start = 0; start <= 1800; start += 900) {
+            for (int turns = -2; turns <= 2; turns++) {
+                float current = start + turns * 360, base = 9999;
+                v3 contact = q_rot(q_axis(turn_axis, (offset + turns * 360) * DEG2RAD), turn_zero);
+                // Scale and an axial component do not change the radial contact phase.
+                contact = v3_add(v3_scale(contact, .061f), (v3){0, 0, .13f});
+                assert(rotation_contact_base(contact, turn_axis, turn_zero, start, current, &base));
+                assert(fabsf(base - (start - offset)) < .001f);
+                v2 limits = rotation_hand_limits(0, 1800, base);
+                assert(limits.x <= 0 && limits.y >= 0);  // acquisition never moves a stationary hand into a bound
+                assert(base + limits.x <= -ROT_OVER + .001f && base + limits.y >= 1800 + ROT_OVER - .001f);
+                float hand = 0;
+                for (int i = 0; i < 1000; i++) hand = fminf(limits.y, hand + ROT_STEP);
+                assert(hand == limits.y && fminf(1800, fmaxf(0, base + hand)) == 1800);
+                for (int i = 0; i < 1000; i++) hand = fmaxf(limits.x, hand - ROT_STEP);
+                assert(hand == limits.x && fminf(1800, fmaxf(0, base + hand)) == 0);
+                // The calibrated range stays fixed after a stop: continued winding cannot ratchet it farther.
+                assert(limits.x == rotation_hand_limits(0, 1800, base).x);
+                assert(limits.y == rotation_hand_limits(0, 1800, base).y);
+            }
+        }
+    }
+    float contact_base = 777;
+    assert(rotation_contact_base(turn_zero, turn_axis, turn_zero, 720, 720, &contact_base) && contact_base == 720);
+    v2 same_limits = rotation_hand_limits(0, 1800, contact_base);
+    assert(same_limits.x == -730 && same_limits.y == 1090);
+    contact_base = 777;
+    assert(!rotation_contact_base((v3){0, 0, 0}, turn_axis, turn_zero, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_axis, turn_axis, turn_zero, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, (v3){0, 0, 0}, turn_zero, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, turn_axis, turn_axis, 0, 0, &contact_base));
+    assert(!rotation_contact_base((v3){NAN, 0, 0}, turn_axis, turn_zero, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, (v3){0, INFINITY, 1}, turn_zero, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, turn_axis, (v3){1, 0, -INFINITY}, 0, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, turn_axis, turn_zero, NAN, 0, &contact_base));
+    assert(!rotation_contact_base(turn_zero, turn_axis, turn_zero, 0, INFINITY, &contact_base));
+    assert(contact_base == 777);  // invalid native geometry leaves the original limits available
+    g_grab.pivot = (v3){1, 2, 3};
+    g_grab.axis = (v3){1, 0, 0};
+    g_grab.h0 = .02f;
+    g_grab.r0 = .045f;
+    g_grab.rot_u = (v3){0, 0, -1};
+    g_grab.rot_v = v3_cross(g_grab.axis, g_grab.rot_u);
+    v3 initial_roll = rot_point(0);
+    float roll = 0, wanted_roll = 0;
+    for (int i = 0; i < 72; i++) {
+        wanted_roll += rotation_roll_degrees((v2){0, -.05f * 10 * DEG2RAD}, (v2){0, -.05f}, 2.2f);
+        roll = rotation_step(roll, wanted_roll);
+        v3 hand = rot_point(roll), radius = v3_sub(hand, v3_add(g_grab.pivot, (v3){g_grab.h0, 0, 0}));
+        assert(fabsf(v3_len(radius) - g_grab.r0) < 1e-6f);
+        assert(fabsf(roll - 10 * (i + 1)) < .001f);
+    }
+    assert(fabsf(roll - 720) < .001f && v3_len(v3_sub(rot_point(roll), initial_roll)) < 1e-5f);
+    for (int i = 0; i < 72; i++) {
+        wanted_roll += rotation_roll_degrees((v2){0, .05f * 10 * DEG2RAD}, (v2){0, -.05f}, 2.2f);
+        roll = rotation_step(roll, wanted_roll);
+    }
+    assert(fabsf(roll) < .001f);
+    assert(fabsf(rotation_roll_degrees((v2){.02f, -.03f}, (v2){.02f, -.03f}, 2.2f) - 1 / DEG2RAD) < 1e-4f);
+    assert(fabsf(rotation_roll_degrees((v2){0, -.035f}, (v2){0, -.001f}, 2.2f) - 1 / DEG2RAD) < 1e-4f);
+    assert(rotation_roll_degrees((v2){0, 0}, (v2){-.1f, .2f}, 1.3f) == 0);  // camera moved, finger did not
+    assert(rotation_roll_degrees((v2){.1f, .1f}, (v2){0, 0}, 2.2f) == 0);
+    assert(rotation_roll_degrees((v2){NAN, 0}, (v2){0, -.05f}, 2.2f) == 0);
+    assert(rotation_roll_degrees((v2){0, .1f}, (v2){0, NAN}, 2.2f) == 0);
+    assert(rotation_roll_degrees((v2){0, .1f}, (v2){0, -.05f}, INFINITY) == 0);
+    roll = 0;
+    for (int i = 0; i < 24; i++) roll = rotation_step(roll, 720);
+    assert(roll == 720 && rotation_step(roll, roll) == roll);  // a batched swipe loses no turn
     assert(actuator_pending(.833f, 0, 5) && !actuator_pending(0, 0, 5));
     assert(actuator_pending(0, 5, 5) && !actuator_pending(1, 5, 5));
     assert(!actuator_pending(NAN, 0, 5) && !actuator_pending(INFINITY, 0, 5));
@@ -193,6 +296,6 @@ int main(void) {
     assert(rests[0] == 2 && rests[1] == 2);
     cancel_keys();
     assert(rests[0] == 2 && rests[1] == 2);
-    puts("input self-check: PASS (look sensitivity, axial turns, transfer, queue overflow, volume rays, sphere geometry, reach, key press/release, hand release)");
+    puts("input self-check: PASS (look sensitivity, negative box repair, full inventory fallback, complete wheel rolls, axial turns, transfer, queue overflow, volume rays, sphere geometry, reach, key press/release, hand release)");
     return 0;
 }

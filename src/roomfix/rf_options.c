@@ -1,6 +1,7 @@
-// Port rows in the game's own Options screen (front end and pause menu):
+// Port rows in the game's own image settings screen (front end and pause menu):
 //   FPS LIMIT      < 30 | 45 | 60 | DISPLAY (n Hz) >   default 60
 //   FIELD OF VIEW  < 70 | 80 | 90 | 100 | 110 >        default 90
+// Options keeps the input and testing settings:
 //   LOOK SENSITIVITY < 25% ... 300% >                  default 200%
 //   POSITION INDICATOR < on | off >                    default on (round 5: the eyes' place in the location, rf_view.c)
 //   QA (TESTING)   < off | level select | skip level | all >   default off (stage 8, rf_chapters.c)
@@ -53,6 +54,18 @@ static void os_clear(int i) {
     for (int k = 0; k < NHIDE; k++) rf_ref_clear(&g_os[i].hidden[k]);
     rf_ref_clear(&g_os[i].title);
     memset(&g_os[i], 0, sizeof g_os[i]);
+}
+
+static int screen_slot(void* screen) {
+    for (int i = 0; i < NSCREEN; i++)
+        if (R(g_os[i].screen) == screen) return i;
+    for (int i = 0; i < NSCREEN; i++)
+        if (!rf_alive(R(g_os[i].screen))) {
+            os_clear(i);
+            rf_ref_set(&g_os[i].screen, screen);
+            return i;
+        }
+    return -1;
 }
 
 static void* g_sel_type;  // System.Type of UiOptionSelector
@@ -234,8 +247,8 @@ static void hide(int i, void* go) {
 
 static void page(int i, bool on) {
     if (g_os[i].page == on) return;
-    void* fps_row = row_go(R(g_os[i].sel[ROW_FPS]));  // a GameObject: its transform through GameObject.get_transform
-    void* rows = rf_alive(fps_row) ? rf_tr_parent(CALLP(C_GO_TRANSFORM, void* (*)(void*, const void*))(fps_row, NULL)) : NULL;
+    void* gyro_row = row_go(R(g_os[i].sel[ROW_GPOS]));  // a GameObject: its transform through GameObject.get_transform
+    void* rows = rf_alive(gyro_row) ? rf_tr_parent(CALLP(C_GO_TRANSFORM, void* (*)(void*, const void*))(gyro_row, NULL)) : NULL;
     void* gb = R(g_os[i].gyro_btn), *gk = R(g_os[i].gyro_back), *scr = R(g_os[i].screen);
     void* btns = rf_alive(gb) ? rf_tr_parent(rf_transform(gb)) : NULL;
     void* back_go = rf_alive(gk) ? rf_gameobject(gk) : NULL;
@@ -307,15 +320,7 @@ bool rf_options_back(void) {
 
 static void patch(void* screen) {
     char* s = (char*)screen;
-    int slot = -1;
-    for (int i = 0; i < NSCREEN && slot < 0; i++)
-        if (R(g_os[i].screen) == screen) slot = i;
-    for (int i = 0; i < NSCREEN && slot < 0; i++)
-        if (!rf_alive(R(g_os[i].screen))) {
-            slot = i;
-            os_clear(i);
-            rf_ref_set(&g_os[i].screen, screen);
-        }
+    int slot = screen_slot(screen);
     if (slot < 0) return;
     page(slot, false);  // every visit starts on the options
 
@@ -359,7 +364,7 @@ static void patch(void* screen) {
     // consecutive places right after the turn-fade row (in the pause menu the buttons' layout follows the rows in the
     // same parent, so every row has to stay above it)
     int next = idx + 1;
-    for (int r = 0; r < NROW; r++) {
+    for (int r = ROW_LOOK_S; r < NROW; r++) {
         if (r == ROW_QA && !want_qa) continue;
         if (!rf_alive(R(g_os[slot].sel[r]))) {
             rf_ref_set(&g_os[slot].sel[r], clone_row(row, parent, next, ROWS[r].name, ROWS[r].label));
@@ -369,10 +374,10 @@ static void patch(void* screen) {
     }
     set_active(rf_gameobject(row), false);
     if (!g_os[slot].roomy) {
-        int extra = rf_alive(R(g_os[slot].sel[ROW_LOOK_S])) + rf_alive(R(g_os[slot].sel[ROW_GAUGE]));
+        int extra = rf_alive(R(g_os[slot].sel[ROW_LOOK_S])) + rf_alive(R(g_os[slot].sel[ROW_GAUGE])) - 2;
         if (want_qa)  // the front end
             make_room(screen, extra + rf_alive(R(g_os[slot].sel[ROW_QA])));
-        else if (extra)
+        else if (extra > 0)
             make_room_pause(screen, extra);
         g_os[slot].roomy = true;
     }
@@ -387,6 +392,29 @@ static void patch(void* screen) {
         if (rf_alive(gk)) set_active(rf_gameobject(gk), false);
     }
     for (int r = 0; r < NROW; r++) show_value(R(g_os[slot].sel[r]), r);
+}
+
+// The authored image page already has room for seven rows; the port adds FPS and FOV beside its live detail/MSAA rows.
+void rf_options_graphics(void* screen) {
+    int slot = screen_slot(screen);
+    void* sel = *(void**)((char*)screen + 0x60);  // GraphicsScreen.TextureQualitySelector (unused in this build)
+    if (slot < 0 || !rf_alive(sel)) return;
+    g_sel_type = rf_type_of(sel);
+    g_txt_type = rf_type_of(*(void**)((char*)sel + 0x28));
+    void* row = rf_transform(sel);
+    char nm[64];
+    rf_obj_name(row, nm, sizeof nm);
+    if (!strcmp(nm, "Option")) row = rf_tr_parent(row);
+    void* parent = rf_tr_parent(row);
+    if (!g_sel_type || !g_txt_type || !rf_alive(parent)) return;
+    int idx = CALLP(C_TR_GETSIBLING, int32_t (*)(void*, const void*))(row, NULL);
+    static const char* const NAME[] = {"PortFpsOption", "PortFovOption"};
+    static const char* const KEY[] = {"PORT_FPS_LIMIT", "PORT_FOV"};
+    for (int r = ROW_FPS; r <= ROW_FOV; r++) {
+        if (!rf_alive(R(g_os[slot].sel[r])))
+            rf_ref_set(&g_os[slot].sel[r], clone_row(row, parent, idx + 1 + r, NAME[r], KEY[r]));
+        show_value(R(g_os[slot].sel[r]), r);
+    }
 }
 
 void* h_options_setup(void* self, const void* mi) {

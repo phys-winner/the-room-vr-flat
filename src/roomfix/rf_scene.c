@@ -132,7 +132,7 @@ void rf_dev_hint(void) {
     }
 }
 
-// dev diagnostics: raw fields of every instance of a game class (f = float, i = int32, b = byte, p = pointer)
+// dev diagnostics: fields (f float, i int32, b byte, p pointer, n List count only, s managed String, l component List).
 void rf_dev_peek(const char* cls, const char* spec, const char* filter) {
     void* type = rf_class_type(rf_find_class("TheRoomVR.dll", "", cls));
     void* arr = type ? CALLP(C_OBJ_FINDALLTYPE, void* (*)(void*, const void*))(type, NULL) : NULL;
@@ -153,6 +153,14 @@ void rf_dev_peek(const char* cls, const char* spec, const char* filter) {
             else if (kind == 'i') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(int32_t*)(o + off));
             else if (kind == 'b') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, *(uint8_t*)(o + off));
             else if (kind == 'p') n += snprintf(line + n, sizeof line - n, " %s=%p", tok, *(void**)(o + off));
+            else if (kind == 'n') n += snprintf(line + n, sizeof line - n, " %s=%d", tok, rf_list_size(*(void**)(o + off)));
+            else if (kind == 's') {
+                char text[96] = "-";
+                void* ref = *(void**)(o + off);
+                if ((uintptr_t)ref >= 0x10000 && !((uintptr_t)ref & 7) && rf_class_is(ref, "String"))
+                    rf_str_utf8(ref, text, sizeof text);
+                n += snprintf(line + n, sizeof line - n, " %s='%s'", tok, text);
+            }
             else if (kind == 'o') {  // reference to a Unity object: its GameObject's name
                 char on[48] = "-";
                 void* ref = *(void**)(o + off);

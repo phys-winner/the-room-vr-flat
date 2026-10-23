@@ -203,6 +203,8 @@ void rf_act_list_volumes(void);         // dev diagnostics
 void rf_act_list_volumes_all(void);     // dev: every registered volume with usability and distance
 void rf_gc_add(void* gc);
 void rf_gc_remove(void* gc);
+bool rf_inventory_release_fallback(void* item, bool switching);  // full inventory: original return-to-pickup action
+void rf_inventory_release_finish(void* item);  // restore action; a returned world item must not archive on reload
 void rf_act_grab_drag(float nx, float ny);
 void rf_act_grab_end(void);
 bool rf_act_grabbing(void);
@@ -266,6 +268,7 @@ void* rf_type_of(void* obj);            // System.Type of an object's class
 
 // ---- rf_options.c / rf_loc.c ----
 void* h_options_setup(void* self, const void* mi);
+void rf_options_graphics(void* screen);  // FPS/FOV rows in the authored image settings page
 // stage 8 (rf_chapters.c): chapter select, replay without saving, QA unlocks
 #define QA_CHAPTERS 1  // every chapter in the level select
 #define QA_SKIP 2      // pause menu SKIP LEVEL without the secret

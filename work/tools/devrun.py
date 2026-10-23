@@ -169,7 +169,7 @@ def main(a):
     elif cmd == "cmd":
         # one dev-console command per argument; printf keeps each on its own line
         body = "".join(f"{c}\\n" for c in a[1:])
-        sh(f"printf '{body}' > {EXT}/roomfix.cmd.tmp && mv {EXT}/roomfix.cmd.tmp {EXT}/roomfix.cmd")
+        sh(f"printf '{body}' > {EXT}/roomfix.cmd.tmp && chmod 666 {EXT}/roomfix.cmd.tmp && mv {EXT}/roomfix.cmd.tmp {EXT}/roomfix.cmd")
     elif cmd == "stop":
         sh(f"am force-stop {PKG}")
         print("pid after stop:", pid() or "-")

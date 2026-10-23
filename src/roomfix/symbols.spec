@@ -50,6 +50,7 @@ CALL INPUTCTL_ALLOWED Player.InputControl$$IsAllowed
 # ---- interaction (rf_interact.c) ----
 HOOK GC_AWAKE         GrabbableCollider$$Awake
 HOOK GC_DESTROY       GrabbableCollider$$OnDestroy
+HOOK INV_RELEASE      InventoryItemGrabbable$$GrabReleaseCallback
 CALL PHYS_RAYCASTALL  UnityEngine.Physics$$RaycastAll|UnityEngine_Vector3_o direction, float maxDistance, int32_t layerMask, int32_t queryTriggerInteraction
 CALL HIT_COLLIDER     UnityEngine.RaycastHit$$get_collider
 CALL COL_ISTRIGGER    UnityEngine.Collider$$get_isTrigger
@@ -61,6 +62,9 @@ CALL CTRL_GRABBED     Controller$$GetGrabbedGrabbable
 CALL TR_TRANSDIR      UnityEngine.Transform$$TransformDirection
 CALL GO_ACTIVEH       UnityEngine.GameObject$$get_activeInHierarchy
 CALL INV_ISIN        InventoryManager$$IsItemInInventory
+CALL INV_GETSLOT     InventoryManager$$GetSlotForItem
+CALL INV_EMPTY       InventoryManager$$GetEmptySlot
+CALL INV_SET_PICKED  InventoryItemGrabbable$$SetPickedUpState
 META INVMGR_TYPEINFO InventoryManager_TypeInfo
 META INVHUD_TYPEINFO InventoryHud_TypeInfo
 CALL RECV_CENTRE     InventoryReceiver$$GetCentre
@@ -200,6 +204,7 @@ CALL TMP_GETTEXT      TMPro.TMP_Text$$get_text
 CALL MF_SHAREDMESH    UnityEngine.MeshFilter$$get_sharedMesh
 CALL MESH_BOUNDS      UnityEngine.Mesh$$get_bounds
 CALL BOX_SIZE         UnityEngine.BoxCollider$$get_size
+CALL BOX_SET_SIZE     UnityEngine.BoxCollider$$set_size
 CALL BOX_CENTER       UnityEngine.BoxCollider$$get_center
 # the level title (rf_view.c): shown while its fade-in timeline plays or its canvas group is visible
 CALL GO_GETCOMP       UnityEngine.GameObject$$GetComponent|System_Type_o* type
@@ -232,6 +237,10 @@ CALL PD_DIRECTOR_TIME UnityEngine.Playables.PlayableDirector$$get_time
 CALL PD_DIRECTOR_DURATION UnityEngine.Playables.PlayableDirector$$get_duration
 CALL PD_LOC_STATE     PlayerLocation$$SetState
 CALL PD_DISSOLVE_ACTIVE GoggleDissolveController$$SetActive
+CALL PD_GOGGLE_LENS   Goggles$$OnLensEquipped
+CALL PD_SAVE_GET      SaveableComponent$$GetSaveData
+CALL PD_SAVE_ATTR     SaveableComponent$$LoadAttributeData
+CALL PD_INV_LOAD      InventoryItemGrabbable$$LoadData
 # Current native grab-volume dimensions, including long ropes and the organ pipe ring.
 CALL GC_COLLIDER      GrabbableCollider$$GetCollider
 CALL SPHERE_RADIUS    UnityEngine.SphereCollider$$get_radius

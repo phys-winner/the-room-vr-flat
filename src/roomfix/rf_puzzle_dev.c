@@ -9,7 +9,7 @@ static const char* const puzzle_types[] = {
     "PaintingPuzzle", "CrystalBallPuzzle", "SymbolDrawingPuzzle", "KeyboardActivator", "Grabbable",
     "VisibilityController", "OrganBall", "Portal", "PlayableDirector",
     "RotationGrabbable", "SliderGrabbable", "CombinationGrabbable", "GameObject", "PlayerLocation",
-    "Superzoom", "GoggleDissolveController"
+    "Superzoom", "GoggleDissolveController", "Goggles"
 };
 
 static int array_count(void* a) {
@@ -27,20 +27,58 @@ static int match_rank(const char* name, const char* query) {
     return !strcmp(name, query) ? 2 : strstr(name, query) != NULL;
 }
 
-enum { PD_READ, PD_START, PD_SHOW, PD_HIDE };
+enum { PD_READ, PD_START, PD_SHOW, PD_HIDE, PD_ROUNDTRIP };
 static int parse_action(const char* s) {
     if (!strcmp(s, "start") || !strcmp(s, "arm")) return PD_START;
     if (!strcmp(s, "show")) return PD_SHOW;
+    if (!strcmp(s, "roundtrip")) return PD_ROUNDTRIP;
     return !strcmp(s, "hide") ? PD_HIDE : PD_READ;
 }
 static bool action_allowed(int type, int action) {
+    if (action == PD_ROUNDTRIP) return type == 4;
     return type == 5 || type == 12 || type == 15 ? action == PD_SHOW || action == PD_HIDE : action == PD_START;
+}
+
+static bool roundtrip_ready(int action, int picked, int interaction, bool owner, bool in_inventory, bool initialized) {
+    return action == 0 && picked == 0 && interaction == 0 && !owner && !in_inventory && initialized;
 }
 
 static bool call_ready(int id) {
     if (g_call_ok[id]) return true;
     rf_log("puzzle refused: unverified API %s", g_call_desc[id].name);
     return false;
+}
+
+static void roundtrip_item(void* item) {
+    const int calls[] = {C_PD_SAVE_GET, C_PD_SAVE_ATTR, C_PD_INV_LOAD, C_INV_ISIN};
+    for (unsigned i = 0; i < sizeof calls / sizeof *calls; i++) if (!call_ready(calls[i])) return;
+    uintptr_t klass = *(uintptr_t*)(g_il2cpp_base + META_INVMGR_TYPEINFO);
+    if (!klass || (klass & 1) || klass < 0x10000) { rf_log("puzzle roundtrip refused: no inventory class"); return; }
+    void* statics = ref_at((void*)klass, 0xb8);
+    void* mgr = statics ? *(void**)statics : NULL;
+    if (!rf_alive(mgr)) { rf_log("puzzle roundtrip refused: no inventory manager"); return; }
+    bool in_inventory = CALLP(C_INV_ISIN, bool (*)(void*, void*, const void*))(mgr, item, NULL);
+    int action = int_at(item, 0x128), picked = int_at(item, 0x190), interaction = int_at(item, 0x90);
+    void* owner = ref_at(item, 0x80);
+    bool initialized = byte_at(item, 0x28) && ref_at(item, 0x30) && byte_at(item, 0x1f0);
+    rf_log("puzzle roundtrip before action=%d picked=%d interaction=%d owner=%p inInventory=%d initialized=%d",
+           action, picked, interaction, owner, in_inventory, initialized);
+    if (!roundtrip_ready(action, picked, interaction, owner != NULL, in_inventory, initialized)) {
+        rf_log("puzzle roundtrip refused: initialized idle world pickup with action0/picked0 required"); return;
+    }
+    void* data = CALLP(C_PD_SAVE_GET, void* (*)(void*, const void*))(item, NULL);
+    if (!data || !rf_class_is(data, "InventoryItemGrabbableSaveData") ||
+        int_at(data, 0x20) != 0 || int_at(data, 0x24) != 0) {
+        rf_log("puzzle roundtrip refused: unexpected native saved pair"); return;
+    }
+    rf_log("puzzle roundtrip saved action=%d picked=%d fields=%d", int_at(data, 0x20), int_at(data, 0x24),
+           rf_list_size(ref_at(data, 0x18)));
+    // SaveHeader.CurrentVersion=2. Only this component's captured state is reapplied; no profile/story load occurs.
+    CALLP(C_PD_SAVE_ATTR, void (*)(void*, void*, int32_t, const void*))(item, data, 2, NULL);
+    CALLP(C_PD_INV_LOAD, void (*)(void*, void*, int32_t, const void*))(item, data, 2, NULL);
+    rf_log("puzzle roundtrip after action=%d picked=%d interaction=%d owner=%p inInventory=%d (native component, no disk)",
+           int_at(item, 0x128), int_at(item, 0x190), int_at(item, 0x90), ref_at(item, 0x80),
+           CALLP(C_INV_ISIN, bool (*)(void*, void*, const void*))(mgr, item, NULL));
 }
 
 static void* puzzle_gameobject(void* o) { return rf_class_is(o, "GameObject") ? o : rf_gameobject(o); }
@@ -214,13 +252,20 @@ void rf_dev_puzzle(int argc, char* const argv[]) {
            !action_allowed(9, PD_SHOW) && !action_allowed(10, PD_HIDE) && !action_allowed(11, PD_SHOW) &&
            action_allowed(12, PD_SHOW) && action_allowed(12, PD_HIDE) && !action_allowed(12, PD_START) &&
            action_allowed(13, PD_START) && !action_allowed(13, PD_SHOW) && action_allowed(14, PD_START) &&
-           !action_allowed(14, PD_HIDE) && action_allowed(15, PD_SHOW) && !action_allowed(15, PD_START));
+           !action_allowed(14, PD_HIDE) && action_allowed(15, PD_SHOW) && !action_allowed(15, PD_START) &&
+           action_allowed(16, PD_START) && !action_allowed(16, PD_SHOW) && !action_allowed(16, PD_HIDE) &&
+           parse_action("roundtrip") == PD_ROUNDTRIP && action_allowed(4, PD_ROUNDTRIP) &&
+           !action_allowed(5, PD_ROUNDTRIP) && !action_allowed(9, PD_ROUNDTRIP) && !action_allowed(16, PD_ROUNDTRIP));
+    assert(roundtrip_ready(0, 0, 0, false, false, true) && !roundtrip_ready(1, 0, 0, false, false, true) &&
+           !roundtrip_ready(0, 1, 0, false, false, true) && !roundtrip_ready(0, 0, 1, false, false, true) &&
+           !roundtrip_ready(0, 0, 0, true, false, true) && !roundtrip_ready(0, 0, 0, false, true, true) &&
+           !roundtrip_ready(0, 0, 0, false, false, false));
     int type = -1;
     for (unsigned i = 0; i < sizeof puzzle_types / sizeof *puzzle_types; i++)
         if (argc && !strcmp(argv[0], puzzle_types[i])) type = (int)i;
     if (type < 0) {
         rf_log("puzzle usage: TYPE [NAME] [start|arm]; VisibilityController, GameObject and GoggleDissolveController accept show|hide");
-        rf_log("puzzle types: PaintingPuzzle CrystalBallPuzzle SymbolDrawingPuzzle KeyboardActivator Grabbable VisibilityController OrganBall Portal PlayableDirector RotationGrabbable SliderGrabbable CombinationGrabbable GameObject PlayerLocation Superzoom GoggleDissolveController");
+        rf_log("puzzle types: PaintingPuzzle CrystalBallPuzzle SymbolDrawingPuzzle KeyboardActivator Grabbable VisibilityController OrganBall Portal PlayableDirector RotationGrabbable SliderGrabbable CombinationGrabbable GameObject PlayerLocation Superzoom GoggleDissolveController Goggles");
         return;
     }
     int action = argc > 1 ? parse_action(argv[argc - 1]) : PD_READ;
@@ -271,16 +316,23 @@ void rf_dev_puzzle(int argc, char* const argv[]) {
     bool active = CALLP(C_GO_ACTIVEH, bool (*)(void*, const void*))(selected_go, NULL);
     if (start) {
         if ((!active && type != 12) || !rf_player() || rf_menu_context()) { rf_log("puzzle refused: active gameplay instance required"); return; }
+        if (action == PD_ROUNDTRIP) {
+            if (rank != 2 || strcmp(rf_class_name(selected), "InventoryItemGrabbable")) {
+                rf_log("puzzle roundtrip refused: exact InventoryItemGrabbable name required"); return;
+            }
+            roundtrip_item(selected);
+            return;
+        }
         const int calls[] = {C_PD_PAINT_START, C_PD_CRYSTAL_START, C_PD_GRAB_STATE, C_PD_ORGAN_FUNC, C_PD_GRAB_STATE,
                              C_PD_VIS_BOLT, C_PD_BALL_ACTIVE, C_PD_PORTAL_ACTIVE, C_PD_DIRECTOR_PLAY,
                              C_PD_GRAB_STATE, C_PD_GRAB_STATE, C_PD_GRAB_STATE, C_GO_SETACTIVE, C_PD_LOC_STATE,
-                             C_SZ_SETSTATE, C_PD_DISSOLVE_ACTIVE};
+                             C_SZ_SETSTATE, C_PD_DISSOLVE_ACTIVE, C_PD_GOGGLE_LENS};
         if (!call_ready(calls[type])) return;
         if ((type == 0 && !array_count(ref_at(selected, 0xd8))) ||
             (type == 1 && (array_count(ref_at(selected, 0xc0)) != 2 || !rf_alive(ref_at(selected, 0xc8))))) {
             rf_log("puzzle refused: authored Start initialization has not finished"); return;
         }
-        if (type == 0 || type == 1 || type == 7 || type == 8)
+        if (type == 0 || type == 1 || type == 7 || type == 8 || type == 16)
             CALLP(calls[type], void (*)(void*, const void*))(selected, NULL);
         else if (type == 3) {
             if (!call_ready(C_PD_ORGAN_KEYS)) return;
@@ -366,6 +418,9 @@ void rf_dev_puzzle(int argc, char* const argv[]) {
         case 15:
             rf_log("puzzle dissolve enabled=%d", byte_at(selected, 0x38));
             pose("dissolveSphere", ref_at(selected, 0x50));
+            break;
+        case 16:
+            rf_log("puzzle goggles active=%d hasLens=%d", byte_at(selected, 0xf8), byte_at(selected, 0x108));
             break;
     }
 }

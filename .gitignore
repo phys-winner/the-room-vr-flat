@@ -6,6 +6,9 @@
 /app/
 # Build outputs, test evidence and logs, analysis output, caches
 /out/
+/pub/
+/work/backups/
+/work/input_selfcheck_*
 /work/evidence/
 /work/logs/
 /work/removed/

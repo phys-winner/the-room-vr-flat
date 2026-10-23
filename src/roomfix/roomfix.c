@@ -370,6 +370,15 @@ static void h_gc_destroy(void* self, const void* mi) {
     ORIG(H_GC_DESTROY, void (*)(void*, const void*))(self, mi);
 }
 
+static void h_inv_release(void* self, v3 position, v3 velocity, void* ctrl, bool switching, const void* mi) {
+    bool fallback = rf_inventory_release_fallback(self, switching);
+    // The original callback tries a valid receiver first. Only its impossible archive uses this native fallback.
+    if (fallback) *(int32_t*)((char*)self + 0x128) = 1;  // EReleaseAction.ReturnToPickup
+    ORIG(H_INV_RELEASE, void (*)(void*, v3, v3, void*, bool, const void*))(
+        self, position, velocity, ctrl, switching, mi);
+    if (fallback) rf_inventory_release_finish(self);
+}
+
 static void h_player_update(void* self, const void* mi) {
     g_player = self;
     g_player_frame = g_frame;
@@ -387,6 +396,7 @@ static const struct rf_hook_entry g_core_hooks[] = {
     {H_TUT_MSG, (void*)h_tut_msg, true, false},
     {H_GC_AWAKE, (void*)h_gc_awake, true, false},
     {H_GC_DESTROY, (void*)h_gc_destroy, true, false},
+    {H_INV_RELEASE, (void*)h_inv_release, true, false},
     {H_MSG_BOX, (void*)h_msg_box, true, false},
     {H_POSTURE_SETUP, (void*)h_posture_setup, true, false},
     {H_MENU_UPDATE, (void*)h_menu_update, true, false},

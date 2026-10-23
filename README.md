@@ -41,8 +41,9 @@ the original APK; the tools rebuild everything else from it on your machine.
 - Gyroscope options: *eye position* (turn / tilt / push the phone to move the eyes) and *tilt and turn* (the camera
   follows the phone), each with its own sensitivity 25–300 %.
 - Options: FPS limit 30 / 45 / 60 / display rate (default 60), field of view 70–110° (hor+, default 90), position
-  indicator on / off, a gesture card in all 10 game languages, the game's hidden graphics screen (MSAA, texture quality, render scale, AO, bloom,
-  volumetrics), a chapter select that replays chapters without touching progress, and a QA row.
+  indicator on / off, a gesture card in all 10 game languages, and the original image settings screen with
+  environment detail, MSAA, FPS and field of view. Inactive graphics options are hidden. Chapter select replays
+  chapters without touching progress; a separate QA row is available.
 - Fixes for Mali GPUs (glow "disc" artefact, shadow-pass shader link errors); the one DXT5 texture re-encoded to
   ASTC; full screen including the display cutout; Unity's "trial version" mark removed.
 - Saves and settings live in `Android/data/com.FireproofStudios.TheRoomVRPlus/files`; all five permissions of the
@@ -52,9 +53,10 @@ the original APK; the tools rebuild everything else from it on your machine.
 
 Verified on a Redmi Note 8 Pro (Mali-G76, Android 11), a Realme RMX3371 (Adreno, Android 15) and a POCO X3 NFC
 (Adreno 618, Android 16; tablet 16:10 emulated by display size); starts and loads chapters on a Pixel 10 (PowerVR,
-Android 17). Not verified: devices with 16 KB memory pages; touch play-through of a few late story places (Chapel
-organ keys and lockpick; pouring, mirror, bellows and candles in the Witch chapter; the constellation puzzles with
-the hold-distance slider) — the controls for them exist.
+Android 17). Round9 touch checks also run on Pixel 10a with Android 17 and 16 KB memory pages, using Android's
+engine-library compatibility mode: the port library is 16 KB aligned, while the unchanged vendor libpxr_api
+retains 4 KB alignment. Local puzzle solutions, stage preparation and remaining whole-route limits are recorded
+in [PORT_FEATURES.md](PORT_FEATURES.md) and [STATE.md](STATE.md); these checks are not a complete story playthrough.
 
 ## Building
 
@@ -82,6 +84,8 @@ adb install -r out/base.apk
 `work/manifests/decoded_original.json`), copies it to `app/`, applies `patches/app.patch`, removes the VR-only files,
 writes the binary asset fixes (each script checks its source bytes first) and builds the port's code into `app/`.
 `build_port.py apk` packages `app/` into `out/base.apk` (apktool → zipalign `-P 16` → apksigner).
+After source cleanup, the retained `app/` can be packaged directly; `decoded_original/` is recreated by
+`prepare_app.py` when patch inputs are needed (use `--force` only when intentionally replacing `app/`).
 
 Without `--release` you get the developer build: it writes a bounded `roomfix.log` next to the saves and, when a
 file named `roomfix.dev` exists there, runs a command console (`roomfix.cmd`) used by the test tools.
@@ -116,7 +120,7 @@ An APK built this way contains the game's assets: keep it for your own use and d
 | `src/java/port/` | Java side: HUD, touch routing, help card, sensors, data redirect |
 | `work/tools/` | build, patch and device test tools (device tools talk only to the adb serial in `RF_SERIAL`) |
 | `work/manifests/` | reference hashes: original APK, its decode, binary asset patches |
-| `work/*.md` | research reports: code / resource / permission cleanup, hidden content, graphics, textures, device effects, touch action map |
+| `STATE.md` cleanup section | retained research decisions, historical verification limits, cleanup records and rebuild commands |
 | `PORT_FEATURES.md` | feature list of the port (Russian) |
 | `STATE.md` | the porting log (state of the porting workflow) |
 

@@ -96,6 +96,10 @@ static struct {
     float hmin, hmax;  // K_CYLINDER: heights along the axis (from the pivot) the slide limits allow
     v3 rot_u, rot_v;   // K_ROTATION: the hand's circle - unit radial at grab time and the way a positive turn moves it
     float rot_a, rot_lo, rot_hi;  // K_ROTATION: hand angle from the grab and the range the part's limits allow (degrees)
+    float rot_total0;  // native angle before acquisition, for unwrapping the native contact's angular origin
+    bool rot_limited, rot_contact;  // bounded turns calibrate their hand limits once the native grab has begun
+    bool rot_roll;  // an unlimited wheel seen from the side rolls under the finger through complete turns
+    float rot_want, rot_fx, rot_fy;
     v3 radial0, roll_n;  // K_ROLL: grab direction from the axis, drag plane normal (towards the eyes)
     float roll_r;        // K_ROLL: radius the finger rolls the bar at
     quat rot0;   // grabber rotation at grab time
@@ -144,10 +148,30 @@ static void* grabber_transform(void) {
 static void* g_gcs[MAXGC];
 static int g_ngc;
 
+static bool repair_box_size(v3 size, v3* repaired) {
+    if (!isfinite(size.x) || !isfinite(size.y) || !isfinite(size.z) ||
+        !(size.x < 0 || size.y < 0 || size.z < 0)) return false;
+    *repaired = (v3){size.x < 0 ? -size.x : size.x, size.y < 0 ? -size.y : size.y, size.z < 0 ? -size.z : size.z};
+    return true;
+}
+
 void rf_gc_add(void* gc) {
     for (int i = 0; i < g_ngc; i++)
         if (g_gcs[i] == gc) return;
     if (g_ngc < MAXGC) g_gcs[g_ngc++] = gc;
+    if (!g_call_ok[C_GC_COLLIDER] || !g_call_ok[C_BOX_SIZE] || !g_call_ok[C_BOX_SET_SIZE] ||
+        !rf_alive(gc) || !rf_class_is(gc, "BoxGrabbableCollider")) return;
+    void* col = CALLP(C_GC_COLLIDER, fn_obj1)(gc, NULL);
+    if (!rf_alive(col) || !rf_class_is(col, "BoxCollider")) return;
+    v3 size;
+    // Negative authored sizes make the game's own mathematical grab volume empty.
+    if (!repair_box_size(CALLP(C_BOX_SIZE, v3 (*)(void*, const void*))(col, NULL), &size)) return;
+    CALLP(C_BOX_SET_SIZE, void (*)(void*, v3, const void*))(col, size, NULL);
+    if (g_dev && g_call_ok[C_OBJ_NAME]) {
+        char name[64];
+        rf_obj_name(gc, name, sizeof name);
+        rf_log("grab box: normalized negative size '%s'", name);
+    }
 }
 
 void rf_gc_remove(void* gc) {
@@ -425,6 +449,33 @@ static bool in_inventory(void* item) {
     return ((bool (*)(void*, void*, const void*))RVA(g_call_desc[C_INV_ISIN].rva))(mgr, item, NULL);
 }
 
+static bool inventory_full_return(int action, bool switching, bool has_slot, bool has_empty) {
+    return action == 0 && !switching && !has_slot && !has_empty;
+}
+
+static bool inventory_pickup_returned(int picked_state) {
+    return picked_state == 1;  // PickedUp; a successful native receiver already changed this to Placed (2)
+}
+
+bool rf_inventory_release_fallback(void* item, bool switching) {
+    if (!rf_alive(item) || switching || *(int32_t*)((char*)item + 0x128) != 0 ||
+        !g_call_ok[C_INV_GETSLOT] || !g_call_ok[C_INV_EMPTY] || !g_call_ok[C_INV_SET_PICKED]) return false;
+    void* mgr = static_field0(META_INVMGR_TYPEINFO);
+    if (!rf_alive(mgr) || !*(void**)((char*)mgr + 0x18)) return false;
+    // The native lookup includes reserved slots and stackable matches, even when every grid cell is occupied.
+    void* slot = CALLP(C_INV_GETSLOT, void* (*)(void*, void*, bool, const void*))(mgr, item, true, NULL);
+    if (rf_alive(slot)) return false;
+    void* empty = CALLP(C_INV_EMPTY, fn_obj1)(mgr, NULL);
+    return inventory_full_return(*(int32_t*)((char*)item + 0x128), switching, false, rf_alive(empty));
+}
+
+void rf_inventory_release_finish(void* item) {
+    *(int32_t*)((char*)item + 0x128) = 0;  // restore the authored PlaceInInventory action
+    // Saving (PlaceInInventory, PickedUp) would retry the full archive on load. Keep a returned pickup in the world.
+    if (rf_alive(item) && inventory_pickup_returned(*(int32_t*)((char*)item + 0x190)))
+        CALLP(C_INV_SET_PICKED, void (*)(void*, int32_t, const void*))(item, 0, NULL);  // NotPickedUp
+}
+
 static void* inventory_slot(void* item) {
     void* mgr = static_field0(META_INVMGR_TYPEINFO);
     void* slots = rf_alive(mgr) ? *(void**)((char*)mgr + 0x18) : NULL;
@@ -570,26 +621,94 @@ static void setup_combination(void* gr, v3 p) {
 #define ROT_OVER 10.0f  // the hand may turn this far past a limit, so the part is held firmly against its stop
 #define ROT_STEP 30.0f  // farthest the hand angle moves in one frame (the search window around the last angle)
 
-// K_ROTATION: the hand's circle at grab time and the part's turn range as hand angles from the grab.
-// UpdateTransform is localRotation = InitialLocalRotation, then Transform.Rotate(RotateAxis, TotalRotation): the part
-// turns by TotalRotation about the world axis, so a hand angle a about that axis is TotalRotation + a; the limits are
-// LimitRotationModifier Upper/Lower TotalRotation angles.
-static void rot_setup(void* gr) {
-    v3 rad = v3_sub(v3_sub(g_grab.point0, g_grab.pivot), v3_scale(g_grab.axis, g_grab.h0));
-    g_grab.rot_u = v3_len(rad) > 1e-5f ? v3_norm(rad) : (v3){0, 1, 0};
-    g_grab.rot_v = v3_cross(g_grab.axis, g_grab.rot_u);
-    g_grab.rot_a = 0;
-    float lo = -1e6f, hi = 1e6f, total = *(float*)((char*)gr + 0x118);  // TotalRotation
+static bool rotation_roll(bool limited, float facing) {
+    return !limited && isfinite(facing) && fabsf(facing) < 0.6f;
+}
+
+// The projected tangent is the finger travel for one radian; tiny parts still get a finger-sized rolling radius.
+static float rotation_roll_degrees(v2 move, v2 tangent, float aspect) {
+    float x = tangent.x * aspect, y = tangent.y, r = hypotf(x, y);
+    if (!isfinite(r) || r < 1e-6f || !isfinite(move.x) || !isfinite(move.y) || !isfinite(aspect) || aspect <= 0) return 0;
+    return (move.x * aspect * x + move.y * y) / (r * fmaxf(r, 0.035f)) / DEG2RAD;
+}
+
+static float rotation_step(float angle, float wanted) {
+    return angle + fmaxf(-ROT_STEP, fminf(ROT_STEP, wanted - angle));
+}
+
+// Native rotation follows the actual collider contact, which can differ from the touch point around the axis.
+// The contact rotates with TotalRotation, so subtracting its world phase gives a fixed native angle for hand zero.
+static bool rotation_contact_base(v3 contact, v3 axis, v3 zero, float initial, float total, float* base) {
+    if (!isfinite(contact.x) || !isfinite(contact.y) || !isfinite(contact.z) ||
+        !isfinite(axis.x) || !isfinite(axis.y) || !isfinite(axis.z) ||
+        !isfinite(zero.x) || !isfinite(zero.y) || !isfinite(zero.z) || !isfinite(initial) || !isfinite(total)) return false;
+    float n = v3_len(axis);
+    if (n < 1e-5f || !isfinite(n)) return false;
+    axis = v3_scale(axis, 1 / n);
+    contact = v3_sub(contact, v3_scale(axis, v3_dot(contact, axis)));
+    zero = v3_sub(zero, v3_scale(axis, v3_dot(zero, axis)));
+    float c = v3_len(contact), z = v3_len(zero);
+    if (c < 1e-5f || z < 1e-5f || !isfinite(c) || !isfinite(z)) return false;
+    contact = v3_scale(contact, 1 / c);
+    zero = v3_scale(zero, 1 / z);
+    float phase = atan2f(v3_dot(axis, v3_cross(contact, zero)), v3_dot(contact, zero)) / DEG2RAD;
+    float b = initial + remainderf(total + phase - initial, 360.0f);
+    if (!isfinite(b)) return false;
+    *base = b;
+    return true;
+}
+
+static v2 rotation_hand_limits(float lo, float hi, float base) {
+    return (v2){fminf(lo - base - ROT_OVER, 0), fmaxf(hi - base + ROT_OVER, 0)};
+}
+
+static bool rot_limits(void* gr, float base) {
+    float lo = -1e6f, hi = 1e6f;
+    bool limited = false;
     void* mods = *(void**)((char*)gr + 0x110);  // RotationGrabbable.Modifiers
     for (int i = 0; i < rf_list_size(mods); i++) {
         char* m = rf_list_get(mods, i);
         if (!rf_alive(m) || !rf_class_is(m, "LimitRotationModifier") || !m[0x38]) continue;  // RotationModifier.Enabled
+        limited = true;
         float lim = *(float*)(m + 0x48);  // Angle
         if (*(int32_t*)(m + 0x44) == 0) hi = fminf(hi, lim);  // LimitType Upper
         else lo = fmaxf(lo, lim);
     }
-    g_grab.rot_lo = fminf(lo - total - ROT_OVER, 0);
-    g_grab.rot_hi = fmaxf(hi - total + ROT_OVER, 0);
+    v2 limits = rotation_hand_limits(lo, hi, base);
+    g_grab.rot_lo = limits.x;
+    g_grab.rot_hi = limits.y;
+    return limited;
+}
+
+// K_ROTATION: the hand's circle at grab time and the part's turn range as hand angles from the grab.
+// The initial range is refined from the native contact after acquisition; native modifiers retain the physical stops.
+static void rot_setup(void* gr) {
+    v3 rad = v3_sub(v3_sub(g_grab.point0, g_grab.pivot), v3_scale(g_grab.axis, g_grab.h0));
+    g_grab.rot_u = v3_len(rad) > 1e-5f ? v3_norm(rad) : (v3){0, 1, 0};
+    g_grab.rot_v = v3_cross(g_grab.axis, g_grab.rot_u);
+    g_grab.rot_a = g_grab.rot_want = 0;
+    g_grab.rot_fx = g_grab.fx;
+    g_grab.rot_fy = g_grab.fy;
+    g_grab.rot_total0 = *(float*)((char*)gr + 0x118);  // TotalRotation
+    g_grab.rot_contact = false;
+    g_grab.rot_limited = rot_limits(gr, g_grab.rot_total0);
+    g_grab.rot_roll = rotation_roll(g_grab.rot_limited, v3_dot(g_grab.axis, v3_norm(v3_sub(g_grab.cam0, g_grab.pivot))));
+}
+
+static void rot_native_contact(void* gr, void* ctrl) {
+    if (g_grab.kind != K_ROTATION || !g_grab.rot_limited || g_grab.rot_contact || !ctrl || !rf_alive(gr) ||
+        !rf_class_is(gr, "RotationGrabbable") || *(void**)((char*)gr + 0x80) != ctrl ||
+        *(int32_t*)((char*)gr + 0x90) != 1) return;
+    void* tr = rf_transform(gr);
+    if (!rf_alive(tr)) return;
+    v3 flat = *(v3*)((char*)gr + 0x12c);  // FlattenedLocalInteractionPoint, set by native GrabStartCallback
+    v3 contact = v3_sub(CALLP(C_TR_POINT, v3 (*)(void*, v3, const void*))(tr, flat, NULL), rf_tr_pos(tr));
+    float base, total = *(float*)((char*)gr + 0x118);
+    if (!rotation_contact_base(contact, g_grab.axis, g_grab.rot_u, g_grab.rot_total0, total, &base)) return;
+    rot_limits(gr, base);
+    g_grab.rot_contact = true;
+    if (g_dev) rf_log("rotate: native contact base=%.3f offset=%.3f hand limits=%.3f..%.3f", base,
+                      base - g_grab.rot_total0, g_grab.rot_lo, g_grab.rot_hi);
 }
 
 static v3 rot_point(float a) {
@@ -955,6 +1074,23 @@ static v3 drag_target(void) {
         return v3_add(g_grab.point0, v3_scale(a, t));
     }
     case K_ROTATION: {
+        if (g_grab.rot_roll) {
+            v2 move = {g_grab.fx - g_grab.rot_fx, g_grab.fy - g_grab.rot_fy};
+            g_grab.rot_fx = g_grab.fx;
+            g_grab.rot_fy = g_grab.fy;
+            void* cam = rf_main_camera();
+            if (!cam) return g_grab.target;
+            v3 centre = v3_add(g_grab.pivot, v3_scale(g_grab.axis, g_grab.h0));
+            v3 tangent = v3_cross(g_grab.axis, v3_sub(rf_tr_pos(rf_transform(cam)), centre));
+            float x0, y0, x1, y1;
+            if (v3_len(tangent) > 1e-5f && rf_world_to_screen(centre, &x0, &y0) &&
+                rf_world_to_screen(v3_add(centre, v3_scale(v3_norm(tangent), g_grab.r0)), &x1, &y1)) {
+                float aspect = CALLP(C_CAM_ASPECT, float (*)(void*, const void*))(cam, NULL);
+                g_grab.rot_want += rotation_roll_degrees(move, (v2){x1 - x0, y1 - y0}, aspect);
+            }
+            g_grab.rot_a = rotation_step(g_grab.rot_a, g_grab.rot_want);
+            return rot_point(g_grab.rot_a);
+        }
         // The hand stays on its circle at the angle whose screen point is nearest the finger, searched around the last
         // angle and within the part's range. A finger ray meeting the circle's plane flips the hand to the far side
         // when the drag crosses the projected pivot or the plane is seen at a slant (round 4: the evidence locker's
@@ -1296,8 +1432,9 @@ static void tick_grab(void) {
     }
     void* ctrl = rf_controller(RIGHT);
     void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(ctrl, NULL);
-    // A same-frame UP/DOWN must release the old object before moving the hand to the new one.
-    if (g_grab.state == G_HOVER && rf_alive(held) && *(void**)((char*)held + 0x80) == ctrl &&
+    // A same-frame UP/DOWN releases the old object; the selected poke can already belong to this hand.
+    if (g_grab.state == G_HOVER && !(g_grab.poke && held == g_grab.grabbable) &&
+        rf_alive(held) && *(void**)((char*)held + 0x80) == ctrl &&
         *(int32_t*)((char*)held + 0x90) == 1) {  // GetGrabbedGrabbable also returns hovered objects.
         g_hand[RIGHT].grip = 0;
         g_grab.frames = 0;
@@ -1323,6 +1460,7 @@ static void tick_grab(void) {
     }
     tick_face(gt);
     if (g_grab.state == G_HOLD) {
+        rot_native_contact(g_grab.grabbable, ctrl);
         g_grab.target = drag_target();
         if (g_dev && g_grab.kind == K_ROTATION && (g_grab.frames % 10) == 0 && rf_class_is(g_grab.grabbable, "RotationGrabbable")) {
             v3 o, d;
@@ -1430,7 +1568,17 @@ static void tick_grab(void) {
             }
         }
         if ((g_grab.frames >= HOVER_FRAMES && ready) || (!g_grab.inv && g_grab.frames >= 30)) {
-            if (g_dev) rf_log("grab: grip after %d hover frames (probe %s)", g_grab.frames, ready ? "ready" : "timeout");
+            if (g_dev) {
+                char selected[64], native[64];
+                rf_obj_name(g_grab.grabbable, selected, sizeof selected);
+                void* native_gr = ready ? CALLP(C_GC_GRABBABLE, fn_obj1)(closest, NULL) : NULL;
+                rf_obj_name(native_gr, native, sizeof native);
+                rf_log("grab: grip after %d hover frames (probe %s) picked='%s' native='%s' same=%d roll=%d",
+                       g_grab.frames, ready ? "ready" : "timeout", selected, native,
+                       native_gr == g_grab.grabbable, g_grab.rot_roll);
+            }
+            g_grab.rot_fx = g_grab.fx;
+            g_grab.rot_fy = g_grab.fy;
             g_hand[RIGHT].grip = 1.0f;
             g_grab.state = G_HOLD;
             g_grab.frames = 0;
@@ -1465,8 +1613,13 @@ static void tick_grab(void) {
     }
         if (g_grab.frames == 3 || g_grab.frames == 12) {
             void* held = CALLP(C_CTRL_GRABBED, fn_obj1)(rf_controller(RIGHT), NULL);
-            rf_log("grab: holding %s (%s)", rf_alive(held) ? rf_class_name(held) : "nothing",
-                   held == g_grab.grabbable ? "picked" : "other/none");
+            if (g_dev) {
+                char selected[64], native[64];
+                rf_obj_name(g_grab.grabbable, selected, sizeof selected);
+                rf_obj_name(held, native, sizeof native);
+                rf_log("grab: holding %s (%s) picked='%s' held='%s'", rf_alive(held) ? rf_class_name(held) : "nothing",
+                       held == g_grab.grabbable ? "picked" : "other/none", selected, native);
+            }
         }
         break;
     case G_REGRAB:

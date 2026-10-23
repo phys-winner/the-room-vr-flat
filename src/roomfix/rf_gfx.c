@@ -108,6 +108,7 @@ void* h_gfx_setup(void* self, const void* mi) {
         if (!strcmp(nm, "Option")) row = rf_tr_parent(row);
         if (rf_alive(row)) CALLP(C_GO_SETACTIVE, void (*)(void*, bool, const void*))(rf_gameobject(row), false, NULL);
     }
+    rf_options_graphics(self);
     return r;
 }
 
